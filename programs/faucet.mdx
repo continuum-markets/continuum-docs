@@ -1,0 +1,146 @@
+---
+title: faucet (devnet)
+description: Drips cUSDC for development and testing. Devnet only — no mainnet equivalent.
+---
+
+The faucet program mints small amounts of cUSDC to any wallet on a per-recipient cooldown. It exists exclusively for devnet — there is no faucet on mainnet (mainnet uses real USDC).
+
+```
+Devnet ID: 9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY
+cUSDC mint: B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE
+```
+
+## Accounts
+
+### `FaucetState` PDA
+
+```
+seeds = [b"faucet", mint]
+```
+
+One per mint (only cUSDC currently exists).
+
+| Field | Type | Purpose |
+|---|---|---|
+| `mint` | Pubkey | Token mint to drip |
+| `authority` | Pubkey | Admin (`update_params`, `transfer_authority`) |
+| `drip_amount` | u64 | Per-drip amount (default 1,000 cUSDC = 1_000_000_000 lamports) |
+| `cooldown_seconds` | i64 | Per-recipient cooldown |
+| `total_dripped` | u64 | Lifetime stats |
+
+### `DripRecord` PDA
+
+```
+seeds = [b"drip", mint, recipient]
+```
+
+Per-recipient record tracking last drip time.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `last_drip` | i64 | Unix-ts of last drip |
+
+## Instructions
+
+### `initialize(drip_amount, cooldown_seconds)` (admin)
+
+One-shot setup of `FaucetState`. The faucet's `mint_authority` on the cUSDC mint is set in this call.
+
+### `drip` (anyone)
+
+Mint `drip_amount` cUSDC to the caller's ATA. Reverts with `CooldownNotElapsed` if the per-recipient cooldown hasn't passed since `last_drip`.
+
+The caller pays Solana fees but receives free cUSDC. There's no rate limit beyond the cooldown — burst behavior is bounded only by SOL transaction fee.
+
+### `update_params(drip_amount, cooldown_seconds)` (admin)
+
+Rare. Used to crank the drip up or down. The operator scripts that fund the global vault temporarily crank `drip_amount` to a large value, mint, and restore.
+
+### `transfer_authority(new_authority)` (admin)
+
+Rotate admin. On devnet, the deployer wallet.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `CooldownNotElapsed` | Drip again too soon |
+
+## TypeScript
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
+} from "@solana/spl-token";
+import faucetIdl from "./faucet.json";
+
+const faucet = new Program(faucetIdl, provider);
+const cusdcMint = new PublicKey("B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE");
+
+const [faucetState] = PublicKey.findProgramAddressSync(
+  [Buffer.from("faucet"), cusdcMint.toBuffer()],
+  faucet.programId,
+);
+const [dripRecord] = PublicKey.findProgramAddressSync(
+  [Buffer.from("drip"), cusdcMint.toBuffer(), wallet.publicKey.toBuffer()],
+  faucet.programId,
+);
+const recipientAta = getAssociatedTokenAddressSync(cusdcMint, wallet.publicKey);
+
+await provider.sendAndConfirm(
+  await faucet.methods
+    .drip()
+    .preInstructions([
+      createAssociatedTokenAccountIdempotentInstruction(
+        wallet.publicKey, recipientAta, wallet.publicKey, cusdcMint,
+      ),
+    ])
+    .accounts({
+      faucetState,
+      dripRecord,
+      mint: cusdcMint,
+      recipient: wallet.publicKey,
+      recipientAta,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      // (the IDL describes the full account list — the above is the typical shape)
+    })
+    .transaction(),
+);
+
+const balance = await provider.connection.getTokenAccountBalance(recipientAta);
+console.log("cUSDC balance:", balance.value.uiAmountString);
+```
+
+## Cooldown semantics
+
+The cooldown is **per recipient**, not per signer. Two wallets can both drip in the same block. The same wallet cannot drip twice within the cooldown window.
+
+The default cooldown is short enough for testing but long enough to deter naive cycling for free cUSDC speculation. On devnet there's no real value at stake; the cooldown exists mostly as a behavioral hint.
+
+## Operator usage
+
+The protocol's bootstrap scripts use the faucet to fund the CLP global vault on devnet. The flow:
+
+1. Set `drip_amount` to a large value (e.g., $200K).
+2. Call `drip` once.
+3. Restore `drip_amount` to the default.
+4. Transfer the $200K to `global_clp_vault`.
+
+This is a faster path than calling `admin_fund` repeatedly with a default-sized drip. On mainnet there is no equivalent — admin must hold real USDC.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Devnet info" icon="circle-info" href="/get-started/devnet">
+    Cluster, RPC, full faucet usage.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
+    First-time mint flow that uses the faucet.
+  </Card>
+</CardGroup>

@@ -1,0 +1,152 @@
+---
+title: How Continuum works
+description: The full mental model — what's on-chain, what runs off-chain, and how they interact.
+---
+
+Continuum has five moving pieces. Three live on-chain, two run off-chain.
+
+## The system at a glance
+
+```
+                    ┌────────────────────────────────────────┐
+                    │             Frontend / SDK              │
+                    └─────────────────┬──────────────────────┘
+                                      │ Anchor / web3.js
+                                      ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │                    On-chain programs                      │
+       │                                                           │
+       │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐ │
+       │  │ mint-redeem  │   │   oracle     │   │     clp      │ │
+       │  │              │   │              │   │              │ │
+       │  │ paired       │   │ Pyth/Hermes  │   │ collateral   │ │
+       │  │ mint/redeem  │   │ TWAP +       │   │ vaults +     │ │
+       │  │ at NAV       │   │ risk state   │   │ DLMM proxy   │ │
+       │  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘ │
+       │         │                  │                  │         │
+       │         └──reads NAV───────┘                  │         │
+       │                                                │         │
+       │                        also:  registry  ·  faucet (devnet)
+       └──────────────────────────────────────────┬─────────────┘
+                                                  │ CPI
+                                                  ▼
+                          ┌────────────────────────────────────┐
+                          │        Meteora DLMM pools          │
+                          │   L/cUSDC pool   ·   S/cUSDC pool  │
+                          └─────────────┬──────────────────────┘
+                                        ▲
+                                        │ swaps + LP positions
+                                        │
+              ┌─────────────────────────┴──────────────────────┐
+              │              Keeper bot (off-chain)             │
+              │   oracle updates · arb loop · DLMM rebalancing  │
+              └────────────────────────────────────────────────┘
+```
+
+## What each piece does
+
+### `mint-redeem` — the user-facing entry point
+
+The only program a regular user ever writes to. Two instructions matter for normal use:
+
+- **`mint_paired(amount)`** deposits cUSDC, mints matched long + short tokens at NAV.
+- **`redeem_paired(l_amount, s_amount)`** burns long + short (in independent quantities) and returns cUSDC at NAV.
+
+NAV is read live from the oracle account. The market PDA holds initial prices, total supply, fees, and the keeper authority. There's no path for a user to mint single-sided — see [Solvency](/concepts/solvency) for why.
+
+→ [Full reference](/programs/mint-redeem)
+
+### `oracle` — price and risk
+
+Maintains a per-market price observation buffer, a TWAP, and a risk-state machine. The keeper pushes observations every ~15 seconds. The oracle's state (`Active` / `Passive`) and risk regime (`Normal` / `ProxyMode` / `Stress` / `Recovery`) gate user-facing operations: if prices stale, mints throttle; if oracle goes passive, mints close.
+
+→ [Risk states explained](/concepts/risk-states) · [Full reference](/programs/oracle)
+
+### `clp` — Capital and Liquidity Provider
+
+Owns the protocol's LP capital. A CLP PDA per market signs Meteora DLMM CPIs, holds the long/short token ATAs that back each LP position, and routes profit back into a global vault. There's no end-user interaction here — CLP instructions are gated by keeper authority or admin authority.
+
+The reason this is its own program: Meteora positions have an `owner` field. By making the CLP PDA the owner, no individual keeper wallet has unilateral control over LP capital, and operators can rotate keeper signers without re-creating positions.
+
+→ [Full reference](/programs/clp)
+
+### Keeper bot — off-chain, owns the loop
+
+A Rust async bot (the [public reference implementation](https://github.com/continuum-markets/continuum/tree/main/keeper)) that runs:
+
+1. **Oracle loop** (15s) — fetch Pyth/Hermes, push observations.
+2. **Arb loop** (15s) — scan pool prices vs NAV, execute the profitable side.
+3. **DLMM loop** (120s) — open / rebalance / close Meteora positions via CLP CPI.
+4. **Seeder loop** (600s) — allocate from global vault to per-market vaults; recall when worst-edge.
+
+The keeper signs as the privileged `keeper_authority` — this gives it access to fee-free single-sided mint/redeem (used inside arb cycles) and CLP proxy instructions. **Anyone can run a keeper**, but only one signer at a time is the canonical authority on a given market. Future versions will support multiple authorities and operator-specified rotation.
+
+→ [Keeper overview](/keeper/overview)
+
+### Meteora DLMM — the trading venue
+
+Continuum has no in-house AMM. Long and short tokens trade on **Meteora DLMM** pools (one L/cUSDC pool, one S/cUSDC pool per market). The protocol is the sole LP for the MVP; user-side LP shares don't exist yet. From a user's perspective:
+
+- Want to enter without minting? Buy QQQL or QQQS directly on the pool.
+- Want to exit fast? Sell on the pool.
+- Want to redeem at NAV? Burn paired (or asymmetric) on the mint-redeem program.
+
+The keeper's arb loop is what keeps pool prices anchored to NAV. As an external builder you can also arb — see [Composability](/build/composability).
+
+## End-to-end mint flow
+
+```
+1. User wallet                   ─── mint_paired(100 cUSDC) ──►   mint-redeem program
+2. mint-redeem reads             ─── user_twap_price        ◄───   oracle account
+3. mint-redeem transfers          ─── 100 cUSDC              ──►   CollateralVault (token account)
+4. mint-redeem mints              ─── L_qty long tokens      ──►   user's long ATA
+5. mint-redeem mints              ─── S_qty short tokens     ──►   user's short ATA
+6. (later) keeper sees price drift on Meteora and arbs:
+                                  ─── keeper_mint_single +   ──►   Meteora pool swap
+                                       fee-free at NAV
+                                       net: cUSDC delta to keeper, then
+                                            deposit_profit ──► global CLP vault
+```
+
+The user's transaction is **independent** of the keeper. The keeper only steps in when pool prices diverge from NAV — never blocking the user's flow.
+
+## End-to-end redeem flow
+
+```
+1. User wallet                   ─── redeem_paired(L_amt, S_amt) ──►   mint-redeem program
+2. mint-redeem reads             ─── user_twap_price          ◄───   oracle account
+3. mint-redeem burns              ─── L_amt long              ──►   user's long ATA (burn)
+4. mint-redeem burns              ─── S_amt short             ──►   user's short ATA (burn)
+5. mint-redeem transfers          ─── value × NAV cUSDC        ──►   user's cUSDC ATA
+                                       value = L_amt × L_NAV + S_amt × S_NAV
+                                       minus redeem_fee_bps
+```
+
+L and S amounts are independent because their NAVs differ. The pair is **value-weighted, not quantity-weighted**.
+
+## Why this design
+
+| Question | Answer |
+|---|---|
+| Why no funding rate? | The constant-product NAV invariant `L_NAV × S_NAV = const` bounds combined pair value. Gains on one side mirror losses on the other. There's nothing to redistribute. |
+| Why no liquidations? | A paired position prepays full collateral. There is no margin to call. |
+| Why no in-house AMM? | Meteora DLMM is mature, has dynamic fees, and concentrated-liquidity bins. Building one in-house added zero edge. |
+| Why is the keeper privileged? | The keeper's single-sided mint/redeem is fee-free at the protocol layer — used inside two-phase arb cycles that net back to cUSDC. A user with the same privilege could mint unbacked claims. |
+| Why is the protocol the sole LP? | MVP simplification. The mechanics for user LP shares exist in git history; turning them on is a future-work item. |
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Paired tokens" icon="layer-group" href="/concepts/paired-tokens">
+    Why mint is paired, how the long/short pair settles.
+  </Card>
+  <Card title="NAV math" icon="calculator" href="/concepts/nav">
+    The constant-product formula and what it implies for P&L.
+  </Card>
+  <Card title="Oracle and risk states" icon="shield-check" href="/concepts/risk-states">
+    The state machine that gates mint sizing and quote conservatism.
+  </Card>
+  <Card title="Keeper" icon="robot" href="/concepts/keeper">
+    What the keeper does, why it has elevated privileges, and how it's bounded.
+  </Card>
+</CardGroup>

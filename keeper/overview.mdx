@@ -1,0 +1,121 @@
+---
+title: Keeper overview
+description: A higher-level look at what the keeper does, why it's privileged, and what an external operator gets if they run one.
+---
+
+The keeper is an off-chain Rust async bot. It's the operational layer that connects on-chain Continuum to external markets — pushing oracle observations, running peg-enforcing arbitrage, and managing the protocol's LP positions on Meteora DLMM.
+
+There's a [reference implementation](https://github.com/continuum-markets/continuum/tree/main/keeper) in the protocol repo. It's the canonical operator today; multi-operator support is on the [roadmap](/markets/roadmap).
+
+## What it actually does
+
+```
+Every 15s:
+  ├── Fetch Pyth Hermes prices
+  ├── Push observations to oracle program
+  ├── Mirror oracle health to mint-redeem (update_risk_state)
+  ├── Scan for arb opportunities
+  └── Execute the most profitable one (single-sided or paired)
+
+Every 60s:
+  ├── Recompute per-market q-imbalance and drawdown
+  └── Check hard bounds
+
+Every 120s:
+  ├── For each market × side:
+  │   ├── Read Meteora active_id, position range, NAV target
+  │   ├── Decide rebalance vs skip
+  │   └── If rebalance: remove + close + open with vol-adaptive radius
+  └── Skip if existing range still covers active and NAV target
+
+Every 600s:
+  ├── For each market: edge-weighted capital allocation
+  ├── Allocate from GlobalClp → per-market vault
+  ├── Vault-mint pairs → deploy Meteora positions
+  └── Recall from worst-edge markets when global is low
+```
+
+Each loop is its own async task. They share state through `Arc<RwLock<KeeperState>>`. A failure in one (e.g., RPC timeout in DLMM rebalancer) doesn't crash the others.
+
+## Why it's privileged
+
+The keeper signs as `market.keeper_authority`. This grants:
+
+| Privilege | Why it's gated |
+|---|---|
+| `keeper_mint_single` (fee-free single-sided mint) | A user with this could create unbacked claims against the vault. The keeper uses it inside two-phase arb cycles that net back to cUSDC. |
+| `keeper_redeem_single` (fee-free single-sided redeem) | Symmetric. |
+| `update_risk_state` | Mirrors oracle health → mint-redeem. Must be authoritative; can't be racy across operators. |
+| All `clp_*` Meteora-proxy ixns | Owns LP capital. Errors in position management could leak protocol funds. |
+
+The fee-free single-sided paths are the **primary** keeper economic edge. Everywhere else (paired arb, mint+sell, buy+redeem at NAV) an external bot can compete equally.
+
+## Two signers, not one
+
+The keeper signs with two **separate** keypairs:
+
+- **`KEEPER_KEYPAIR`** — payer + arb signer. Pays SOL fees, signs direct swap txs and `keeper_*_single` ixns.
+- **`CLP_AUTHORITY_KEYPAIR`** — signs CLP proxy instructions (Meteora positions, vault mint/redeem, allocate, return).
+
+This split is intentional. Operators can rotate the payer (e.g., a hot key that gets occasional drift) without touching the CLP authority. The CLP authority is a more sensitive key — it controls LP capital — and is rotated less often.
+
+Both keypairs need their own SOL balance for transaction fees.
+
+## What an external operator gets
+
+| | Reference operator (Continuum) | External operator |
+|---|---|---|
+| `keeper_mint_single` / `keeper_redeem_single` | ✅ | ❌ (single-pubkey authority) |
+| Paired arb (`mint_paired` + sell, buy + `redeem_paired`) | ✅ | ✅ |
+| DLMM rebalancing | ✅ | ❌ (CLP authority) |
+| Profit | Routes to `GlobalClp` via `deposit_profit` | Stays in operator wallet |
+| Latency edge | First in line | Competes with other ext. operators |
+
+If you run an external paired-arb bot, you compete with the keeper on paired-arb opportunities — and you get **all** the profit instead of routing it to the protocol vault. The keeper has lower latency (it's the canonical operator), but on devnet and during periods of low keeper activity, external bots can find edges.
+
+## Solvency guarantees
+
+The keeper enforces several invariants regardless of whether arbs go well or badly:
+
+1. **Boot-time sweep.** First action after startup: `redeem_paired` (or `keeper_redeem_single` for asymmetric residue) any L+S in the keeper wallet. Reclaims leftovers from prior crashes.
+2. **End-of-cycle sweep.** After every arb cycle, measure post-swap balances and redeem residue. The slippage-buffer micro-leak (where actual swap output exceeds `min_amount_out`) is recovered, not accumulated.
+3. **Profit deposit gating.** `deposit_profit` to `GlobalClp` sends `min(actual_delta, expected_profit)`. Favorable slippage doesn't over-deposit; unprofitable arb deposits nothing.
+4. **Dynamic trade sizing.** `trade_amount = min(pool_depth, 90% × keeper_balance)`. The keeper never bites off more than its wallet can chew.
+
+These ensure that the keeper can crash, restart, run on a stale RPC, or be killed mid-arb without leaving the protocol in a worse state.
+
+## What the keeper does NOT do
+
+- **Modify market parameters.** Fees, OI cap, oracle pointer — all admin-authority, separate keypair.
+- **Pause oracles.** Emergency pause is admin-authority on the oracle program.
+- **Mint cUSDC.** Faucet is its own program; keeper has no mint authority on collateral.
+- **Custody user funds.** User mint/redeem flows go directly to mint-redeem program; keeper is not in the call path.
+- **Decide protocol-level economics.** Fee tiers, OI caps, asset additions — all operator/governance decisions.
+
+## Reference dashboard
+
+The reference keeper exposes an HTTP dashboard at:
+
+```
+http://localhost:8484   (mainnet)
+http://localhost:8485   (devnet)
+```
+
+Shows oracle freshness, risk state, arb opportunities, position status, vault balances. For operators only — as an integrator, you read state directly from on-chain accounts.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Arb paths" icon="route" href="/keeper/arb-paths">
+    The four arb cycles in detail.
+  </Card>
+  <Card title="DLMM management" icon="chart-line" href="/keeper/dlmm">
+    Vol-adaptive radius, fee-weighted centering, skip-rebuild.
+  </Card>
+  <Card title="Run a keeper" icon="terminal" href="/keeper/running">
+    Config, deployment, troubleshooting.
+  </Card>
+  <Card title="External arb" icon="puzzle-piece" href="/build/composability">
+    What you can do without keeper authority.
+  </Card>
+</CardGroup>

@@ -1,0 +1,229 @@
+---
+title: mint-redeem
+description: User-facing mint and redeem at NAV. Keeper-only single-sided instructions. Market lifecycle.
+---
+
+The user-facing entry to Continuum. Holds the `Market` PDA, mints L+S SPL tokens, and exposes the privileged keeper-only single-sided ixns used inside arb cycles.
+
+```
+Devnet ID: 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
+```
+
+## Accounts
+
+### `Market` PDA
+
+```
+seeds = [b"market", asset_symbol_bytes]
+```
+
+The central account for one synthetic asset.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `authority` | Pubkey | Admin signer for `update_market` |
+| `fee_recipient` | Pubkey | Receives mint/redeem fees (cUSDC ATA) |
+| `asset_symbol` | string | Market ticker (e.g., `"QQQ"`) |
+| `oracle_address` | Pubkey | Pointer to `OracleConfig` PDA |
+| `oracle_type` | enum | `Pyth` / `Hermes` / `Switchboard` / `Manual` |
+| `long_mint` | Pubkey | L SPL mint |
+| `short_mint` | Pubkey | S SPL mint |
+| `collateral_mint` | Pubkey | cUSDC mint |
+| `collateral_vault` | Pubkey | Token account holding all backing cUSDC |
+| `multi_collateral_enabled` | bool | If true, multiple collateral types accepted |
+| `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees in basis points (10 = 0.10%) |
+| `total_l_supply` / `total_s_supply` | u64 | Outstanding supply (6 decimals) |
+| `total_collateral` | u64 | Vault balance (6 decimals) |
+| `is_active` | bool | If false, all mint/redeem reject |
+| `risk_state` | enum | `Normal` / `ProxyMode` / `Stress` / `Recovery` |
+| `risk_state_updated_at` | i64 | Last mirror update unix-ts |
+| `user_twap_price` | u64 | Source of `L_NAV` (6 decimals) |
+| `twap_updated_at` | i64 | Last TWAP write unix-ts |
+| `oracle_confidence` | u64 | Last published confidence (6 decimals) |
+| `keeper_authority` | Pubkey | Privileged signer for fee-free single-sided ops |
+| `dev_tax_pct` | u8 | Slice of fee routed to fee_recipient |
+| `yield_ceiling_bps` / `deployed_to_yield` / `yield_enabled` / `total_yield_harvested` | various | Yield-deployment scaffolding (off by default) |
+
+### `UserCollateralPosition` PDA
+
+```
+seeds = [b"user_collateral", owner, market]
+```
+
+Lazy account for users who opt into multi-collateral mode (where the market accepts more than one collateral type, weighted). Most markets don't use this.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `owner` | Pubkey | Position owner |
+| `market` | Pubkey | Bound market |
+| `long_amount` / `short_amount` | u64 | Outstanding L+S held by this position |
+| `collateral_type` | enum | Which collateral was used |
+| `collateral_mint` | Pubkey | Which mint |
+| `collateral_amount` | u64 | Total cUSDC-equivalent deposited |
+
+### `FeeWaiver` PDA
+
+```
+seeds = [b"fee_waiver", donor, market]
+```
+
+A grant created by `donate_to_vault` that lets the donor mint/redeem fee-free for some duration.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `donor` | Pubkey | Waiver owner |
+| `market` | Pubkey | Bound market |
+| `waiver_end_at` | i64 | Expiry unix-ts |
+| `total_donated` | u64 | Cumulative donation |
+| `total_gap_closed_bps` | u64 | Cumulative fee-equivalent saved |
+
+## Instructions
+
+### User-facing (anyone can call)
+
+#### `mint_paired(collateral_amount: u64)`
+
+Deposits `collateral_amount` cUSDC, mints matched L and S to the user's ATAs. Fee `collateral_amount × mint_fee_bps / 10_000` goes to `dev_token_account`.
+
+→ [Full mint flow](/flows/mint)
+
+#### `redeem_paired(l_amount: u64, s_amount: u64)`
+
+Burns L and S in independent quantities, returns `l_amount × L_NAV + s_amount × S_NAV - fee` cUSDC.
+
+→ [Full redeem flow](/flows/redeem)
+
+#### `mint_paired_with_waiver(collateral_amount: u64)` / `redeem_paired_with_waiver(l_amount: u64, s_amount: u64)`
+
+Same as the above but consume an active `FeeWaiver` to skip the fee. Requires the market vault to be over-collateralized (≥102%) for the waiver to apply.
+
+#### `donate_to_vault(amount: u64)`
+
+Donate cUSDC into the market's collateral vault. Creates or extends a `FeeWaiver` for the donor. Used by power users to earn fee-free mint/redeem in exchange for boosting vault collateralization.
+
+#### `permissionless_burn`
+
+Burns excess L or S in the donor wallet without redemption. Used when token supply needs to drop without affecting the vault — niche flow, used rarely.
+
+### Keeper-privileged (signer = `market.keeper_authority`)
+
+#### `keeper_mint_single(is_long: bool, collateral_amount: u64)`
+
+Fee-free, single-sided mint at NAV. Deposits `collateral_amount` cUSDC, mints only the chosen side's tokens at NAV. Used inside arb cycles.
+
+| Argument | Effect |
+|---|---|
+| `is_long = true` | Receive `collateral_amount / L_NAV` long tokens |
+| `is_long = false` | Receive `collateral_amount / S_NAV` short tokens |
+
+No mint fee, no worst-case quoting markup, no q-imbalance check. Solvency is preserved across the arb cycle, not within this single instruction — see [Solvency invariants](/concepts/solvency).
+
+#### `keeper_redeem_single(is_long: bool, token_amount: u64)`
+
+Fee-free, single-sided redeem at NAV. Burns `token_amount` of the chosen side, returns `token_amount × NAV` cUSDC.
+
+#### `keeper_burn_single`
+
+Burn only — no cUSDC transfer. Used for residue cleanup in edge cases.
+
+#### `update_risk_state(new_state: RiskState)`
+
+Mirrors oracle health into the market's `risk_state` field. Called by the keeper every cycle when the derived state differs.
+
+#### `withdraw_excess_to_clp`
+
+Sweeps excess vault balance (above `1.02 × NAV-weighted supply`) to the CLP. Used during over-donation cleanup.
+
+### Admin (signer = `market.authority`)
+
+#### `initialize_market(asset_symbol, oracle_type, initial_l_price, initial_s_price, mint_fee_bps, redeem_fee_bps, keeper_authority)`
+
+Create a new market. Allocates `Market` PDA, creates L and S SPL mints (mint authority = market PDA), creates the collateral vault.
+
+| Argument | Type | Notes |
+|---|---|---|
+| `asset_symbol` | String | ≤ 16 chars |
+| `oracle_type` | enum | `Pyth` / `Hermes` / `Switchboard` / `Manual` |
+| `initial_l_price` / `initial_s_price` | u64 | 6-decimal cUSDC. Constant-product anchor |
+| `mint_fee_bps` / `redeem_fee_bps` | u16 | Max 1000 (10%) |
+| `keeper_authority` | Pubkey | Initial keeper signer pubkey |
+
+#### `update_market(...)` / `update_keeper_authority(new_keeper)` / `update_market_oracle`
+
+Admin updates to fee, oracle pointer, keeper authority. Bound to `market.authority`.
+
+#### `configure_worst_case_quoting(enabled, normal_mult, proxy_mult, stress_mult)`
+
+Configure per-state confidence multipliers used in mint pricing markup.
+
+#### `configure_risk_fees`
+
+Per-state fee adjustments (rare; defaults are usually fine).
+
+#### `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`
+
+Multi-collateral mode (accept multiple stablecoin/equity tokens as collateral with weights). Off for most markets; enabled per-market by admin if needed.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `MarketNotActive` | `is_active = false` |
+| 6001 | `InvalidAmount` | Zero or negative |
+| 6002 | `InsufficientCollateral` | Vault can't cover redeem |
+| 6003 | `InvalidOracle` | Oracle account mismatch |
+| 6004 | `UnsupportedOracleType` | Bad `oracle_type` value |
+| 6005 | `OraclePriceUnavailable` | Oracle paused or missing |
+| 6006 | `MathOverflow` | Should be unreachable |
+| 6007 | `SymbolTooLong` | Symbol > 16 chars |
+| 6008 | `FeeTooHigh` | Fee bps > 1000 (10%) |
+| 6009 | `MintNotAllowedInStress` | Risk state is `Stress` |
+| 6010 | `RedeemNotAllowedInStress` | Reserved (redeem in `Stress` is currently allowed) |
+| 6011 | `ExceedsStressMintCap` | Risk state is `ProxyMode`/`Recovery` and amount > throttled cap |
+| 6012 | `TwapNotAvailable` | TWAP buffer not yet populated |
+| 6013 | `AlreadyEnabled` | Multi-collateral already on |
+| 6014 | `MultiCollateralNotEnabled` | Tried to add collateral type without enabling |
+| 6015 | `MaxCollateralTypesExceeded` | More than 5 collateral types |
+| 6016 | `InvalidWeight` | Multi-collateral weight not in [1, 10000] bps |
+| 6017 | `CollateralAlreadyExists` | Duplicate collateral mint |
+| 6018 | `CollateralNotFound` | Unknown collateral type |
+| 6019 | `BelowMinimum` | Mint < 10 cUSDC |
+| 6020 | `UnauthorizedKeeper` | Signer ≠ `market.keeper_authority` |
+| 6021 | `Unauthorized` | Signer ≠ `market.authority` |
+| 6022 | `InsufficientLiquidCollateral` | Yield deployed; recall first |
+| 6023 | `ExceedsYieldCeiling` | Deployment > `yield_ceiling_bps` |
+| 6024 | `YieldManagementDisabled` | `yield_enabled = false` |
+| 6025 | `RecallExceedsDeployed` | Recall > deployed balance |
+
+→ [Full error catalog](/reference/errors)
+
+## TypeScript
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import idl from "./mint_redeem.json";
+
+const program = new Program(idl, provider);
+const [marketPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  program.programId,
+);
+
+const market = await program.account.market.fetch(marketPDA);
+console.log("L mint:", market.longMint.toBase58());
+console.log("Risk:", Object.keys(market.riskState)[0]);
+```
+
+→ [Full mint+redeem example](/build/example-mint-redeem)
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Mint flow" icon="circle-plus" href="/flows/mint">
+    Step-by-step `mint_paired` walkthrough.
+  </Card>
+  <Card title="Redeem flow" icon="arrow-rotate-left" href="/flows/redeem">
+    Step-by-step `redeem_paired` walkthrough.
+  </Card>
+</CardGroup>

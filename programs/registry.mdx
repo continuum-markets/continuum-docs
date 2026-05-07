@@ -1,0 +1,131 @@
+---
+title: registry
+description: On-chain registry of markets — symbol → mints, pools, positions, active flag.
+---
+
+The registry program is the canonical on-chain index of Continuum markets. It maps each asset symbol to the corresponding mints, Meteora pool addresses, and current position pubkeys. Frontends and bots query it (or the bundled `market-addresses.json` snapshot) to discover live markets.
+
+```
+Devnet ID: REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap
+```
+
+The registry is informational. Mint-redeem and CLP do not depend on it; they use direct PDA derivation. The registry is for discovery — when you don't know which markets exist, ask the registry.
+
+## Accounts
+
+### `RegistryState` PDA
+
+```
+seeds = [b"registry"]
+```
+
+| Field | Type | Purpose |
+|---|---|---|
+| `authority` | Pubkey | Admin signer for registry updates |
+| `market_count` | u32 | Number of registered markets |
+
+### `MarketEntry` PDA
+
+```
+seeds = [b"market", symbol_bytes_padded_to_16]
+```
+
+Symbol is the asset ticker padded with zero bytes to 16 bytes. So for `"QQQ"`, the seed is `b"QQQ\0\0\0\0\0\0\0\0\0\0\0\0\0"`.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `symbol` | `[u8; 16]` | Padded ticker |
+| `long_mint` / `short_mint` | Pubkey | L and S SPL mints |
+| `venue` | enum | `MeteoraDlmm` (only one for now) |
+| `long_pool` / `short_pool` | Pubkey | Meteora DLMM pool addresses |
+| `long_position` / `short_position` | Pubkey | Current LP position pubkeys (mirror of CLP) |
+| `is_active` | bool | If false, the market is paused |
+
+## Instructions
+
+All instructions are admin-only.
+
+### `initialize`
+
+Create the `RegistryState` PDA. One-shot.
+
+### `register_market(symbol, long_mint, short_mint, long_pool, short_pool, venue)`
+
+Add a new entry. Symbol must be ≤ 16 chars.
+
+### `update_market(...)`
+
+Update mints, pools, or venue for an existing entry.
+
+### `update_positions(symbol, long_position, short_position)`
+
+Mirror current CLP position pubkeys into the registry. Called after a Meteora rebalance.
+
+### `set_active(symbol, is_active)`
+
+Flip the active flag. Set `false` to soft-pause a market without modifying anything else.
+
+### `transfer_authority(new_authority)`
+
+Rotate admin. On mainnet, this will be a Squads multisig.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `SymbolTooLong` | Symbol > 16 chars |
+
+## TypeScript
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import registryIdl from "./registry.json";
+
+const registry = new Program(registryIdl, provider);
+
+// Pad symbol to 16 bytes
+const padded = Buffer.alloc(16);
+padded.write("QQQ");
+const [marketEntry] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), padded],
+  registry.programId,
+);
+
+const entry = await registry.account.marketEntry.fetch(marketEntry);
+console.log("L mint:", entry.longMint.toBase58());
+console.log("Long pool:", entry.longPool.toBase58());
+console.log("Active:", entry.isActive);
+```
+
+To enumerate **all** markets:
+
+```typescript
+const accounts = await registry.account.marketEntry.all();
+console.log(accounts.map(a => ({
+  symbol: Buffer.from(a.account.symbol).toString().replace(/\0+$/, ""),
+  active: a.account.isActive,
+})));
+```
+
+## Why use the registry vs `market-addresses.json`
+
+| Use case | Best path |
+|---|---|
+| Local development, fast prototyping | `market-addresses.json` (pre-computed snapshot) |
+| Production frontend, must be live | Registry — markets can be added/paused without redeploy |
+| Bot needs to detect new markets | Registry, polled |
+| Operator scripts, controlled deploy | Either — the JSON ships with the protocol repo |
+
+The frontend currently uses `market-addresses.json` for fast load + the registry as the canonical source it refreshes from.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    Pre-computed table of every devnet market and its addresses.
+  </Card>
+  <Card title="Listing flow" icon="plus" href="/markets/listing">
+    How a new market gets added to the registry.
+  </Card>
+</CardGroup>

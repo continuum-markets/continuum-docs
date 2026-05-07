@@ -1,0 +1,195 @@
+---
+title: CLP — Capital and Liquidity Provider
+description: The on-chain treasury and DLMM proxy. Holds protocol LP capital, owns Meteora positions, routes fees and profit.
+---
+
+The **CLP** (Capital and Liquidity Provider) is an on-chain program that owns the protocol's LP capital and Meteora positions. The CLP PDA per market signs Meteora DLMM CPIs; a global vault PDA holds idle cUSDC available for redeployment.
+
+You don't interact with the CLP as an end user — there are no user-facing deposit or withdraw instructions on it. Everything is operator- or keeper-gated.
+
+## Why a separate program
+
+Two reasons:
+
+1. **Solvency separation.** A keeper wallet shouldn't own LP positions directly — if a keeper key is compromised, the attacker drains positions. By making the CLP PDA the position owner, position operations are gated by program logic that validates each call against stored pool/position addresses, market PDA, and authority.
+2. **Keeper rotation.** Operators can rotate the keeper authority pubkey without re-creating positions. The CLP PDA's authority is the position owner; only the right to call CLP instructions changes when a keeper rotates.
+
+## Account layout
+
+### Global
+
+```
+GlobalClp        (PDA: [b"global_clp"])
+├── total_deposits
+├── total_fees_accumulated
+├── market_allocations[]   (per-market USDC outstanding)
+├── protocol_buffer        (yield + losses + current balance)
+├── liquidity_seed_threshold
+├── authority              (admin signer)
+└── admin_wallet           (cooldown-gated mainnet admin)
+```
+
+The global vault is a regular SPL token account (`global_clp_vault`). Operators fund it via `admin_fund`; the keeper allocates from it via `allocate_to_market`.
+
+### Per-market
+
+```
+Clp              (PDA: [b"clp", market_id])
+├── market_id
+├── oi_cap                       (hard ceiling on total L supply)
+├── current_oi
+├── inventory_budget             (soft / hard q-imbalance + drawdown bounds)
+├── inventory_state              (current q_bps, breach flags, peak value)
+├── allocated_from_global        (per-market USDC outstanding)
+├── meteora_long_pool / short_pool
+├── meteora_long_position / short_position
+└── total_fees_collected, vault_l_deployed, vault_s_deployed, total_vault_pairs_minted
+```
+
+Each market also has a per-market vault token account (`clp_vault`) holding its share of cUSDC, plus L, S, cUSDC ATAs for the CLP PDA itself (used as inventory before it's deployed to Meteora).
+
+→ [Full CLP reference](/programs/clp)
+
+## Capital flow
+
+```
+Admin wallet
+    │ admin_fund(amount)            ← operator deposits cUSDC
+    ▼
+GlobalClp vault                     ← protocol treasury
+    │ allocate_to_market(amount)    ← keeper, every 600s
+    ▼
+Per-market CLP vault
+    │ vault_mint_pairs(amount)       ← CPIs into mint-redeem program
+    ▼                                  paired L+S land in CLP PDA's ATAs
+CLP PDA holds L+S synth
+    │ clp_open_meteora_position(...) ← deploys to Meteora DLMM
+    ▼
+Meteora DLMM positions
+    │ trades + fees accumulate
+    ▼
+On rebalance / close: tokens return to CLP PDA's ATAs
+    │ vault_redeem_pairs(L_amt, S_amt) ← optional redeem back to cUSDC
+    │ deposit_profit(amount)            ← arb surplus → GlobalClp
+    ▼
+GlobalClp vault                     ← compounded over time
+```
+
+The cycle's first move (operator → global vault) is the only step that involves user-supplied capital. After that, capital is internal: keeper-driven allocation, deployment, recall.
+
+## What happens at allocation time
+
+When the seeder calls `allocate_to_market(amount)`:
+
+1. `amount` cUSDC moves from `global_clp_vault` to per-market `clp_vault`.
+2. `Clp.allocated_from_global` increases by `amount`.
+
+Then the seeder typically:
+
+1. Calls `vault_mint_pairs(amount)` on CLP — CPIs `mint_redeem::mint_paired`. The CLP PDA pays `amount` cUSDC, receives matched L+S into its ATAs.
+2. Calls `clp_open_meteora_position(side, amount_x, amount_y, ...)` on each side — deploys to Meteora.
+
+Two-sided seed: the seeder typically splits 50/50 — half stays as cUSDC (Y side of the pool), half goes to L+S (X side). Meteora's `add_liquidity_by_strategy2` places Y below active and X above.
+
+## What happens on rebalance
+
+Every 120s (`DLMM_INTERVAL_SECS`), the keeper checks:
+
+```
+- Has the active bin overflowed the position range? (Force rebuild.)
+- Has NAV moved enough to require a new range? (Maybe rebuild.)
+- Has volatility regime shifted? (Maybe widen/narrow.)
+```
+
+If a rebuild is needed:
+
+1. `clp_remove_meteora_liquidity(side, lower_bin, upper_bin)` — drains tokens back to CLP PDA's ATAs.
+2. `clp_close_meteora_position(side, lower_bin, upper_bin)` — closes the position and reclaims rent.
+3. `clp_init_bin_array(index)` (if the new range needs an array that doesn't exist).
+4. `clp_open_meteora_position(side, amount_x, amount_y, active_id, target_bin, bin_radius)` — fresh position in the new range.
+
+Otherwise (skip-rebuild path): no action this cycle.
+
+→ [DLMM details](/keeper/dlmm)
+
+## What happens on profit
+
+Two profit sources:
+
+1. **Arb surplus.** When the keeper's arb cycle nets a positive cUSDC delta, the keeper calls `deposit_profit(amount)` to route the surplus to `GlobalClp`.
+2. **Meteora fees.** Position fees accumulate inside the position. On rebuild, the fees are extracted and counted as part of the post-rebalance balance. The seeder routes any "principal + fees" surplus over `allocated_from_global` back via `return_to_global`.
+
+The CLP program tracks `total_fees_collected` per market and `total_fees_accumulated` globally so operators can see protocol revenue.
+
+## Inventory bounds
+
+The CLP enforces **hard bounds** on per-market state to prevent runaway risk:
+
+- **q-imbalance**: ratio of long-side value to short-side value. A hard upper/lower bound rejects operations that would push past.
+- **Drawdown**: peak value vs current value. A hard bound rejects further deployment when drawdown exceeds threshold.
+
+These are configured via `configure_inventory_budget`. The keeper's hard-bound monitor reads these on every cycle and surfaces breaches in the dashboard.
+
+If a market hits a hard bound:
+
+- New allocations from global vault → blocked.
+- Existing positions → unchanged.
+- User mint/redeem → unaffected (those are gated by Market PDA fields, not CLP).
+
+The protocol unwinds the breach by recalling capital and waiting for the q to renormalize through user flow + arb.
+
+## Yield strategy (scaffolded, off)
+
+The CLP program has a yield-deployment scaffold for idle collateral — `record_deployment`, `record_withdrawal`, `record_harvest` instructions, plus per-state deployment percentages (Normal / ProxyMode / Stress). This is **off by default** (`YIELD_ENABLED=false`).
+
+When enabled, idle collateral can be deployed into external lending protocols (Kamino, etc.) for yield. Withdrawals are blocked until deployment is recalled (`InsufficientLiquidCollateral` error).
+
+Mainnet activation will go through governance once governance is wired.
+
+## Reading CLP state
+
+```typescript
+// Global
+const [globalClpPDA] = web3.PublicKey.findProgramAddressSync(
+  [Buffer.from("global_clp")],
+  clpProgram.programId,
+);
+const globalClp = await clpProgram.account.globalClp.fetch(globalClpPDA);
+console.log("Total deposits:", globalClp.totalDeposits.toString());
+console.log("Allocations:", globalClp.marketAllocations.map(a => ({
+  market: a.marketId.toBase58(),
+  amount: a.allocatedUsdc.toString(),
+})));
+
+// Per-market
+const [clpPDA] = web3.PublicKey.findProgramAddressSync(
+  [Buffer.from("clp"), marketPDA.toBuffer()],
+  clpProgram.programId,
+);
+const clp = await clpProgram.account.clp.fetch(clpPDA);
+console.log("OI cap:", clp.oiCap.toString(), "current:", clp.currentOi.toString());
+console.log("Long pool:", clp.meteoraLongPool.toBase58());
+console.log("Long position:", clp.meteoraLongPosition.toBase58());
+```
+
+## Why this matters to you as a builder
+
+You don't call CLP instructions directly. But CLP state tells you:
+
+- **Pool depth** at the protocol layer (`vault_l_deployed`, `vault_s_deployed`).
+- **OI utilization** (`current_oi / oi_cap`) — useful for warning users approaching cap.
+- **Position addresses** — useful for monitoring active bin, fee accumulation directly on Meteora.
+- **Inventory state** — useful for surfacing risk to traders ("market q-imbalanced; redeem limited").
+
+→ [Reading state](/flows/read-state) for end-to-end examples.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="CLP program reference" icon="square-terminal" href="/programs/clp">
+    All instructions, account fields, errors.
+  </Card>
+  <Card title="Solvency invariants" icon="shield" href="/concepts/solvency">
+    Why CLP isolation matters for protocol safety.
+  </Card>
+</CardGroup>

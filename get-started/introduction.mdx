@@ -1,0 +1,85 @@
+---
+title: Introduction
+description: Continuum is a Solana-native protocol for 24/7 synthetic exposure to real-world assets. Here's the mental model.
+---
+
+Continuum is a Solana protocol for **24/7 synthetic exposure to real-world assets** — equities, indices, commodities, FX. You deposit USDC, you get paired long and short tokens that track the asset's NAV. Sell either side on a DEX, hold to maturity, or redeem the pair back to USDC at any time.
+
+It is not a perp DEX, not a margin platform, not a wrapped-asset protocol. There are no funding rates, no liquidations, no leverage. The position **is** an SPL token.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
+    Mint your first paired position on devnet in five minutes.
+  </Card>
+  <Card title="Concepts" icon="book" href="/concepts/overview">
+    The mental model: paired tokens, NAV, oracle, keeper, CLP.
+  </Card>
+  <Card title="Build" icon="code" href="/build/sdk-setup">
+    TypeScript SDK setup, IDLs, PDAs, end-to-end examples.
+  </Card>
+  <Card title="Programs" icon="square-terminal" href="/programs/overview">
+    On-chain instruction and account reference.
+  </Card>
+</CardGroup>
+
+## What you can build
+
+Continuum is composable — long and short tokens are standard SPL tokens. Some examples:
+
+- **Wrapper UIs** that present long-only or short-only flows on top of the paired primitive.
+- **Structured products** (delta-neutral baskets, covered-call simulators, dispersion plays) that combine multiple Continuum markets.
+- **Trading bots** that arb pool prices vs NAV — the same way the keeper does, but for any market.
+- **Portfolio analytics** that read on-chain market state and compute position P&L from NAV, no off-chain feed required.
+- **CPI integrations** where another Solana program holds, mints, or redeems Continuum positions as part of a larger flow.
+
+## How it works in one paragraph
+
+A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the on-chain NAV, transfers `amount` USDC into the market's collateral vault, and mints matched long (`L`) and short (`S`) tokens to the user. The two NAVs are bound by a constant-product invariant — `L_NAV × S_NAV = initial_l × initial_s` — so as one side appreciates the other depreciates reciprocally. To exit, the user calls `redeem_paired(l_amount, s_amount)` and gets USDC back at NAV. In between, both tokens trade on Meteora DLMM pools where a [keeper bot](/concepts/keeper) runs an arbitrage loop that pulls pool prices toward NAV. All of this is on-chain Solana state — no off-chain custodian, no oracle dependency that can freeze user funds.
+
+## Where this doc lives in the stack
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       You (developer)                        │
+│  Frontend / bot / structured product / CPI program           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ TypeScript SDK / Anchor / web3.js
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Continuum on-chain programs                 │
+│   mint-redeem · oracle · clp · registry · faucet (devnet)    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Solana base layer + Meteora DLMM          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The keeper bot runs separately, off-chain, and signs as the privileged `keeper_authority` for arbitrage and DLMM rebalancing. It is not in your call path — your transactions go directly to the on-chain programs.
+
+## Core invariants you can rely on
+
+1. **Paired-only mint/redeem for users.** The mint-redeem program rejects any single-sided mint or redeem from non-keeper signers. There is no path by which a user becomes under-collateralized.
+2. **Constant-product NAV.** `L_NAV × S_NAV = initial_l × initial_s` always holds. Combined pair value `L_NAV + S_NAV` stays bounded as one side rises and the other falls reciprocally.
+3. **Oracle-gated quoting.** The oracle program runs a state machine (`Normal` / `ProxyMode` / `Stress` / `Recovery`); if it goes stale or fails, mint sizing is throttled and quote conservatism rises.
+4. **OI cap per market.** Each market has a hard `oi_cap` enforced on every mint. Once filled, mints are rejected; redeems remain open.
+
+See [Solvency invariants](/concepts/solvency) for the complete list.
+
+## What's not here
+
+Continuum deliberately omits things you might expect from a perp DEX:
+
+- **No funding rate.** The constant-product NAV invariant bounds pair value naturally; no one needs to drain holders of the popular side.
+- **No liquidations.** A paired position cannot become under-collateralized.
+- **No leverage.** Mint cost equals NAV × pair count. Pre-paid in full.
+- **No in-house AMM.** Trading happens on Meteora DLMM pools. The protocol's own LP capital lives in those pools as a normal Meteora position.
+- **No user yield vaults.** The CLP capital is operator-funded for the MVP.
+
+## Get oriented
+
+- Just want to interact? → [Quickstart](/get-started/quickstart)
+- Want the mental model first? → [How Continuum works](/concepts/overview)
+- Want to start building? → [SDK setup](/build/sdk-setup)
+- Want the on-chain instruction reference? → [Programs overview](/programs/overview)

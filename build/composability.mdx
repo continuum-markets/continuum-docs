@@ -1,0 +1,231 @@
+---
+title: Composability
+description: What you can build on top of Continuum. Use cases, patterns, design tradeoffs.
+---
+
+L and S are SPL tokens. The protocol is open. Here are concrete things you can build.
+
+## 1. Long-only or short-only wrapper
+
+The simplest integration. Most users want a one-click long or short, not "here's a paired primitive". Wrap it.
+
+```
+User clicks "Buy QQQ Long"
+   │
+   ▼
+1. mint_paired(amount)             → 0.104 QQQL + 49.95 QQQS
+2. swap on Meteora (QQQS → cUSDC)  → 0.104 QQQL + ~49.5 cUSDC
+3. user wallet ends with long-only QQQ exposure
+```
+
+The reverse for short:
+
+```
+User clicks "Buy QQQ Short"
+   │
+   ▼
+1. mint_paired(amount)             → 0.104 QQQL + 49.95 QQQS
+2. swap on Meteora (QQQL → cUSDC)  → 49.95 QQQS + ~49.5 cUSDC
+3. user wallet ends with short-only QQQ exposure
+```
+
+Implementation: a TypeScript helper that builds both ixns in one transaction. Or, for atomicity, a small on-chain program that wraps the two ixns in a single instruction (CPI to mint-redeem + CPI to Meteora's swap).
+
+**UX win**: users don't think about pair mechanics. They think "long" or "short".
+
+## 2. Arb bot
+
+The keeper does this internally for the protocol's benefit. You can do it for your own profit.
+
+```
+loop:
+    for market in markets:
+        nav = read on-chain NAV
+        pool_price = read DLMM active bin
+        spread_bps = (pool_price / nav - 1) × 10_000
+
+        if abs(spread_bps) > pool_fee_bps + slip:
+            execute paired arb (no privilege required):
+                if pool_price > nav:
+                    mint_paired(N) → sell both legs
+                else:
+                    buy both legs → redeem_paired
+```
+
+Differences vs the keeper:
+
+- You **can't** use `keeper_mint_single` / `keeper_redeem_single`. Those require keeper authority.
+- You compete with the keeper on paired arb. The keeper has lower latency (it's the canonical operator).
+- Profitable opportunities for you: when the keeper is idle, slow, or operating on a different market. Devnet often has gaps; mainnet will be tighter.
+
+**Design tip**: monitor the keeper's deposit_profit cadence. If you see the keeper hasn't profited in N minutes, the spreads are too tight or it's offline — your edge is in the second case.
+
+## 3. Structured products
+
+Combine multiple Continuum positions to express more complex views.
+
+### Dispersion: long index, short components
+
+```
+Buy QQQ-long (paired mint, sell short leg)
+Buy NVDA-short (paired mint, sell long leg)
+Buy AAPL-short
+Buy TSLA-short
+```
+
+Pay-off: profits when the index rises but individual components lag. Captures dispersion / correlation breakdown.
+
+The structured product can be:
+
+- **Off-chain orchestrator**: a TypeScript service that mints/sells across markets when a user clicks one button.
+- **On-chain wrapper**: a program that bundles the multi-mint into one instruction (atomic, but heavier on accounts).
+
+### Delta-neutral basket
+
+```
+Hold paired QQQL+QQQS in equal NAV value.
+At small moves, position value barely changes (curve is flat near origin).
+At large moves (>20% in either direction), position value increases due to convexity.
+```
+
+This is essentially a long-vol / long-tail bet on QQQ. Pair it with a short straddle on options for a cheap "sell vol on small moves, buy convexity on large moves" structure.
+
+### Equity-vs-FX cross
+
+```
+Long S&P 500 (long SPY)
+Short USD (long EUR/USD short, short JPY/USD short)
+```
+
+Once forex markets are added, this becomes feasible directly on-chain.
+
+## 4. Portfolio analytics
+
+L and S have on-chain NAV. P&L attribution is trivial: read the user's L+S balances per market, compute `n_L × L_NAV + n_S × S_NAV`, compare to deposit cost.
+
+```typescript
+async function portfolioValue(wallet: PublicKey, markets: Market[]) {
+  let total = 0;
+  for (const m of markets) {
+    const longBal  = await getBalance(m.longMint, wallet);
+    const shortBal = await getBalance(m.shortMint, wallet);
+    const lNav = navL(m);
+    const sNav = navS(m, lNav);
+    total += longBal * lNav + shortBal * sNav;
+  }
+  return total;
+}
+```
+
+No off-chain price feed required. NAV is on-chain, signed by the keeper, verifiable by anyone.
+
+## 5. Custodial UX
+
+A custodian (centralized wallet, broker, fintech app) takes user deposits and:
+
+1. Mints Continuum positions on the user's behalf.
+2. Reflects them in the user's UI as "QQQ exposure" without exposing the paired primitive.
+3. Manages fees/slippage internally.
+
+This abstracts crypto entirely from the user. They see "100 USD long QQQ, currently $103.40" in their app; the custodian handles the on-chain mechanics.
+
+The custodial path is regulatory-sensitive. We don't take a position on it; the protocol enables it but doesn't depend on it.
+
+## 6. Liquidation-free leverage (off-protocol)
+
+Continuum has no leverage. But you can synthetically leverage:
+
+```
+1. Mint paired QQQ                 → 0.104 QQQL + 49.95 QQQS
+2. Sell QQQS to a market (Meteora) → 0.104 QQQL + cash
+3. Borrow against QQQL on Kamino   → cash to mint more
+4. Mint paired QQQ again           → repeat
+```
+
+**Caveats**: each loop pays mint+swap fees. Borrow rates apply. And — most importantly — this introduces liquidation risk **on the lender's side** (Kamino), not on Continuum. Continuum positions themselves remain unliquidatable.
+
+This is a power-user composition; not something to expose to retail without disclosure.
+
+## 7. Vault that auto-rebalances
+
+A user deposits cUSDC into a program. The program:
+
+- Mints a target NAV-weighted basket of Continuum markets.
+- Periodically (cron, or trigger-based via Switchboard) rebalances by mint/redeem to maintain target weights.
+- Charges a management fee.
+
+Implementation: an Anchor program that holds positions in a PDA, exposes deposit/withdraw/rebalance instructions, CPIs to Continuum for the actual mint/redeem.
+
+## 8. Cross-protocol routing
+
+Aggregate Continuum's mint/redeem with other DEX swap paths.
+
+For example, a user wanting to short QQQ has three paths:
+
+1. Mint paired Continuum, sell long leg on Meteora.
+2. Buy QQQS directly on Meteora (no mint).
+3. Borrow USDC on Kamino, buy QQQS, hold.
+
+A router contract can compare quotes across these paths and pick the best one. Continuum benefits because the router will use mint-redeem when it wins on price.
+
+## 9. Predictive UI / pre-trade simulation
+
+Use the on-chain NAV + your client-side knowledge of the constant-product invariant to **simulate** a trade before submission:
+
+```typescript
+function simulateMint(amount: BN, market: Market): { qtyL: BN, qtyS: BN } {
+  const lNav = market.userTwapPrice.gtn(0)
+    ? market.userTwapPrice
+    : market.initialLPrice;
+  const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav);
+
+  const fee = amount.mul(new BN(market.mintFeeBps)).div(new BN(10_000));
+  const halfValue = amount.sub(fee).div(new BN(2));
+  return {
+    qtyL: halfValue.mul(new BN(1e6)).div(lNav),
+    qtyS: halfValue.mul(new BN(1e6)).div(sNav),
+  };
+}
+```
+
+Show the user "you'll get 0.104 QQQL and 49.95 QQQS for 100 cUSDC" before they sign. The actual transaction will produce the same numbers (modulo NAV moving in the seconds between simulation and confirmation).
+
+## 10. Data product
+
+Continuum's on-chain state is rich — every mint/redeem, every TWAP push, every CLP allocation is on-chain. Indexers can:
+
+- Track keeper profitability over time (`deposit_profit` ix history).
+- Plot TWAP vs Pyth-spot divergence (where Continuum users got better/worse than spot).
+- Aggregate per-user P&L across paired positions and pool trades.
+
+A historical index of pool depth, NAV, and arb spread is a marketable dataset for HFT or analytics shops.
+
+## Patterns we like
+
+- **Use NAV as the price-of-record.** It's on-chain, signed, and tamper-evident. Don't roll your own price.
+- **Use Meteora pool prices for execution.** Don't try to bypass Meteora; the keeper has already optimized that path.
+- **Use mint-redeem for size.** > 1% of pool depth → mint-redeem is cheaper. < 0.1% → pool swap is faster.
+- **Watch the risk state.** Don't queue mints during `Stress`; surface to the user.
+- **Don't build keeper dependencies.** Your integration shouldn't break if the keeper is down for 5 minutes. Use NAV; redeem still works.
+
+## Patterns to avoid
+
+- **Don't pre-mint and hold.** Continuum positions are NAV-tracking; they don't need pre-positioning. Mint at the moment of need.
+- **Don't assume per-market NAVs are correlated.** They are not — QQQ NAV is set by QQQ's oracle, SPY by SPY's. Your basket math should treat them independently.
+- **Don't skip ATA creation.** Idempotent ATA creation costs ~0.002 SOL once per (user, mint). Less than a transaction's worth. Always pre-create.
+- **Don't assume infinite OI.** Each market has an `oi_cap`. If your integration is cap-blowing for a small market, expect rejection. Surface this to the user.
+
+## Talk to us
+
+If you're building, drop a note in [Discord](https://discord.gg/continuum) — we'd love to feature your project and help with integration. Mainnet partner integrations get prioritized listing slots.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="CPI integration" icon="link" href="/build/cpi">
+    On-chain integration via Cross-Program Invocation.
+  </Card>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    Pull all the data your integration needs.
+  </Card>
+</CardGroup>

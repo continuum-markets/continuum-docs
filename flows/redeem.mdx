@@ -1,0 +1,161 @@
+---
+title: Redeem paired tokens
+description: Burn long and short tokens (independently), receive cUSDC at NAV.
+---
+
+`redeem_paired(l_amount, s_amount)` burns L and S in **independently chosen quantities** and returns the value at NAV in cUSDC. Unlike mint, redeem amounts are not quantity-paired — they are NAV-weighted.
+
+## Math
+
+```
+gross  = l_amount × L_NAV + s_amount × S_NAV
+fee    = gross × redeem_fee_bps / 10_000
+return = gross - fee
+```
+
+You burn your L + S, you receive `return` cUSDC.
+
+If you redeem only one side (the other amount is zero), the program just burns that side and returns its value in cUSDC. No paired requirement.
+
+## Accounts
+
+Same as mint. The user signs, ATAs source/sink tokens, vault transfers cUSDC out.
+
+| Account | Notes |
+|---|---|
+| `market` | Market PDA |
+| `user` (signer) | Receives cUSDC, gives up L+S |
+| `user_collateral` | Receives cUSDC |
+| `user_long` | Source of L burn |
+| `user_short` | Source of S burn |
+| `long_mint`, `short_mint` | From market |
+| `collateral_vault` | Source of cUSDC |
+| `dev_token_account` | Fee recipient |
+| `oracle_address` | NAV source |
+| `token_program` | SPL Token |
+
+## TypeScript
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+
+const lAmt = new BN(100_000); // 0.1 QQQL (6 decimals)
+const sAmt = new BN(50_000_000); // 50 QQQS
+
+await program.methods
+  .redeemPaired(lAmt, sAmt)
+  .accounts({
+    market: marketPDA,
+    user: wallet.publicKey,
+    userCollateral: userCusdc,
+    userLong,
+    userShort,
+    longMint: market.longMint,
+    shortMint: market.shortMint,
+    collateralVault: market.collateralVault,
+    devTokenAccount: devCusdc,
+    oracleAddress: market.oracleAddress,
+    tokenProgram: TOKEN_PROGRAM_ID,
+  })
+  .rpc();
+```
+
+## Asymmetric redemption
+
+L and S have very different unit prices (e.g. QQQ: `L_NAV ≈ 480`, `S_NAV ≈ 0.002`). Burning equal **quantities** doesn't burn equal **value**. The program is fine with this:
+
+| Redeem | Burn | NAV value |
+|---|---|---|
+| `(0.1 QQQL, 0)` | 0.1 long only | `0.1 × 480 = 48` cUSDC |
+| `(0, 50 QQQS)` | 50 short only | `50 × 1 ≈ 50` cUSDC |
+| `(0.1, 50)` | both | `48 + 50 = 98` cUSDC |
+| `(0.1, 25)` | both, asymmetric | `48 + 25 = 73` cUSDC |
+
+There's no penalty for asymmetric redeems. They're how you implement directional position closing — sell one leg, redeem the other.
+
+## Maximum redeem
+
+There's no protocol-imposed maximum. You can redeem the entire vault if you hold the corresponding tokens. The program checks:
+
+```
+require!(user_long_balance >= l_amount, InsufficientFunds);
+require!(user_short_balance >= s_amount, InsufficientFunds);
+require!(vault_balance >= return_value, InsufficientCollateral);
+```
+
+If `InsufficientCollateral` ever fires it would mean a solvency bug — the vault should always cover NAV-weighted outstanding supply by [invariant 1](/concepts/solvency#1-paired-only-mint-and-redeem-for-users).
+
+## Behavior across risk states
+
+| Risk state | Behavior |
+|---|---|
+| `Normal` | Redeem at NAV, no markup. |
+| `ProxyMode` | Redeem at NAV, no markup (only mint is throttled). |
+| `Stress` | Redeem **still works** at last fresh NAV. |
+| `Recovery` | Redeem at NAV. |
+
+Redeem is **never blocked** by risk state. Solvency invariant 1 says users must always be able to exit.
+
+## Errors
+
+| Error | Cause |
+|---|---|
+| `MarketNotActive` | `market.is_active = false` |
+| `InvalidAmount` | Both `l_amount` and `s_amount` are zero |
+| `InsufficientFunds` | User's L or S balance below request |
+| `InsufficientCollateral` | Vault balance can't cover NAV value (should be unreachable) |
+| `OraclePriceUnavailable` | Oracle paused (extreme case — only emergency_pause triggers this) |
+| `MathOverflow` | Should be unreachable |
+
+→ [Full error catalog](/reference/errors)
+
+## Optional: `redeem_paired_with_waiver`
+
+Same as mint's fee-waiver variant. Skips the redeem fee if the user has an active fee waiver against this market. Used by power users; ignore for typical integrations.
+
+## What you receive
+
+```
+User cUSDC ATA:  +return_value
+Vault cUSDC:     -gross
+Dev cUSDC ATA:   +fee
+User L ATA:      -l_amount (burned)
+User S ATA:      -s_amount (burned)
+
+market.total_l_supply: -= l_amount
+market.total_s_supply: -= s_amount
+market.total_collateral: -= gross
+```
+
+## Closing a directional position
+
+If you minted paired and sold one side on Meteora to express direction, your wallet now holds only one side. Redeem proceeds normally:
+
+```typescript
+// You hold 0.1 QQQL and 0 QQQS.
+await program.methods
+  .redeemPaired(new BN(100_000), new BN(0))
+  .accounts({ ... })
+  .rpc();
+// Receive 0.1 × L_NAV cUSDC.
+```
+
+Your final P&L is the redeem cUSDC plus whatever cUSDC you got from selling the other side, minus your initial mint cost. If `L_NAV` rose since mint, you profit.
+
+## When pool > NAV: redeem vs sell
+
+If pool price > NAV (long pool overvalued), it's slightly better to **sell on the pool** than redeem at NAV — the pool gives you the higher price minus the fee. The keeper's arb closes this gap quickly, but during transient drift, check both prices.
+
+The opposite (pool < NAV) → redeeming is better. The keeper will close that gap by buying from the pool and redeeming at NAV.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Mint" icon="circle-plus" href="/flows/mint">
+    The inverse — deposit cUSDC, receive paired tokens.
+  </Card>
+  <Card title="Trade on Meteora" icon="chart-mixed" href="/flows/trade">
+    When pool price diverges from NAV, sometimes selling on the pool beats redeeming.
+  </Card>
+</CardGroup>

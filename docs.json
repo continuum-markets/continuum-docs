@@ -1,0 +1,146 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Continuum",
+  "description": "24/7 synthetic exposure to real-world assets on Solana — developer documentation.",
+  "colors": {
+    "primary": "#7C3AED",
+    "light": "#A78BFA",
+    "dark": "#5B21B6"
+  },
+  "favicon": "/logo/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "get-started/introduction",
+              "get-started/quickstart",
+              "get-started/devnet"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/paired-tokens",
+              "concepts/nav",
+              "concepts/markets",
+              "concepts/oracle",
+              "concepts/risk-states",
+              "concepts/keeper",
+              "concepts/clp",
+              "concepts/solvency"
+            ]
+          },
+          {
+            "group": "Core flows",
+            "pages": [
+              "flows/mint",
+              "flows/redeem",
+              "flows/trade",
+              "flows/read-state"
+            ]
+          },
+          {
+            "group": "Build on Continuum",
+            "pages": [
+              "build/sdk-setup",
+              "build/idls-and-pdas",
+              "build/example-mint-redeem",
+              "build/reading-prices",
+              "build/cpi",
+              "build/composability"
+            ]
+          },
+          {
+            "group": "Markets",
+            "pages": [
+              "markets/live",
+              "markets/listing",
+              "markets/roadmap"
+            ]
+          },
+          {
+            "group": "Keeper & market making",
+            "pages": [
+              "keeper/overview",
+              "keeper/arb-paths",
+              "keeper/dlmm",
+              "keeper/running"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Programs",
+            "pages": [
+              "programs/overview",
+              "programs/mint-redeem",
+              "programs/oracle",
+              "programs/clp",
+              "programs/registry",
+              "programs/faucet"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/glossary",
+              "reference/errors",
+              "reference/addresses",
+              "reference/faq"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Website",
+          "href": "https://continuum.markets",
+          "icon": "globe"
+        },
+        {
+          "anchor": "Discord",
+          "href": "https://discord.gg/continuum",
+          "icon": "discord"
+        },
+        {
+          "anchor": "Twitter",
+          "href": "https://twitter.com/ContinuumMkts",
+          "icon": "twitter"
+        }
+      ]
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "App",
+        "href": "https://continuum.markets"
+      }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/continuum-markets"
+    }
+  },
+  "footer": {
+    "socials": {
+      "x": "https://twitter.com/ContinuumMkts",
+      "discord": "https://discord.gg/continuum"
+    }
+  }
+}

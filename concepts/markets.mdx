@@ -1,0 +1,165 @@
+---
+title: Markets
+description: A market is one synthetic asset — a pair of SPL mints, two DLMM pools, an oracle, and a CLP slot. Here's how they're shaped and listed.
+---
+
+A **market** in Continuum is one synthetic asset. Each market has:
+
+- A `Market` PDA (mint-redeem program) holding initial prices, fees, supply, oracle pointer, keeper authority.
+- Two SPL mints — long (`L`) and short (`S`) — both with the market PDA as mint authority.
+- One collateral vault (cUSDC token account) holding all collateral backing outstanding L+S supply.
+- An `OracleConfig` PDA tracking observations, TWAP, and risk state.
+- A `Clp` PDA tracking per-market capital allocation, OI cap, inventory state, and Meteora position pointers.
+- Two Meteora DLMM pools — `L/cUSDC` and `S/cUSDC` — at a chosen fee tier.
+
+Markets are not interchangeable — a QQQL token is a different mint from an SPYL token, even though both are "long" tokens.
+
+## Market PDA derivation
+
+```
+seeds = [b"market", asset_symbol_bytes]
+program_id = mint-redeem (5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4 on devnet)
+```
+
+Symbol is the asset ticker as ASCII (e.g. `"QQQ"`). Different cluster, same symbol → same PDA seed but different derived address (because mint-redeem program ID differs).
+
+## What's stored on the Market account
+
+Public fields you'll likely read:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `asset_symbol` | string | Market ticker. |
+| `oracle_address` | Pubkey | Pointer to the `OracleConfig` PDA. |
+| `oracle_type` | enum | `Pyth` / `Hermes` / `Switchboard` / `Manual`. |
+| `long_mint` | Pubkey | L SPL mint. |
+| `short_mint` | Pubkey | S SPL mint. |
+| `collateral_mint` | Pubkey | cUSDC mint. |
+| `collateral_vault` | Pubkey | Token account holding all backing cUSDC. |
+| `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees in basis points (10 = 0.10%). |
+| `initial_l_price` / `initial_s_price` | u64 | 6-dec prices fixed at init. |
+| `total_l_supply` / `total_s_supply` | u64 | Outstanding supply on each side. |
+| `total_collateral` | u64 | Vault balance. |
+| `is_active` | bool | If false, all mint/redeem reject. |
+| `risk_state` | enum | `Normal` / `ProxyMode` / `Stress` / `Recovery`. |
+| `user_twap_price` | u64 | Source of L_NAV. |
+| `keeper_authority` | Pubkey | Privileged signer for fee-free single-sided ops. |
+| `dev_tax_pct` | u8 | Slice of fee routed to fee_recipient. |
+
+Full schema in [mint-redeem reference](/programs/mint-redeem#market-account).
+
+## Reading market state
+
+```typescript
+import { Program, web3 } from "@coral-xyz/anchor";
+import idl from "./mint_redeem.json";
+
+const program = new Program(idl, provider);
+const [marketPDA] = web3.PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  program.programId,
+);
+const market = await program.account.market.fetch(marketPDA);
+
+console.log("Symbol:", market.assetSymbol);
+console.log("L mint:", market.longMint.toBase58());
+console.log("Vault:", market.collateralVault.toBase58());
+console.log("OI used:", market.totalLSupply.toString(), "/", marketCap);
+```
+
+For all live markets at once, batch via `getMultipleAccounts` keyed off the registry. See [Reading state](/flows/read-state).
+
+## Live markets
+
+Four markets are active on devnet:
+
+| Symbol | Asset | Pool fee tier | Status |
+|---|---|---|---|
+| `QQQ` | Nasdaq-100 ETF | 0.10% (binStep=10) | Active |
+| `SPY` | SPDR S&P 500 ETF | 0.10% | Active |
+| `XAU` | Gold spot | 0.10% | Active |
+| `VXX` | VIX short-term futures ETN | 0.10% | Active |
+
+→ [Live markets table with all pubkeys](/markets/live)
+
+## How a market gets listed
+
+The full operator flow lives in the protocol's [operations runbook](https://github.com/continuum-markets/continuum/blob/main/docs/OPERATIONS.md). At a high level:
+
+<Steps>
+  <Step title="Create the market">
+    Picks symbol, initial prices, mint/redeem fees, sets the keeper authority. Creates the Market PDA, L and S SPL mints (mint authority = market PDA), and the collateral vault.
+  </Step>
+  <Step title="Initialize the CLP slot">
+    Per-market `Clp` PDA holds the OI cap and inventory state. Set OI cap conservatively — typically ~2× expected LP depth.
+  </Step>
+  <Step title="Create CLP token ATAs">
+    The CLP PDA gets ATAs for L, S, and cUSDC so it can hold tokens before deploying them to Meteora.
+  </Step>
+  <Step title="Create Meteora DLMM pools">
+    Two pools: `L/cUSDC`, `S/cUSDC`. Pool fee tier is `bin_step × base_factor / 1e6`. Index ETFs at 0.10%, liquid equities at 0.20%, volatile equities at 0.25%.
+  </Step>
+  <Step title="Wire pools into CLP">
+    `configure_meteora_pools(long_pool, short_pool)` writes the pool addresses to the CLP account. The keeper picks them up on next tick.
+  </Step>
+  <Step title="Fund the global vault">
+    Admin deposits cUSDC into `GlobalClp`. The keeper's seeder allocates from there into per-market vaults every 600s.
+  </Step>
+  <Step title="Start the keeper">
+    Within ~10 minutes the seeder funds the new market, mints inventory pairs via CLP, and opens Meteora positions.
+  </Step>
+</Steps>
+
+→ [Listing a market](/markets/listing)
+
+## OI cap
+
+Each market has a hard `oi_cap` enforced on every mint:
+
+```
+require!(total_l_supply + l_to_mint <= oi_cap, OICapExceeded);
+```
+
+When the cap is reached, mints reject. Redeems remain open. Operators raise the cap as pool depth grows. Rule of thumb: `oi_cap ≈ 2 × pool_depth`.
+
+The cap is a per-market field on the `Clp` account, not on the `Market` itself. To read it:
+
+```typescript
+const clp = await clpProgram.account.clp.fetch(clpPDA);
+console.log("OI cap:", clp.oiCap.toString());
+console.log("Current OI:", clp.currentOi.toString());
+```
+
+## Asset roadmap
+
+Continuum's targeted launch coverage is **TradFi-only**:
+
+- **Indices**: SPX, NDX (QQQ), FTSE 100, DAX
+- **Equities**: NVDA, AAPL, TSLA, GME, AMC
+- **Commodities**: XAU (Gold), XAG (Silver), WTI (Oil)
+- **Forex**: EUR/USD, USD/JPY, GBP/USD
+
+No crypto markets. The constant-product invariant gives no edge over an actual perp DEX for crypto pairs.
+
+→ [Roadmap](/markets/roadmap)
+
+## Trading hours
+
+The asset itself trades during traditional market hours, but **Continuum markets are 24/7**:
+
+- During TradFi hours, NAV reflects the live oracle.
+- Outside TradFi hours, NAV reflects whatever Pyth's "off-hours" feed reports — typically the last close, with limited price discovery.
+- The keeper publishes session-aware feeds (`Primary` / `PreMarket` / `PostMarket` / `Overnight`) so the oracle program selects the right Pyth feed based on time-of-day.
+
+This means you can mint, redeem, and trade Continuum positions any time. P&L attribution outside market hours has lower discovery — the keeper's arb edge is thinner because there's less external flow.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="Live market addresses" icon="address-book" href="/markets/live">
+    QQQ, SPY, XAU, VXX — every pubkey.
+  </Card>
+  <Card title="How to read market state" icon="magnifying-glass" href="/flows/read-state">
+    Batch fetch markets, derive NAV, query position depth.
+  </Card>
+</CardGroup>

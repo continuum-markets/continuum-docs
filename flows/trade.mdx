@@ -1,0 +1,185 @@
+---
+title: Trade on Meteora DLMM
+description: Buy or sell L/S tokens directly on the protocol's pools without going through mint-redeem.
+---
+
+Continuum's L and S tokens trade on **Meteora DLMM** pools, with the protocol as the sole LP for the MVP. You can swap L↔cUSDC or S↔cUSDC at the pool's active bin price plus a small fee.
+
+When pool price ≈ NAV, mint and trade are economically similar. When pool price diverges, one is materially better than the other — and the keeper's arb closes that gap.
+
+## When to trade on the pool vs mint/redeem
+
+| Goal | Best path | Why |
+|---|---|---|
+| Open a paired position at NAV | `mint_paired` | No slippage; pays mint fee (~0.10%). |
+| Open a long-only position | `mint_paired` + sell S leg on Meteora | Or buy QQQL directly on Meteora — the second is one tx, but pays pool fee + slippage. |
+| Open a short-only position | Mirror of above with QQQS. | Same trade-off. |
+| Close at NAV | `redeem_paired` | No slippage; pays redeem fee (~0.10%). |
+| Close fast (small size) | Sell on Meteora | One tx, immediate. |
+| Take a long-only directional bet | Buy QQQL on Meteora | Avoids minting an offsetting short you'd just sell. |
+| Arbitrage pool vs NAV | Combine both | See [Composability](/build/composability). |
+
+## How the pools are configured
+
+Each market has two Meteora DLMM pools:
+
+```
+QQQL/cUSDC  — long-side pool
+QQQS/cUSDC  — short-side pool
+```
+
+Pool fee tier per market depends on asset volatility:
+
+| Asset class | binStep | Base fee | Position range |
+|---|---|---|---|
+| Index ETF (QQQ, SPY) | 10 | 0.10% | ±3.4% (radius=34) |
+| Liquid equity (NVDA, AAPL) | 20 | 0.20% | ±6.8% |
+| Volatile equity (TSLA, GME) | 25 | 0.25% | ±8.6% |
+
+Lower fees = tighter NAV peg band. Index ETFs run at 0.10% because external arb is more aggressive there; volatile equities pay higher fees to compensate LPs for wider expected divergence.
+
+→ [Live markets](/markets/live) lists exact pool addresses.
+
+## Swap on Meteora — TypeScript
+
+The recommended path is the official `@meteora-ag/dlmm` SDK:
+
+```typescript
+import DLMM from "@meteora-ag/dlmm";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
+const connection = new Connection("https://api.devnet.solana.com");
+const longPool = new PublicKey("3MN5oS1xvDNZBaGxJX5TurQEiww4bGyYqcnjSF2cxf6a"); // QQQL/cUSDC
+const dlmm = await DLMM.create(connection, longPool);
+
+// Get a swap quote
+const swapForY = false; // false: cUSDC → QQQL (Y → X). true: QQQL → cUSDC.
+const inAmount = new BN(10_000_000); // 10 cUSDC if buying long
+const swapQuote = await dlmm.swapQuote(inAmount, swapForY, new BN(50)); // 0.5% slippage tolerance
+
+console.log("Out amount:", swapQuote.outAmount.toString());
+console.log("Min out:", swapQuote.minOutAmount.toString());
+console.log("Active bin:", swapQuote.binArraysPubkey);
+
+// Build and send the swap tx
+const swapTx = await dlmm.swap({
+  inToken: dlmm.tokenY.publicKey, // cUSDC
+  outToken: dlmm.tokenX.publicKey, // QQQL
+  inAmount,
+  minOutAmount: swapQuote.minOutAmount,
+  lbPair: longPool,
+  user: wallet.publicKey,
+  binArraysPubkey: swapQuote.binArraysPubkey,
+});
+
+const sig = await provider.sendAndConfirm(swapTx);
+```
+
+(`@meteora-ag/dlmm` handles all the bin-array / event-authority / token-vault accounts for you.)
+
+## Active bin and pool price
+
+A DLMM pool's instantaneous price is determined by its **active bin**:
+
+```
+price_per_X = (1 + bin_step / 10_000) ^ (active_id - bin_step_offset)
+            ≈ 1.001 ^ (active_id - constant)   (for binStep=10)
+```
+
+In practice you don't compute this manually — the SDK exposes `dlmm.lbPair.activeId` and helpers like `dlmm.fromPricePerLamport(price)`.
+
+For monitoring pool price relative to NAV:
+
+```typescript
+const dlmm = await DLMM.create(connection, longPool);
+const lbPairState = dlmm.lbPair;
+const activeId = lbPairState.activeId;
+const poolPriceX = dlmm.getPricePerLamport(activeId);
+
+// Compare to NAV
+const market = await mintRedeem.account.market.fetch(marketPDA);
+const navL = market.userTwapPrice.gtn(0)
+  ? market.userTwapPrice.toNumber() / 1e6
+  : market.initialLPrice.toNumber() / 1e6;
+
+console.log("Pool price:", poolPriceX, "NAV:", navL);
+console.log("Spread:", ((poolPriceX / navL) - 1) * 100, "%");
+```
+
+Spread > pool fee → arb opportunity.
+
+## Liquidity depth
+
+The Meteora SDK exposes per-bin reserves. For a quick depth read:
+
+```typescript
+const bins = await dlmm.getBinsBetweenLowerAndUpperBound(
+  activeId - 50,
+  activeId + 50,
+);
+const depthY = bins.reduce((sum, b) => sum + Number(b.amountY), 0);
+const depthX = bins.reduce((sum, b) => sum + Number(b.amountX), 0);
+```
+
+The protocol's CLP positions deploy with vol-adaptive radius (10–34 bins per side), so depth in the central bins is meaningful but tapers off at the edges.
+
+## Selling a leg post-mint
+
+Most-common flow — open paired then sell to express direction:
+
+```typescript
+// 1. Mint paired
+await program.methods.mintPaired(new BN(100_000_000)).accounts({...}).rpc();
+// You now have ~0.104 QQQL + ~49.95 QQQS.
+
+// 2. Sell the short leg on Meteora
+const dlmm = await DLMM.create(connection, shortPoolAddr);
+const swapTx = await dlmm.swap({
+  inToken: dlmm.tokenX.publicKey,  // QQQS
+  outToken: dlmm.tokenY.publicKey, // cUSDC
+  inAmount: new BN(49_950_000),
+  minOutAmount: new BN(49_500_000), // 1% slippage
+  // ...
+});
+await provider.sendAndConfirm(swapTx);
+// Now: 0.104 QQQL + ~49.50 cUSDC = long-only QQQ exposure with cash buffer
+```
+
+The reverse — sell QQQL, hold QQQS — gives short-only exposure.
+
+## Closing a leg via the pool
+
+Symmetric to opening — sell the leg you hold to receive cUSDC:
+
+```typescript
+// You hold 0.104 QQQL. You want to close.
+const dlmm = await DLMM.create(connection, longPoolAddr);
+const swapTx = await dlmm.swap({
+  inToken: dlmm.tokenX.publicKey,  // QQQL
+  outToken: dlmm.tokenY.publicKey, // cUSDC
+  inAmount: new BN(104_000),
+  // ...
+});
+```
+
+vs `redeem_paired(new BN(104_000), 0)` which gives you `0.104 × L_NAV` cUSDC at NAV.
+
+If `pool_price ≈ NAV`, both yield the same modulo fees. If pool price > NAV, sell on pool. If pool price < NAV, redeem.
+
+## What about LP'ing the pools?
+
+Currently **no**. The protocol is the sole LP for MVP. User LP shares (`GlobalLPAccount`) were removed pre-launch; the mechanics for restoring them exist in git history but are not active.
+
+This is on the roadmap. When activated, it will work via the CLP program's `vault_mint_pairs` + `clp_open_meteora_position` flow — abstracted behind a user-facing `deposit` / `withdraw` API.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    Pool price, NAV, depth, risk — programmatically.
+  </Card>
+  <Card title="External arb bot" icon="robot" href="/build/composability">
+    Build your own arb bot against pool/NAV spread.
+  </Card>
+</CardGroup>

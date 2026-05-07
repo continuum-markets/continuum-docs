@@ -1,0 +1,176 @@
+---
+title: Mint paired tokens
+description: Deposit cUSDC, receive matched long and short tokens at NAV.
+---
+
+`mint_paired(collateral_amount)` is the canonical user-facing entry. It deposits cUSDC, mints L and S to the user's ATAs, and sends fees to the configured fee recipient.
+
+## Math
+
+```
+fee         = collateral_amount × mint_fee_bps / 10_000
+half_value  = (collateral_amount - fee) / 2
+qty_L       = half_value / L_NAV
+qty_S       = half_value / S_NAV
+
+L_NAV       = market.user_twap_price (or initial_l_price if TWAP == 0)
+S_NAV       = (initial_l × initial_s) / L_NAV
+```
+
+In `Normal` risk state with no confidence markup, `qty_L × L_NAV + qty_S × S_NAV = collateral_amount - fee`. Trivially.
+
+## Accounts required
+
+| Account | Notes |
+|---|---|
+| `market` | Market PDA |
+| `user` (signer) | Pays `collateral_amount` |
+| `user_collateral` | User's cUSDC ATA (must exist; create via `getAssociatedTokenAddressSync` + ATA program if missing) |
+| `user_long` | User's L ATA (created if missing) |
+| `user_short` | User's S ATA (created if missing) |
+| `long_mint` | From `market.long_mint` |
+| `short_mint` | From `market.short_mint` |
+| `collateral_vault` | From `market.collateral_vault` |
+| `dev_token_account` | Fee recipient's cUSDC ATA |
+| `oracle_address` | From `market.oracle_address` |
+| `token_program` | SPL Token program |
+
+The frontend's `useMint()` hook resolves all of this from the symbol. For a copy-pasteable script see [Build → Mint and redeem example](/build/example-mint-redeem).
+
+## TypeScript
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+} from "@solana/spl-token";
+import idl from "./mint_redeem.json";
+
+const program = new Program(idl, provider);
+const symbol = "QQQ";
+
+// Derive market PDA
+const [marketPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from(symbol)],
+  program.programId,
+);
+
+// Fetch market for child accounts
+const market = await program.account.market.fetch(marketPDA);
+
+// User ATAs
+const userCusdc = getAssociatedTokenAddressSync(market.collateralMint, wallet.publicKey);
+const userLong  = getAssociatedTokenAddressSync(market.longMint, wallet.publicKey);
+const userShort = getAssociatedTokenAddressSync(market.shortMint, wallet.publicKey);
+const devCusdc  = getAssociatedTokenAddressSync(market.collateralMint, market.feeRecipient);
+
+// Build the tx
+const amount = new BN(100_000_000); // 100 cUSDC
+
+const ix = await program.methods
+  .mintPaired(amount)
+  .accounts({
+    market: marketPDA,
+    user: wallet.publicKey,
+    userCollateral: userCusdc,
+    userLong: userLong,
+    userShort: userShort,
+    longMint: market.longMint,
+    shortMint: market.shortMint,
+    collateralVault: market.collateralVault,
+    devTokenAccount: devCusdc,
+    oracleAddress: market.oracleAddress,
+    tokenProgram: TOKEN_PROGRAM_ID,
+  })
+  .instruction();
+
+// You may need to prepend ATA creation instructions if longATA/shortATA don't exist yet:
+const preIxs = [];
+const longInfo = await connection.getAccountInfo(userLong);
+if (!longInfo) {
+  preIxs.push(
+    createAssociatedTokenAccountInstruction(
+      wallet.publicKey,
+      userLong,
+      wallet.publicKey,
+      market.longMint,
+    ),
+  );
+}
+// (do the same for userShort)
+
+const tx = new Transaction().add(...preIxs, ix);
+const sig = await provider.sendAndConfirm(tx);
+```
+
+## Minimum mint size
+
+Enforced by the program: **10 cUSDC** (`10_000_000` lamports). Below this, you get `BelowMinimum`.
+
+This exists to keep the post-fee residual computable without precision issues — at 1 cUSDC mint, the 0.1% fee rounds to lamport boundaries that produce zero L/S in some markets.
+
+## Errors
+
+| Error | Cause |
+|---|---|
+| `MarketNotActive` | `market.is_active = false` |
+| `InvalidAmount` | `collateral_amount = 0` |
+| `BelowMinimum` | Less than 10 cUSDC |
+| `InsufficientCollateral` | User's cUSDC ATA balance < `collateral_amount` |
+| `OraclePriceUnavailable` | Oracle account stale or paused |
+| `MintNotAllowedInStress` | Risk state is `Stress` |
+| `ExceedsStressMintCap` | Risk state is `ProxyMode` / `Recovery` and amount exceeds the throttled cap |
+| `OICapExceeded` | `total_l_supply + l_to_mint > oi_cap` |
+| `MathOverflow` | Should be unreachable; report if you see this |
+
+→ [Full error catalog](/reference/errors)
+
+## Behavior across risk states
+
+| Risk state | Behavior |
+|---|---|
+| `Normal` | Mint at NAV, no markup, no size throttle. |
+| `ProxyMode` | Mint with 2× confidence markup, size-throttled. |
+| `Stress` | Mint **rejected**. |
+| `Recovery` | Mint at NAV, size-throttled. |
+
+→ [Risk states](/concepts/risk-states)
+
+## Optional: `mint_paired_with_waiver`
+
+A variant that consumes a fee-waiver against the user's `FeeWaiver` PDA, if active. Saves the mint fee but only works when the user has previously called `donate_to_vault` to acquire a waiver and the market vault is over-collateralized (>102%).
+
+This is an advanced flow used by power users. Most integrations stick with `mint_paired`.
+
+## What you receive
+
+After a successful mint:
+
+```
+User cUSDC ATA: -collateral_amount
+Vault cUSDC:    +(collateral_amount - fee)
+Dev cUSDC ATA:  +fee
+User L ATA:     +qty_L
+User S ATA:     +qty_S
+
+market.total_l_supply: += qty_L
+market.total_s_supply: += qty_S
+market.total_collateral: += (collateral_amount - fee)
+```
+
+The L and S tokens are **SPL tokens**. They are transferable, depositable into Meteora pools, usable in CPI by other programs. There's no special locking, lockup, or hold period.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Redeem" icon="arrow-rotate-left" href="/flows/redeem">
+    The inverse: burn paired tokens, receive cUSDC at NAV.
+  </Card>
+  <Card title="End-to-end TypeScript example" icon="terminal" href="/build/example-mint-redeem">
+    Copy-pasteable script with wallet setup, IDL load, mint, verify.
+  </Card>
+</CardGroup>

@@ -1,0 +1,170 @@
+---
+title: Error catalog
+description: Every error code, by program, with the reason and how to recover.
+---
+
+Anchor maps program errors to numeric codes starting at `6000` per program. The same numeric code can mean different things in different programs — always pair the code with the program ID.
+
+## mint-redeem
+
+Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
+
+| Code | Name | Cause | How to fix |
+|---|---|---|---|
+| 6000 | `MarketNotActive` | `Market.is_active = false` | Wait — operator may pause a market for maintenance. |
+| 6001 | `InvalidAmount` | Zero or negative amount | Pass a positive `BN`. |
+| 6002 | `InsufficientCollateral` | Vault can't cover the redeem (rare; would imply solvency bug) | Report immediately. |
+| 6003 | `InvalidOracle` | Oracle account passed doesn't match `market.oracle_address` | Use `market.oracle_address` always. |
+| 6004 | `UnsupportedOracleType` | Bad `oracle_type` enum value | Pick from `Pyth` / `Hermes` / `Switchboard` / `Manual`. |
+| 6005 | `OraclePriceUnavailable` | Oracle paused or no fresh observation | Wait for keeper to push observations. |
+| 6006 | `MathOverflow` | Should be unreachable | Report. |
+| 6007 | `SymbolTooLong` | Symbol > 16 chars | Pick a shorter symbol. |
+| 6008 | `FeeTooHigh` | Fee bps > 1000 (10%) | Lower the fee. |
+| 6009 | `MintNotAllowedInStress` | Risk state is `Stress` | Wait for recovery, or trade on Meteora pool instead. |
+| 6010 | `RedeemNotAllowedInStress` | Reserved (redeem in Stress is currently allowed) | Should not occur. |
+| 6011 | `ExceedsStressMintCap` | `ProxyMode`/`Recovery` size throttle hit | Reduce mint size, retry. |
+| 6012 | `TwapNotAvailable` | TWAP buffer not yet populated | Wait ~75s after market init. |
+| 6013 | `AlreadyEnabled` | Multi-collateral already on | Skip the call. |
+| 6014 | `MultiCollateralNotEnabled` | Tried to add collateral type without enabling | Call `enable_multi_collateral` first. |
+| 6015 | `MaxCollateralTypesExceeded` | More than 5 collateral types | Hard cap. |
+| 6016 | `InvalidWeight` | Multi-collateral weight not in [1, 10000] bps | Use 1–10000. |
+| 6017 | `CollateralAlreadyExists` | Duplicate collateral mint | Update via `update_collateral_vault`. |
+| 6018 | `CollateralNotFound` | Unknown collateral type | Add via `add_collateral_vault`. |
+| 6019 | `BelowMinimum` | Mint < 10 cUSDC | Mint at least `10_000_000` lamports. |
+| 6020 | `UnauthorizedKeeper` | Signer ≠ `market.keeper_authority` | Use the keeper's keypair. |
+| 6021 | `Unauthorized` | Signer ≠ `market.authority` | Admin-only call. |
+| 6022 | `InsufficientLiquidCollateral` | Yield deployed; recall first | Yield is off by default; report if you see this. |
+| 6023 | `ExceedsYieldCeiling` | Deployment > `yield_ceiling_bps` | Operator config issue. |
+| 6024 | `YieldManagementDisabled` | `yield_enabled = false` | Yield is off by design on devnet. |
+| 6025 | `RecallExceedsDeployed` | Recall > deployed balance | Operator config issue. |
+
+## oracle
+
+Program ID (devnet): `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC`
+
+| Code | Name | Cause | How to fix |
+|---|---|---|---|
+| 6000 | `OraclePaused` | `is_paused = true` | Admin emergency pause. Wait for unpause. |
+| 6001 | `InvalidPythAccount` | Wrong Pyth account passed | Use the configured `oracle_config.pyth_oracle`. |
+| 6002 | `PriceUnavailable` | No fresh observation | Wait for keeper to push. |
+| 6003 | `ConfidenceTooHigh` | Confidence > `max_confidence_interval` | Wait for confidence to narrow; transient. |
+| 6004 | `PriceStale` | Last update older than `max_staleness` | Keeper outage; ProxyMode imminent. |
+| 6005 | `PriceMovementTooLarge` | New observation > 20% from prior | Pyth glitch or extreme move; observation rejected. |
+| 6006 | `TwapNotReady` | TWAP buffer not populated | Wait. |
+| 6007 | `InvalidTwapWindow` | TWAP window < 1s or > 24h | Operator config. |
+| 6008 | `MarketStateRestriction` | Operation not allowed in current state | Risk-state-gated. |
+| 6009 | `UnauthorizedKeeper` | Signer ≠ `oracle_config.keeper_authority` | Use the keeper's keypair. |
+| 6010 | `UnauthorizedAdmin` | Signer ≠ `oracle_config.admin_authority` | Admin-only call. |
+| 6011 | `InvalidRegisteredFeed` | Feed not in `OracleFeed` registry | Register feed first. |
+| 6012 | `InactiveOracleFeed` | Feed exists but `is_active = false` | Activate or pick another feed. |
+| 6013 | `MathOverflow` | Should be unreachable | Report. |
+
+## clp
+
+Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
+
+| Code | Name | Cause | How to fix |
+|---|---|---|---|
+| 6000 | `Unauthorized` | Signer mismatch | Match the relevant authority. |
+| 6001 | `WithdrawalLocked` | Lockup not yet expired | Wait. |
+| 6002 | `InvalidAmount` | Zero or negative | Pass a positive `BN`. |
+| 6003 | `InsufficientShares` | LP-share path (legacy) | Should not occur in MVP. |
+| 6004 | `InsufficientFunds` | Vault can't cover request | Recall capital from positions first. |
+| 6005 | `InsufficientLiquidFunds` | Funds deployed; recall first | Withdraw Meteora positions, then retry. |
+| 6006 | `OICapExceeded` | New OI > `oi_cap` | Operator: raise the cap. User: smaller mint. |
+| 6007 | `MathOverflow` | Should be unreachable | Report. |
+| 6008 | `InsufficientBuffer` | Protocol buffer can't absorb loss | Operator action. |
+| 6009 | `HardBoundBreach` | q or drawdown past hard bound | Wait for renormalization. |
+| 6010 | `YieldStrategyDisabled` | Yield off | By design. |
+| 6011 | `ExceedsMaxDeployment` | Per-state deployment cap exceeded | Operator config. |
+| 6012 | `MaxDeploymentsExceeded` | Deployment array full | Operator config. |
+| 6013 | `DeploymentNotFound` | Unknown protocol | Operator config. |
+| 6014 | `InsufficientDeployment` | Recall > deployed | Operator config. |
+| 6015 | `DeploymentTooHigh` | % > config | Operator config. |
+| 6016 | `OracleReadError` | Bound oracle unreadable | Oracle config bug; report. |
+| 6017 | `InvalidPool` | Pool pubkey mismatch | Use `clp.meteora_long_pool` / `meteora_short_pool`. |
+| 6018 | `PoolNotConfigured` | Pool not yet wired | Operator: run `configure_meteora_pools`. |
+| 6019 | `AdminWithdrawCapExceeded` | 24h $100K cap hit | Wait for window roll. |
+| 6020 | `InvalidPosition` | Position pubkey mismatch | Match `clp.meteora_*_position`. |
+| 6021 | `InvalidAccountData` | Account data too small | Wrong account passed. |
+
+## registry
+
+Program ID (devnet): `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap`
+
+| Code | Name | Cause | How to fix |
+|---|---|---|---|
+| 6000 | `SymbolTooLong` | Symbol > 16 chars | Use a shorter symbol. |
+
+## faucet
+
+Program ID (devnet): `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY`
+
+| Code | Name | Cause | How to fix |
+|---|---|---|---|
+| 6000 | `CooldownNotElapsed` | Drip too soon after prior | Wait, or use a fresh wallet. |
+
+## How errors surface in clients
+
+Anchor wraps program errors in transaction-level errors. The shape varies by SDK:
+
+```typescript
+try {
+  await program.methods.mintPaired(amount).accounts({...}).rpc();
+} catch (e) {
+  // Anchor IDL-aware error
+  if (e.error?.errorCode?.code === "MintNotAllowedInStress") {
+    // ...
+  }
+
+  // Or numeric
+  if (e.error?.errorCode?.number === 6009) {
+    // ...
+  }
+
+  // Logs are also useful
+  console.error(e.logs);
+}
+```
+
+For raw `web3.js` error inspection:
+
+```typescript
+// Look at logs in tx simulation
+const sim = await connection.simulateTransaction(tx);
+console.log(sim.value.logs);
+// Lines like "Program log: AnchorError thrown in programs/mint-redeem/src/lib.rs:..."
+```
+
+## Common error sequences
+
+### "User mint failed with `OraclePriceUnavailable`"
+
+→ Oracle is `Paused` or stale beyond threshold. Likely the keeper is down or restarting. Wait 30 seconds, retry. If persistent, check the [Discord #status channel](https://discord.gg/continuum).
+
+### "Mint failed with `MintNotAllowedInStress`"
+
+→ Risk state is `Stress`. The keeper is detecting wide confidence or extended staleness. Check `market.risk_state`; surface to the user as "minting paused, redeem still works".
+
+### "Mint failed with `OICapExceeded`"
+
+→ The market has hit its cap. Either reduce your mint size (under-cap) or wait for OI to drop via redemptions.
+
+### "Mint failed with `BelowMinimum`"
+
+→ Trying to mint less than 10 cUSDC. Bump up.
+
+### "All instructions fail with `Unauthorized`"
+
+→ Wrong signer. Verify your keypair matches the expected authority for the instruction. For privileged ops, your pubkey must be `market.keeper_authority` (for `keeper_*_single`) or `market.authority` (for admin ops).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="FAQ" icon="circle-question" href="/reference/faq">
+    Common questions including error symptoms.
+  </Card>
+  <Card title="Glossary" icon="book" href="/reference/glossary">
+    What terms in error names mean.
+  </Card>
+</CardGroup>

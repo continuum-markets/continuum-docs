@@ -1,0 +1,124 @@
+---
+title: Devnet info
+description: Cluster, RPC endpoints, program IDs, the cUSDC faucet, and gotchas specific to devnet.
+---
+
+Continuum's MVP runs on Solana **devnet**. Mainnet launch is gated on audits and bug-bounty maturity — see [Roadmap](/markets/roadmap).
+
+## Cluster
+
+```
+RPC:     https://api.devnet.solana.com
+WS:      wss://api.devnet.solana.com
+Cluster: devnet
+```
+
+For production work, use a private RPC (Helius, Triton, QuickNode) — the public devnet endpoint is rate-limited.
+
+## Program IDs
+
+| Program | Devnet ID |
+|---|---|
+| `mint-redeem` | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` |
+| `oracle` | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
+| `clp` | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` |
+| `registry` | `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap` |
+| `faucet` | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+| `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` |
+
+The same IDs are pinned in [`Anchor.toml`](https://github.com/continuum-markets/continuum/blob/main/Anchor.toml) on the protocol repo. Mainnet IDs will differ — when mainnet launches, this page will list both.
+
+## cUSDC (devnet collateral mint)
+
+```
+Mint:     B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE
+Decimals: 6
+```
+
+This is **not** real USDC. It is a custom mint controlled by the Continuum faucet program for testing. Mainnet will use real USDC (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`).
+
+<Warning>
+  Throughout these docs, we refer to the devnet collateral as **"cUSDC"** to distinguish it from real USDC. Code, env vars, and on-chain accounts often just call it "USDC" — but on devnet it's the test mint above.
+</Warning>
+
+## Faucet
+
+The [`faucet`](/programs/faucet) program drips cUSDC to any wallet on a cooldown. Default drip is 1,000 cUSDC per request, with a per-recipient cooldown.
+
+Quick CLI drip:
+
+```bash
+git clone https://github.com/continuum-markets/continuum
+cd continuum
+bun install
+bun run scripts/faucet-drip.ts
+```
+
+Or call the `drip` instruction directly — see [Faucet program](/programs/faucet).
+
+## Live markets
+
+Four markets are currently active on devnet. Full pubkeys (mints, pools, oracle configs) are in [Live markets](/markets/live).
+
+| Symbol | Asset | Long mint | Short mint |
+|---|---|---|---|
+| `QQQ` | Nasdaq-100 ETF | `E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ` | `BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG` |
+| `SPY` | SPDR S&P 500 ETF | `8mVLeXHpchLvt3WZRhRrAZYJ4oU3e2crVF1QEomgdDQ8` | `3n5x1QaXSSw5ysAK5zkMo1XSm52TwzTBK48RAfkeKJiu` |
+| `XAU` | Gold spot | `AoufiP54693dn9HKonVBn6W75tKe8eHq5ncTwjTz6i5c` | `9XjYivtQfhDitFJugsskP6LppL7JJzANWwc7kmybpd55` |
+| `VXX` | VIX short-term futures ETN | `9GAPZW9pE8jkwzupFDnheDU1X35kh7vUMQvBkDLRuQn8` | `3Dnogj7nRYKEVBfPaBVkGw1Zbj5j3Nhm7RtGSKJfssch` |
+
+## Devnet-specific behavior
+
+A few things to know:
+
+### Oracle is keeper-driven on devnet
+
+On mainnet, prices flow from Pyth on-chain feeds directly. On devnet, Pyth's RWA feeds are unreliable, so Continuum's keeper polls **Pyth Hermes** (HTTP) every 15 seconds and pushes observations into the oracle program. If you stop the keeper, prices stop updating — and the [risk state](/concepts/risk-states) transitions to `ProxyMode` after a staleness threshold.
+
+You'll see this most often when:
+- The keeper is restarting → expect 30–60s of staleness.
+- After-hours TradFi sessions → Hermes still publishes but volumes are thin.
+
+### TradingView pricing pre-NAV
+
+Most devnet markets boot with `user_twap_price = 0`, in which case `L_NAV` falls back to `initial_l_price`. After ~5 minutes of keeper updates, the TWAP populates and NAV reflects real-time prices. If you're testing right after a deploy, your first mint may use the boot-time initial price.
+
+### Flash-loan adapters disabled
+
+The keeper's MarginFi/Kamino flash-loan adapters auto-disable on devnet (those protocols are mainnet-only). The keeper falls back to **direct mode** — using its own cUSDC balance for arbs. As an integrator, you don't need to think about this; it only affects keeper economics.
+
+### Faucet cooldown
+
+The cUSDC faucet has a per-recipient cooldown. If `drip` errors with `CooldownNotElapsed`, wait or use a fresh wallet.
+
+## Frontend
+
+The official frontend at [continuum.markets](https://continuum.markets) connects to devnet by default. You can also point a local clone at devnet:
+
+```bash
+cd frontend
+cp .env.example .env.local
+# edit NEXT_PUBLIC_CLUSTER=devnet (default)
+# edit NEXT_PUBLIC_SOLANA_RPC_URL=<your-private-rpc-or-public-devnet>
+bun install
+bun dev
+```
+
+See [SDK setup](/build/sdk-setup) for the same RPC + wallet setup in a non-Next.js context.
+
+## Explorers
+
+Devnet block explorers:
+
+- [Solana Explorer](https://explorer.solana.com/?cluster=devnet)
+- [Solscan](https://solscan.io/?cluster=devnet)
+- [SolanaFM](https://solana.fm/?cluster=devnet)
+
+For Meteora DLMM positions, [Meteora's app](https://app.meteora.ag) shows pool depth, active bin, and fee accumulation.
+
+## Reporting issues
+
+Devnet bugs and unexpected behavior:
+
+- Discord: [#dev-help](https://discord.gg/continuum)
+- GitHub: [continuum-markets/continuum](https://github.com/continuum-markets/continuum) issues

@@ -1,0 +1,275 @@
+---
+title: clp
+description: Capital and Liquidity Provider — the protocol's vaults and Meteora DLMM proxy.
+---
+
+The CLP program holds protocol LP capital and is the owner of all Meteora DLMM positions. Per-market `Clp` PDAs hold inventory budgets, OI cap, and Meteora pointers. A single `GlobalClp` PDA tracks total deposits and routes capital to per-market vaults.
+
+```
+Devnet ID: 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES
+```
+
+There are no user-facing instructions on this program. Everything is gated by admin or keeper authority.
+
+## Accounts
+
+### `GlobalClp` PDA
+
+```
+seeds = [b"global_clp"]
+```
+
+One per cluster.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `total_deposits` | u64 | Cumulative `admin_fund` (informational) |
+| `last_admin_fund_at` | i64 | Last admin deposit unix-ts |
+| `total_fees_accumulated` | u64 | Lifetime protocol fees |
+| `market_allocations` | array of `MarketAllocation` | Per-market USDC outstanding |
+| `protocol_buffer` | `ProtocolBuffer` | Yield, losses, current balance, target size, above-target flag |
+| `liquidity_seed_threshold` | u64 | Below this, the seeder skips |
+| `authority` | Pubkey | Admin signer |
+| `admin_wallet` | Pubkey | 24h-cooldown-gated mainnet admin |
+
+### `Clp` PDA
+
+```
+seeds = [b"clp", market_id]
+```
+
+One per market.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `market_id` | Pubkey | Bound market PDA |
+| `oi_cap` | u64 | Hard ceiling on `total_l_supply` |
+| `current_oi` | u64 | Mirror of `market.total_l_supply` |
+| `inventory_budget` | `InventoryBudget` | Soft/hard q-bps + drawdown bounds |
+| `inventory_state` | `InventoryState` | Current q-bps, breach flags, peak value |
+| `yield_strategy` | `YieldStrategyConfig` | Per-state deployment percentages |
+| `oracle_config` | Pubkey | Bound oracle PDA |
+| `deployment_count` | u32 | Number of yield deployments |
+| `yield_deployments` | array | Per-protocol `YieldDeployment` |
+| `total_deployed` | u64 | Currently deployed cUSDC |
+| `total_fees_collected` | u64 | Lifetime fees from Meteora |
+| `vault_l_deployed` / `vault_s_deployed` | u64 | Synth deployed to Meteora |
+| `total_vault_pairs_minted` | u64 | Lifetime pair-mint volume |
+| `total_meteora_fees_earned` | u64 | Lifetime Meteora fees |
+| `meteora_long_pool` / `meteora_short_pool` | Pubkey | Configured pool addresses |
+| `meteora_long_position` / `meteora_short_position` | Pubkey | Current position pubkeys |
+| `allocated_from_global` | u64 | Per-market USDC allocated from global vault |
+| `authority` | Pubkey | Admin signer |
+
+### `AdminWithdrawWindow` PDA
+
+```
+seeds = [b"admin_withdraw_window"]
+```
+
+Tracks 24-hour rolling cap on `admin_withdraw`.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `window_start_at` | i64 | Window start unix-ts |
+| `cumulative_in_window` | u64 | Total withdrawn in current window |
+
+The cap is currently $100K/24h.
+
+## Instructions
+
+### Initialization (admin)
+
+#### `initialize_global_clp(liquidity_seed_threshold)`
+
+One-shot global state init. Creates `GlobalClp` and `global_clp_vault` (cUSDC token account).
+
+#### `initialize_clp(...)`
+
+Per-market init. Creates the `Clp` PDA and per-market `clp_vault` token account. Sets the bound market and oracle.
+
+### Capital flow
+
+#### `admin_fund` (admin)
+
+Deposit cUSDC from admin wallet → `global_clp_vault`. Advances `total_deposits`.
+
+#### `admin_withdraw` (admin)
+
+Withdraw idle cUSDC from `global_clp_vault` → admin wallet. Subject to the `AdminWithdrawWindow` 24h cap.
+
+#### `allocate_to_market(amount: u64)` (keeper)
+
+Move cUSDC from `global_clp_vault` to per-market `clp_vault`. Advances `Clp.allocated_from_global` and `GlobalClp.market_allocations[market]`.
+
+#### `return_to_global` (keeper)
+
+Reverse — move idle per-market cUSDC back to global. Used after position closure or when a market's edge drops.
+
+#### `deposit_profit(amount: u64)` (keeper)
+
+Route arb surplus from keeper wallet into `global_clp_vault`. Advances `GlobalClp.total_fees_accumulated`.
+
+### Mint/redeem proxy (keeper)
+
+The CLP can mint/redeem paired tokens on its own behalf, used by the keeper to seed Meteora positions.
+
+#### `vault_mint_pairs(amount: u64)`
+
+CPI into `mint_redeem::mint_paired` using per-market vault cUSDC. The minted L+S land in the CLP PDA's L and S ATAs.
+
+#### `vault_redeem_pairs(l_amount: u64, s_amount: u64)`
+
+CPI into `mint_redeem::redeem_paired` using L and S held in CLP PDA's ATAs. cUSDC returns to per-market vault.
+
+### Meteora DLMM proxy (keeper)
+
+All position operations are owned by the CLP PDA. The CLP signs Meteora CPIs.
+
+#### `clp_init_bin_array(index: i32)`
+
+Initialize a bin array PDA at a given index, if missing. Required before opening a position whose range includes that index.
+
+#### `clp_open_meteora_position(side, amount_x, amount_y, active_id, target_bin, bin_radius)`
+
+Create + fund a Meteora position. Side is `0 = long pool, 1 = short pool`.
+
+#### `clp_topup_meteora_position(side, amount_x, amount_y, active_id, lower_bin, upper_bin)`
+
+Add liquidity to an existing position without close + reopen. Used by the seeder when the position's current range is still valid.
+
+#### `clp_remove_meteora_liquidity(side, lower_bin, upper_bin)`
+
+Drain tokens from a position back to CLP PDA's L+cUSDC (or S+cUSDC) ATAs.
+
+#### `clp_close_meteora_position(side, lower_bin, upper_bin)`
+
+Close + reclaim position rent. Should be preceded by `clp_remove_meteora_liquidity`.
+
+#### `clp_set_meteora_position(side, position_pk)` (admin)
+
+Recover an orphaned CLP-owned position by writing its pubkey into CLP state. Used during post-zombie cleanup.
+
+#### `clear_meteora_positions` (admin)
+
+Reset stored position pubkeys to default. Used during pool migration.
+
+#### `configure_meteora_pools(long_pool, short_pool)` (admin)
+
+Wire pool addresses into CLP state.
+
+### Configuration (admin)
+
+#### `update_oi_cap(new_cap)`
+
+Adjust the per-market OI cap.
+
+#### `configure_inventory_budget(...)`
+
+Soft and hard q-imbalance + drawdown bounds.
+
+#### `configure_yield_strategy(...)`
+
+Per-state deployment percentages (yield is off by default).
+
+#### `configure_liquidity_seeder(threshold)`
+
+Below `threshold`, the seeder skips. Default threshold is $1k.
+
+### Yield (scaffolded, off)
+
+#### `record_deployment` / `record_withdrawal` / `record_harvest`
+
+Track yield-protocol deployments. Off by default; `YIELD_ENABLED=false`.
+
+#### `add_yield_to_buffer` / `absorb_loss`
+
+Maintenance ops on `protocol_buffer`. The buffer absorbs losses (e.g., yield-protocol slippage) before they hit user collateral.
+
+### Inventory ops
+
+#### `update_inventory`
+
+Recompute `inventory_state.current_q_bps` and `peak_value` from on-chain Market state.
+
+#### `update_oi`
+
+Mirror `market.total_l_supply` into `clp.current_oi`. Called atomically inside mint-redeem CPI.
+
+### Read-only helpers
+
+#### `check_inventory_restrictions`
+
+Returns whether the market is at hard bound — programs can call this via CPI to gate operations.
+
+#### `get_yield_status`
+
+Returns deployment + harvest state for monitoring.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `Unauthorized` | Signer mismatch |
+| 6001 | `WithdrawalLocked` | Lockup not yet expired |
+| 6002 | `InvalidAmount` | Zero or negative |
+| 6003 | `InsufficientShares` | LP-share path (legacy) |
+| 6004 | `InsufficientFunds` | Vault can't cover request |
+| 6005 | `InsufficientLiquidFunds` | Funds deployed; recall first |
+| 6006 | `OICapExceeded` | New OI > cap |
+| 6007 | `MathOverflow` | Should be unreachable |
+| 6008 | `InsufficientBuffer` | Buffer can't absorb loss |
+| 6009 | `HardBoundBreach` | q or drawdown past hard bound |
+| 6010 | `YieldStrategyDisabled` | Yield off |
+| 6011 | `ExceedsMaxDeployment` | Exceeds per-state deployment cap |
+| 6012 | `MaxDeploymentsExceeded` | Deployment array full |
+| 6013 | `DeploymentNotFound` | Unknown protocol |
+| 6014 | `InsufficientDeployment` | Recall > deployed |
+| 6015 | `DeploymentTooHigh` | % > config |
+| 6016 | `OracleReadError` | Bound oracle unreadable |
+| 6017 | `InvalidPool` | Pool pubkey mismatch |
+| 6018 | `PoolNotConfigured` | Pool not yet wired |
+| 6019 | `AdminWithdrawCapExceeded` | 24h $100K cap hit |
+| 6020 | `InvalidPosition` | Position pubkey mismatch |
+| 6021 | `InvalidAccountData` | Account data too small |
+
+→ [Full error catalog](/reference/errors)
+
+## TypeScript
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import clpIdl from "./clp.json";
+
+const clp = new Program(clpIdl, provider);
+
+const [globalClpPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("global_clp")],
+  clp.programId,
+);
+const [clpPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("clp"), marketPDA.toBuffer()],
+  clp.programId,
+);
+
+const [global, perMarket] = await Promise.all([
+  clp.account.globalClp.fetch(globalClpPDA),
+  clp.account.clp.fetch(clpPDA),
+]);
+
+console.log("Total fees:", global.totalFeesAccumulated.toString());
+console.log("OI cap:", perMarket.oiCap.toString(), "current:", perMarket.currentOi.toString());
+console.log("L deployed:", perMarket.vaultLDeployed.toString());
+```
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="CLP concept" icon="book" href="/concepts/clp">
+    Why CLP exists, the capital flow, the inventory bounds.
+  </Card>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    OI utilization, vault balances, position addresses.
+  </Card>
+</CardGroup>

@@ -1,0 +1,201 @@
+---
+title: CPI integration
+description: Calling Continuum from another Solana program. Patterns, account requirements, gotchas.
+---
+
+You can integrate Continuum into your own on-chain program via Cross-Program Invocation (CPI). Common reasons to do this:
+
+- A vault program that mints Continuum positions on its users' behalf.
+- A structured product that bundles long/short tokens across multiple markets.
+- An automated portfolio rebalancer that reads NAV and acts.
+
+This page covers the calling patterns. The receiving programs (`mint-redeem`, `clp`, etc.) are normal Anchor programs, so any caller that satisfies the account list can invoke them.
+
+## Important caveats first
+
+**Most users don't need CPI.** If your integration is off-chain (a bot, a frontend), you don't need CPI — you sign transactions directly. CPI is for cases where the protocol you're building is itself on-chain.
+
+**Privileged ixns can't be CPI'd by random callers.** `keeper_mint_single` requires `signer == market.keeper_authority`. CPI doesn't change this — your program would need to be the keeper authority to call it. Privileged paths are not designed for general CPI integration.
+
+**The `mint_paired` and `redeem_paired` paths can be CPI'd freely** because they have no signer privilege beyond the user's own signature.
+
+## Calling `mint_paired` via CPI
+
+The receiving program treats whoever signed the outer instruction as `user`. So if your program builds the inner ix correctly, **your user's signature carries through** as long as your program passes the user as a signer.
+
+Sketch (Rust / Anchor in your own program):
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Mint};
+
+#[derive(Accounts)]
+pub struct MyVaultMint<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    /// CHECK: validated by mint-redeem
+    #[account(mut)]
+    pub market: AccountInfo<'info>,
+    #[account(mut)]
+    pub user_collateral: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub user_long: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub user_short: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub long_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub short_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub collateral_vault: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub dev_token_account: Account<'info, TokenAccount>,
+    /// CHECK: oracle account
+    pub oracle_address: AccountInfo<'info>,
+
+    pub mint_redeem_program: Program<'info, MintRedeem>,
+    pub token_program: Program<'info, Token>,
+}
+
+pub fn mint_via_cpi(ctx: Context<MyVaultMint>, amount: u64) -> Result<()> {
+    // Use the cross-program-invocation pattern
+    let cpi_accounts = mint_redeem::cpi::accounts::MintPaired {
+        market:           ctx.accounts.market.to_account_info(),
+        user:             ctx.accounts.user.to_account_info(),
+        user_collateral:  ctx.accounts.user_collateral.to_account_info(),
+        user_long:        ctx.accounts.user_long.to_account_info(),
+        user_short:       ctx.accounts.user_short.to_account_info(),
+        long_mint:        ctx.accounts.long_mint.to_account_info(),
+        short_mint:       ctx.accounts.short_mint.to_account_info(),
+        collateral_vault: ctx.accounts.collateral_vault.to_account_info(),
+        dev_token_account: ctx.accounts.dev_token_account.to_account_info(),
+        oracle_address:   ctx.accounts.oracle_address.to_account_info(),
+        token_program:    ctx.accounts.token_program.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(
+        ctx.accounts.mint_redeem_program.to_account_info(),
+        cpi_accounts,
+    );
+    mint_redeem::cpi::mint_paired(cpi_ctx, amount)
+}
+```
+
+(`mint_redeem::cpi` types come from declaring the program as a dependency in your `Cargo.toml`; see Anchor's CPI docs.)
+
+The `user` signs the outer instruction; the inner CPI inherits that signature. `mint_redeem` debits `user_collateral`, mints to `user_long` and `user_short`. There's no PDA-signed CPI required.
+
+## Calling on behalf of a PDA
+
+If your program holds the collateral (e.g., a vault), then **your PDA needs to sign**. You'll need to allocate a PDA whose ATAs hold the collateral and the resulting L+S tokens, and use `CpiContext::new_with_signer`:
+
+```rust
+let cpi_ctx = CpiContext::new_with_signer(
+    ctx.accounts.mint_redeem_program.to_account_info(),
+    cpi_accounts,
+    &[&[
+        b"my_vault",
+        market.key().as_ref(),
+        &[ctx.bumps.my_vault_pda],
+    ]],
+);
+mint_redeem::cpi::mint_paired(cpi_ctx, amount)
+```
+
+This is what the CLP program does internally — it wraps `mint_paired` with the CLP PDA as signer.
+
+## Reading state via CPI
+
+If your program needs **deterministic** read of NAV from the same instruction (not just a recent fetch), call the oracle's read-only helpers:
+
+```rust
+let cpi_ctx = CpiContext::new(
+    ctx.accounts.oracle_program.to_account_info(),
+    oracle::cpi::accounts::GetUserPrice {
+        oracle_config: ctx.accounts.oracle_config.to_account_info(),
+    },
+);
+let price_result = oracle::cpi::get_user_price(cpi_ctx)?;
+let lNav = price_result.get().price;
+```
+
+Or just deserialize the oracle account in your handler — cheaper, same result for most use cases:
+
+```rust
+let oracle_data = oracle_config.try_borrow_data()?;
+let oracle = OracleConfig::try_deserialize(&mut &oracle_data[..])?;
+let lNav = oracle.user_twap.last_twap;
+```
+
+(You'd need the OracleConfig type from a shared crate; the protocol publishes one in `programs/oracle/src/state.rs`.)
+
+## Calling `redeem_paired`
+
+Symmetric to mint. Your program calls `mint_redeem::cpi::redeem_paired(cpi_ctx, l_amount, s_amount)`. Whoever holds the L+S tokens (user or PDA) needs to sign.
+
+## When you cannot CPI
+
+Some flows are not CPI-friendly:
+
+- **`keeper_mint_single` / `keeper_redeem_single`** — require `signer == market.keeper_authority`. You'd need to be the keeper authority. Generally, only the canonical keeper has this, and on mainnet it'll be a multisig.
+- **All `clp_*` Meteora-proxy ixns** — same. CLP authority requirement.
+- **Admin ixns (`update_market`, `admin_fund`, etc.)** — admin authority required.
+
+Your CPI integration is limited to the public-user surface unless you've been granted the keeper authority for a market.
+
+## Gotchas
+
+**Account list ordering.** Anchor's CPI account context expects a specific order. If you build the account list manually (e.g., from a TypeScript instruction), order must match the IDL's `accounts` array exactly.
+
+**`#[account(mut)]` correctness.** Forgetting to mark accounts mutable in your wrapping context — when they need to be mutated by the inner CPI — produces `AccountNotMutable` errors. Match the inner program's account constraints.
+
+**Compute budget.** `mint_paired` is moderate-CU. Wrapping it adds your program's overhead. If you bundle multiple Continuum CPIs in one outer ix, you may need to set a compute budget instruction:
+
+```typescript
+import { ComputeBudgetProgram } from "@solana/web3.js";
+
+tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }));
+```
+
+**Address Lookup Tables.** If your outer ix has > ~30 accounts, use ALTs to avoid the per-tx account limit.
+
+## Worked example: Auto-redeem on close
+
+A program that holds user positions and auto-redeems them at a target price:
+
+```rust
+pub fn check_and_redeem(ctx: Context<CheckAndRedeem>) -> Result<()> {
+    // 1. Read NAV
+    let market = Market::try_deserialize(&mut &ctx.accounts.market.data.borrow()[8..])?;
+    let lNav = market.user_twap_price; // (or fallback)
+
+    // 2. Compare to user's target
+    let user_pos = &ctx.accounts.user_position;
+    if lNav < user_pos.target_l_price {
+        return Ok(()); // not yet
+    }
+
+    // 3. Redeem the entire position via CPI
+    let cpi_ctx = CpiContext::new_with_signer(
+        ctx.accounts.mint_redeem_program.to_account_info(),
+        mint_redeem::cpi::accounts::RedeemPaired { /* ... */ },
+        &[&[b"position", user_pos.owner.as_ref(), &[user_pos.bump]]],
+    );
+    mint_redeem::cpi::redeem_paired(cpi_ctx, user_pos.l_amount, user_pos.s_amount)?;
+
+    Ok(())
+}
+```
+
+A user opts in by depositing into your program; your program then watches for trigger conditions and CPI-calls Continuum to redeem.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Composability" icon="puzzle-piece" href="/build/composability">
+    Off-chain integration patterns: arb bots, structured products.
+  </Card>
+  <Card title="Programs overview" icon="square-terminal" href="/programs/overview">
+    Authority model — who can call what.
+  </Card>
+</CardGroup>

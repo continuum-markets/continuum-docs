@@ -1,0 +1,173 @@
+---
+title: Quickstart
+description: Mint a paired QQQ position on Solana devnet. Five minutes, one wallet, one script.
+---
+
+By the end of this page you will have:
+
+1. A funded devnet wallet with cUSDC (the devnet USDC mint).
+2. Long and short QQQ tokens minted at NAV.
+3. Redeemed those tokens back to cUSDC.
+
+No private RPC required. Devnet only.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install Solana CLI">
+    ```bash
+    sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+    solana --version
+    ```
+  </Step>
+  <Step title="Create a wallet and switch to devnet">
+    ```bash
+    solana-keygen new -o ~/.config/solana/id.json
+    solana config set --url devnet
+    solana airdrop 2
+    ```
+  </Step>
+  <Step title="Install the TypeScript runtime">
+    [Bun](https://bun.sh) is what we use internally — `npm` or `pnpm` work too. The examples below assume Bun.
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+  </Step>
+</Steps>
+
+## Step 1 — Get cUSDC from the devnet faucet
+
+Devnet uses a custom cUSDC mint at `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. The [faucet program](/programs/faucet) drips a fixed amount per cooldown.
+
+```bash
+# Drip cUSDC to your wallet
+bunx --bun ts-node -e '
+  import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+  import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+  import faucetIdl from "./faucet.json";
+  import fs from "fs";
+
+  const conn = new Connection("https://api.devnet.solana.com", "confirmed");
+  const kp = Keypair.fromSecretKey(
+    new Uint8Array(JSON.parse(fs.readFileSync(process.env.HOME + "/.config/solana/id.json", "utf8")))
+  );
+  const provider = new AnchorProvider(conn, new Wallet(kp), {});
+  // ...
+'
+```
+
+For a copy-pasteable end-to-end script see [Build → Mint and redeem example](/build/example-mint-redeem). The short version:
+
+```bash
+# From a clone of the docs repo, or any project where you have the faucet IDL:
+bun run scripts/faucet-drip.ts
+```
+
+You should see a `Transfer` log and your wallet should now hold ~1,000 cUSDC.
+
+<Tip>
+  cUSDC has 6 decimals. `1_000_000` lamports = 1 cUSDC. The minimum mint amount is `10_000_000` lamports = 10 cUSDC.
+</Tip>
+
+## Step 2 — Mint a paired QQQ position
+
+Continuum's user-facing entry is `mint_paired(collateral_amount)` on the [`mint-redeem`](/programs/mint-redeem) program. It takes cUSDC, returns matched long (`QQQL`) and short (`QQQS`) tokens at NAV.
+
+The math:
+
+```
+L_NAV = market.user_twap_price        (NAV from on-chain TWAP)
+S_NAV = (initial_l × initial_s) / L_NAV   (constant-product inverse)
+
+half_value = (collateral - fee) / 2
+qty_L      = half_value / L_NAV
+qty_S      = half_value / S_NAV
+```
+
+A 100-cUSDC mint with `mint_fee_bps = 10` (0.10%) at QQQ initial-prices `L=480, S=1`:
+
+```
+fee        = 100 × 10 / 10_000 = 0.10 cUSDC
+half_value = (100 - 0.10) / 2  = 49.95 cUSDC
+qty_L      = 49.95 / 480       = 0.10406 QQQL
+qty_S      = 49.95 / 1         = 49.95 QQQS
+```
+
+The full TypeScript flow is on [Mint and redeem example](/build/example-mint-redeem). Skipping ahead, after `mint_paired(100_000_000)`:
+
+```
+✓ Tx: 4uzC...8ahP
+  -100.00 cUSDC
+  +0.10406 QQQL
+  +49.95   QQQS
+```
+
+## Step 3 — Read your position
+
+Continuum positions are SPL tokens. Any wallet, explorer, or program that handles SPL tokens can see them:
+
+```bash
+spl-token accounts --url devnet
+```
+
+You should see `QQQL` and `QQQS` lines with non-zero balances.
+
+The position's USDC value at any time is `qty_L × L_NAV + qty_S × S_NAV`. As QQQ rises, `L_NAV` rises and `S_NAV` falls reciprocally — the long leg appreciates, the short leg depreciates, exactly mirroring each other through the constant product.
+
+## Step 4 — Redeem back to cUSDC
+
+Burn paired tokens via `redeem_paired(l_amount, s_amount)`. Amounts are independent (not quantity-paired) because L and S have different prices:
+
+```typescript
+await program.methods
+  .redeemPaired(longBalance, shortBalance)
+  .accounts({ /* see SDK examples */ })
+  .rpc();
+```
+
+You receive `l_amount × L_NAV + s_amount × S_NAV` cUSDC, minus the `redeem_fee_bps`.
+
+If you redeem only one side, the other half stays as a one-sided position you can hold or trade. There is no requirement to redeem in pairs — only to **mint** in pairs.
+
+<Note>
+  This means redemption is asymmetric and **NAV-weighted, not quantity-weighted**. A 1:48 paired mint produces ~0.1 QQQL and ~48 QQQS, but redeeming 0.05 QQQL + 24 QQQS is "half" the position because the values match.
+</Note>
+
+## What just happened on-chain
+
+```
+You ─── mint_paired(100 cUSDC) ──► mint-redeem program
+                                          │
+                                          ├── reads NAV from oracle
+                                          ├── transfers 100 cUSDC → CollateralVault
+                                          ├── mints 0.10406 QQQL → your ATA
+                                          └── mints 49.95   QQQS → your ATA
+
+Later: a keeper somewhere arbs your trade if the pool price diverged.
+       The protocol's own LP position on Meteora DLMM absorbs the swap.
+       Net effect: your position tracks NAV, the pools peg to NAV.
+
+You ─── redeem_paired(0.10406, 49.95) ──► mint-redeem program
+                                                │
+                                                ├── burns your QQQL + QQQS
+                                                └── transfers ~99.90 cUSDC ← CollateralVault
+```
+
+Your collateral never left Solana. The keeper never touched your wallet. NAV came from the on-chain oracle account, signed every 15 seconds by an off-chain keeper but verified on-chain.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Build the example end-to-end" icon="terminal" href="/build/example-mint-redeem">
+    Full TypeScript walkthrough — wallet setup, IDL load, mint, redeem.
+  </Card>
+  <Card title="Concepts" icon="book" href="/concepts/overview">
+    Understand NAV, the keeper, the CLP, and the risk-state machine.
+  </Card>
+  <Card title="Live devnet markets" icon="chart-line" href="/markets/live">
+    Pubkeys for QQQ, SPY, XAU, VXX — pools, mints, oracles.
+  </Card>
+  <Card title="Trade on Meteora" icon="chart-mixed" href="/flows/trade">
+    Buy QQQL/QQQS directly on Meteora DLMM without minting.
+  </Card>
+</CardGroup>

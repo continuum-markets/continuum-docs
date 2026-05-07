@@ -1,0 +1,176 @@
+---
+title: Arbitrage paths
+description: Single-side mint+sell, single-side buy+redeem, paired sell, paired buy. The four cycles the keeper runs.
+---
+
+The keeper's arb scanner runs every 15 seconds. For each market × side, it evaluates two paths and picks the more profitable. All four end in cUSDC at the keeper or CLP vault.
+
+## The four cycles
+
+### 1. Single-side mint + sell (pool > NAV)
+
+Triggered when one side's pool price > NAV by more than `pool_fee_bps + slip/2`.
+
+```
+Phase 1: keeper_mint_single(side, X cUSDC) → X / NAV synth
+Phase 2: swap synth → cUSDC on the pool    (at higher pool price)
+Profit:  X × (pool/NAV - 1) - pool_fee - slip
+End:     +cUSDC, 0 synth
+```
+
+Mint at NAV (fee-free), sell at the higher pool price. The pool absorbs the synth and the keeper pockets the cUSDC delta.
+
+### 2. Single-side buy + redeem (pool < NAV)
+
+Triggered when one side's pool price < NAV by more than `pool_fee_bps + slip/2`.
+
+```
+Phase 1: swap cUSDC → synth on the pool       (at lower pool price)
+Phase 2: keeper_redeem_single(side, Y synth) → Y × NAV cUSDC
+Profit:  Y × (NAV/pool - 1) - pool_fee - slip
+End:     +cUSDC, 0 synth
+```
+
+Buy from pool at the discount, redeem at NAV (fee-free). The pool gets cUSDC; the keeper pockets the cUSDC delta vs NAV.
+
+### 3. Paired mint + sell (combined_dex > combined_nav)
+
+Triggered when `(L_pool_price + S_pool_price) > (L_NAV + S_NAV) + threshold`.
+
+```
+Phase 0: mint_paired(N × combined_NAV cUSDC) → N L + N S
+Phase 1: sell N L → cUSDC on long pool       (push L price down toward NAV)
+Phase 2: sell N S → cUSDC on short pool      (push S price down toward NAV)
+Net:     spent N × combined_NAV
+         received ≈ N × combined_DEX cUSDC
+         profit = N × (combined_DEX - combined_NAV) - fees
+End:     +cUSDC, 0 synth
+```
+
+Captures the case where both sides are over-priced relative to NAV.
+
+### 4. Paired buy + redeem (combined_dex < combined_nav)
+
+Triggered when `(L_pool_price + S_pool_price) < (L_NAV + S_NAV) - threshold`.
+
+```
+Phase 0: swap cUSDC → L on long pool   (push L up toward NAV)
+Phase 1: swap cUSDC → S on short pool  (push S up toward NAV)
+Phase 2: redeem_paired(actual_L, actual_S) → cUSDC at NAV
+End:     +cUSDC, 0 synth
+```
+
+Captures the case where both sides are under-priced. Note: `actual_L` and `actual_S` are read at execution time, not pre-computed as `min_amount_out` — otherwise the slippage buffer leaks as residual synth.
+
+## Path selection
+
+Each scan tick:
+
+1. Compute single-side profit estimate for each side independently.
+2. Compute paired profit estimate.
+3. Pick the largest expected profit.
+4. Execute that one.
+
+In steady state, **single-side is the dominant cycle**:
+
+- Single-side closes per-side divergence directly.
+- Paired arb only fires when both sides are spread in the same combined direction (rarer).
+- Single-side is fee-free at the protocol layer. Paired arb pays `mint_fee_bps + redeem_fee_bps` (≈ 20 bps round-trip) in addition to pool fees.
+
+## Threshold
+
+```
+profitable_threshold = pool_fee_bps + slippage_buffer / 2
+```
+
+Where:
+- `pool_fee_bps` is the bin-step base fee (0.10% for index ETFs, 0.20–0.25% for equities).
+- `slippage_buffer` is `MAX_SLIPPAGE_BPS / 2` (default 25 bps).
+
+So: a 0.10% pool needs spread > ~0.225% to fire. A 0.20% pool needs spread > ~0.325%. Tighter thresholds (lower `MAX_SLIPPAGE_BPS`) catch more arbs but also more false positives.
+
+## Profit accounting: actual vs expected
+
+`expected_profit` is an upper bound — it ignores worst-case quoting, real-time bin-curve slippage, and other slippage sources. The keeper measures **actual** profit:
+
+```
+keeper_balance_pre = read keeper_wallet cUSDC balance
+execute arb (mint, swap, residue sweep)
+keeper_balance_post = read keeper_wallet cUSDC balance
+
+actual_delta = keeper_balance_post - keeper_balance_pre
+deposit_amount = min(actual_delta, expected_profit)
+deposit_profit(deposit_amount)
+```
+
+Two safety properties:
+
+1. **Favorable-slippage runs don't over-deposit.** If the swap returned more than expected (slippage was negative), `actual_delta > expected_profit`, and only `expected_profit` is sent to global. The remainder stays in the keeper wallet, smoothing future bursts.
+2. **Unprofitable runs don't drain the keeper.** If `actual_delta ≤ 0`, `deposit_amount = 0`. The keeper absorbs the loss; it doesn't compound by sending negative profit to global.
+
+## Trade sizing
+
+```
+trade_amount = min(
+    pool_depth,             // for single-side: relevant side's reachable bin depth
+                            // for paired: min(long_leg_depth, short_leg_depth) × 2
+    90% × keeper_balance,   // headroom for tx fees and slippage
+    env_cap_if_set,         // optional ARB_TRADE_AMOUNT throttle (unset in production)
+)
+```
+
+Zero balance → zero trade → no wasted RPC/sim cycles. When flash-loan adapters are enabled, the `keeper_balance` cap disappears (the borrow covers the trade); pool depth governs.
+
+## End-of-cycle residual sweep
+
+After every arb, the keeper:
+
+1. Reads its post-swap L and S balances.
+2. If both sides have stock → `redeem_paired(L_bal, S_bal)`.
+3. Else (asymmetric residue) → `keeper_redeem_single` on whichever side has stock.
+
+This recovers slippage-buffer micro-leaks. Without it, every arb leaves a tiny dust position that compounds over thousands of cycles.
+
+## Boot-time sweep
+
+On startup, before any new arb runs, the keeper does the same residual sweep on whatever was left from the prior process. Crashes during an arb cycle leave non-zero L or S in the keeper wallet — boot-time sweep redeems them.
+
+## LS-pool path (deprecated)
+
+An earlier prototype routed per-side divergence through a direct L↔S pool (triangular arb). Superseded by single-side keeper mint/redeem because:
+
+- Single-side is fee-free at the protocol layer.
+- Single-side needs only one DEX leg vs LS arb's two legs.
+- LS arb paid both `mint_fee_bps + redeem_fee_bps` plus a worst-case quoting penalty (since it routed through user-facing `mint_paired` / `redeem_paired`).
+
+The code remains in the keeper, gated behind the `LS_POOLS` env var (unset in production). Re-enable only if a future market lacks a keeper-authority single-side path.
+
+## Execution: direct vs flash
+
+| Config | Behavior |
+|---|---|
+| Flash-loan adapters configured (mainnet only) | Borrow cUSDC for the cycle; atomic single-tx execution |
+| Flash-loan adapters missing (devnet) | **Direct mode** — sequential phases using keeper's own cUSDC |
+| `USE_JITO=true` | Future: bundle via Jito for MEV protection (no-op currently) |
+
+Flash-loan adapters are auto-disabled on devnet. The MarginFi/Kamino integration is mainnet-only.
+
+## What you can compete on
+
+If you run an external bot:
+
+- **Paired arb** (cycles 3, 4): no privilege required. You compete with the keeper directly. Profit is yours.
+- **Single-side arb** (cycles 1, 2): keeper has fee-free privilege. You can do it via paired ixns + an extra leg, but you'll pay `mint_fee_bps + redeem_fee_bps` (~20 bps) the keeper avoids. Edge harder to capture.
+
+→ [External arb](/build/composability#2-arb-bot) for implementation patterns.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="DLMM management" icon="chart-line" href="/keeper/dlmm">
+    The other half of the keeper's job.
+  </Card>
+  <Card title="Run a keeper" icon="terminal" href="/keeper/running">
+    Config and deployment.
+  </Card>
+</CardGroup>

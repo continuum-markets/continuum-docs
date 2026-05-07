@@ -1,0 +1,171 @@
+---
+title: SDK setup
+description: Bootstrap a TypeScript project to call Continuum programs. RPC, wallet, IDLs, provider.
+---
+
+You can interact with Continuum from any Solana-compatible client — TypeScript / Anchor is the most-trodden path. This page sets up a minimal project end-to-end.
+
+## Stack
+
+| Tool | Why |
+|---|---|
+| **Bun** (or Node + tsx, or pnpm + ts-node) | TypeScript runner. Bun is what we use internally. |
+| **`@coral-xyz/anchor`** | Anchor client library. The protocol is built on Anchor 0.32. |
+| **`@solana/web3.js`** | Lower-level RPC + transaction primitives. |
+| **`@solana/spl-token`** | ATA derivation, token instruction helpers. |
+| **`@meteora-ag/dlmm`** | Optional. For trading L/S directly on DLMM pools. |
+| **Continuum IDLs** | JSON files describing each program's instructions and accounts. |
+
+## Minimal project
+
+```bash
+mkdir continuum-app && cd continuum-app
+bun init -y
+bun add @coral-xyz/anchor@0.32 @solana/web3.js @solana/spl-token bs58 decimal.js
+bun add -d typescript @types/node
+```
+
+Get the IDLs:
+
+```bash
+mkdir idl
+# Option A: clone the protocol repo and copy
+git clone https://github.com/continuum-markets/continuum.git /tmp/continuum
+cp /tmp/continuum/target/idl/{mint_redeem,oracle,clp,faucet}.json idl/
+```
+
+(Mainnet release will publish IDLs to a CDN as well; for now use the repo source.)
+
+## Boilerplate (`client.ts`)
+
+```typescript
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import fs from "fs";
+import path from "path";
+
+import mintRedeemIdl from "./idl/mint_redeem.json";
+import oracleIdl from "./idl/oracle.json";
+import clpIdl from "./idl/clp.json";
+
+const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
+
+export function makeProvider(): AnchorProvider {
+  const conn = new Connection(RPC_URL, "confirmed");
+
+  const secretKey = JSON.parse(
+    fs.readFileSync(
+      process.env.WALLET_PATH ?? path.join(process.env.HOME!, ".config/solana/id.json"),
+      "utf8",
+    ),
+  );
+  const kp = Keypair.fromSecretKey(new Uint8Array(secretKey));
+  const wallet = new Wallet(kp);
+
+  return new AnchorProvider(conn, wallet, { commitment: "confirmed" });
+}
+
+export function loadPrograms(provider: AnchorProvider) {
+  return {
+    mintRedeem: new Program(mintRedeemIdl as any, provider),
+    oracle:     new Program(oracleIdl as any, provider),
+    clp:        new Program(clpIdl as any, provider),
+  };
+}
+```
+
+Anchor v0.32 derives types from the IDL automatically — no separate codegen step. The `as any` casts are for IDL types that don't perfectly satisfy the strict Anchor 0.32 IDL schema; they're a no-op at runtime.
+
+## Loading the right IDL
+
+Each IDL embeds the program ID. After clone-and-copy, verify they match the cluster you're targeting:
+
+```bash
+jq -r '.address' idl/mint_redeem.json
+# → 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
+```
+
+Devnet IDs are listed in [Programs overview](/programs/overview). Mainnet IDs (when launched) will differ — keep cluster-specific IDLs side by side.
+
+## RPC choice
+
+Public devnet (`https://api.devnet.solana.com`) is fine for one-off scripts. For anything that polls or runs continuously, use a private RPC. Helius, Triton, QuickNode all work. Examples:
+
+```
+https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+https://solana-devnet.g.alchemy.com/v2/YOUR_KEY
+```
+
+The reference frontend supports comma-separated lists for multi-RPC fallback. Roll your own if you need:
+
+```typescript
+const rpcUrls = (process.env.RPC_URLS ?? RPC_URL).split(",");
+let rpcIdx = 0;
+function nextRpc() { rpcIdx = (rpcIdx + 1) % rpcUrls.length; return new Connection(rpcUrls[rpcIdx], "confirmed"); }
+```
+
+## Wallet
+
+For browser apps use Solana Wallet Adapter. For scripts, use a file-loaded keypair as above.
+
+If you're testing as the keeper authority on devnet, the relevant keypairs are:
+
+- `KEEPER_KEYPAIR` — payer + arb signer.
+- `CLP_AUTHORITY_KEYPAIR` — separate keypair that signs CLP CPI instructions.
+
+These should be **different** from the admin authority for mainnet operation.
+
+## Devnet fund-up
+
+```typescript
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+await provider.connection.requestAirdrop(provider.publicKey, 2 * LAMPORTS_PER_SOL);
+// (devnet only; mainnet will reject)
+```
+
+For cUSDC on devnet, use the [faucet program](/programs/faucet#typescript).
+
+## First call: read a market
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+import { makeProvider, loadPrograms } from "./client";
+
+const provider = makeProvider();
+const { mintRedeem } = loadPrograms(provider);
+
+const [marketPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  mintRedeem.programId,
+);
+
+const market = await mintRedeem.account.market.fetch(marketPDA);
+console.log("Symbol:", market.assetSymbol);
+console.log("Risk state:", Object.keys(market.riskState)[0]);
+console.log("L mint:", market.longMint.toBase58());
+console.log("Vault balance:", market.totalCollateral.toString());
+```
+
+If this works, your provider is correctly wired and you have read access. The next step is a transaction.
+
+## Common pitfalls
+
+**Wrong IDL for the cluster.** If the IDL's embedded program ID doesn't match the deployed program, every method call will fail with `ProgramId mismatch` or similar. Re-fetch IDLs after switching clusters.
+
+**Missing ATAs.** Mint and redeem instructions assume the user's L, S, and cUSDC ATAs exist. Pre-create them with `createAssociatedTokenAccountIdempotentInstruction` to avoid `AccountNotFound` on first interaction.
+
+**Anchor 0.32 type issues.** Some IDLs need `as any` casts on `new Program()` due to strict typing introduced in 0.32. Runtime behavior is unaffected.
+
+**Decimal mismatch.** cUSDC and L/S all use 6 decimals. When computing display values, divide by `10**6`. When constructing `BN` arguments to instructions, multiply by `10**6`.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="IDLs and PDAs" icon="key" href="/build/idls-and-pdas">
+    Where IDLs ship, PDA derivation patterns.
+  </Card>
+  <Card title="Mint and redeem example" icon="terminal" href="/build/example-mint-redeem">
+    End-to-end script: drip cUSDC, mint, redeem, verify.
+  </Card>
+</CardGroup>

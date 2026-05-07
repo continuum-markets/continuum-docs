@@ -1,0 +1,135 @@
+---
+title: Paired L+S tokens
+description: Mint produces matched long and short tokens. Here's why, and how the two settle against the underlying.
+---
+
+A Continuum position is a pair of SPL tokens: one long (`L`), one short (`S`). They are minted and redeemed at the protocol's NAV, but trade independently on Meteora DLMM pools.
+
+## What "paired" means
+
+When you call `mint_paired(amount)`, the protocol:
+
+1. Reads `L_NAV` from the oracle.
+2. Derives `S_NAV = (initial_l × initial_s) / L_NAV` (constant-product inverse).
+3. Splits `amount` (after fees) in half by **value**, not quantity.
+4. Mints `(amount / 2) / L_NAV` long tokens and `(amount / 2) / S_NAV` short tokens.
+
+The two quantities differ — usually by a lot. For QQQ at `L_NAV = 480, S_NAV = 0.00208`, a 100 cUSDC mint produces ~0.104 QQQL and ~24,038 QQQS.
+
+The **value** of each leg at mint time is identical (50 cUSDC each, before fees). As the underlying price moves, the long leg's value rises while the short leg's falls reciprocally.
+
+## Why pairs, not single sides
+
+A user-facing single-sided mint is unsafe. Minting only L without an offsetting S deposit creates an unbacked claim against the collateral vault. If 1,000 users each minted L-only at NAV, the vault would be drained on redemption while the short side's mints would have nothing to settle against.
+
+Paired mint sidesteps this: every cUSDC of collateral is matched by tokens whose combined value is exactly that cUSDC (modulo fees). The vault's solvency is structural, not dependent on price.
+
+The keeper has a fee-free single-sided mint/redeem path — but it's gated by signer match against `market.keeper_authority`, and used only inside arb cycles that net back to cUSDC. See [Solvency invariants](/concepts/solvency).
+
+## The constant-product invariant
+
+```
+L_NAV × S_NAV = initial_l × initial_s  (always)
+```
+
+This is the heart of Continuum. It means:
+
+- As `L_NAV` rises, `S_NAV` falls **reciprocally**, not linearly.
+- Combined pair value `L_NAV + S_NAV` is bounded; it has a minimum at `L_NAV = S_NAV = √(initial_l × initial_s)` (geometric mean) and grows as either NAV moves away from that point.
+- The short side asymptotically approaches zero but never crosses below — short-token holders never owe more than they paid.
+- The long side can appreciate unboundedly while the short side provides diminishing counterpart.
+
+→ [Full NAV math](/concepts/nav)
+
+## P&L of a paired position
+
+Suppose you mint at QQQ = 480 (L = 480, S = 1, paired value 481):
+
+```
+Mint: 100 cUSDC → 0.104 QQQL @ 480 + 49.95 QQQS @ 1
+```
+
+If QQQ rises 10% to 528:
+
+```
+L_NAV = 528             (proportional)
+S_NAV = 480 × 1 / 528 = 0.909
+Position value = 0.104 × 528 + 49.95 × 0.909
+              = 54.91 + 45.40
+              = 100.31 cUSDC
+```
+
+If QQQ falls 10% to 432:
+
+```
+L_NAV = 432
+S_NAV = 480 × 1 / 432 = 1.111
+Position value = 0.104 × 432 + 49.95 × 1.111
+              = 44.93 + 55.49
+              = 100.42 cUSDC
+```
+
+The paired position has **near-zero net delta**. It's essentially neutral — the value drift is just the geometric-mean curvature of the constant product. To actually take a directional view, you sell one of the legs.
+
+## Selling a leg
+
+Both QQQL and QQQS are tradeable on Meteora DLMM:
+
+- `QQQL/cUSDC` pool — sell QQQL to express bearish view, buy QQQL to express bullish view.
+- `QQQS/cUSDC` pool — symmetric.
+
+A common flow:
+
+```
+1. mint_paired(100 cUSDC)              → 0.104 QQQL + 49.95 QQQS
+2. swap on Meteora: 49.95 QQQS → ~50 cUSDC
+                                       → net: 0.104 QQQL + 50 cUSDC
+                                       (long-only position, fully funded)
+```
+
+You started with 100 cUSDC and now hold a long-only QQQ position worth ~100 cUSDC plus 50 cUSDC of dry powder. The 50 cUSDC came from selling the short leg into the keeper's market-making bid.
+
+The reverse — sell QQQL, hold QQQS — gives you a short-only exposure.
+
+## What if NAV and pool price disagree?
+
+The keeper exists to make this not happen, but in transient periods it can:
+
+- **Pool > NAV** (overpriced on pool): the keeper mints fee-free at NAV (single-sided), sells on the pool, pockets the difference. Pool price drops toward NAV.
+- **Pool < NAV** (underpriced on pool): the keeper buys on the pool, redeems fee-free at NAV (single-sided), pockets the difference. Pool price rises toward NAV.
+- **Combined spread** (both sides off in the same direction): paired arb mint+sell or buy+redeem.
+
+You can run the same arb. There's no protocol-layer fee discount for the keeper on paired arb — only on single-sided. See [Composability](/build/composability) for how to write an external arb bot.
+
+## Decimals and minimums
+
+| Token | Decimals | Minimum mint |
+|---|---|---|
+| cUSDC (collateral) | 6 | `10_000_000` lamports = 10 cUSDC |
+| L tokens | 6 | n/a (derived from cUSDC) |
+| S tokens | 6 | n/a (derived from cUSDC) |
+
+The minimum is enforced by the program (`InvalidAmount` / `BelowMinimum` errors).
+
+## Token metadata
+
+Long and short SPL mints have **Metaplex token metadata** (name, symbol, image). Wallets and explorers display them as e.g. "QQQ Long" / "QQQS" with the Continuum logo.
+
+→ [Live markets table](/markets/live) lists every long/short mint pubkey.
+
+## Common questions
+
+**Q: Are paired tokens ERC-20-style approval-required?**
+No. They are SPL tokens. Solana uses Associated Token Accounts (ATAs); there is no `approve` step.
+
+**Q: Can I transfer the paired position to another wallet?**
+Yes. Both L and S are standard SPL tokens. Transfer them like any other Solana token. The receiver can independently redeem at NAV.
+
+**Q: Do I have to redeem in pairs?**
+No. Mint must be paired; redeem can be any combination of L and S the user holds. Redemption is **value-weighted**, not quantity-paired.
+
+**Q: What happens if I lose access to half the pair?**
+The other half is still redeemable on its own. Solvency invariant 1 (paired-only **mint**) doesn't apply to redeem — see [Solvency](/concepts/solvency).
+
+**Q: Are there fees on transfers?**
+No. Continuum's fees are at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`, both ~10 bps). Transfers are free at the protocol layer; you pay normal Solana fees only.

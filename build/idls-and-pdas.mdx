@@ -1,0 +1,215 @@
+---
+title: IDLs and PDAs
+description: Where to find IDLs, how to derive every PDA Continuum uses, and the order to do it in.
+---
+
+This page is a cheat-sheet. Bookmark it.
+
+## IDL sources
+
+| Program | Path in protocol repo | Embedded program ID (devnet) |
+|---|---|---|
+| `mint-redeem` | `target/idl/mint_redeem.json` | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` |
+| `oracle` | `target/idl/oracle.json` | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
+| `clp` | `target/idl/clp.json` | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` |
+| `faucet` | `target/idl/faucet.json` | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+| `registry` | `target/idl/registry.json` (regenerate via `anchor build`) | `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap` |
+
+Get them via:
+
+```bash
+git clone https://github.com/continuum-markets/continuum.git
+cd continuum
+anchor build   # regenerates target/idl/*
+ls target/idl/
+```
+
+The `frontend/lib/idl/` directory packages the same IDLs for the official frontend — copy from there if you don't want to clone the full protocol repo.
+
+## PDA derivation cheatsheet
+
+All PDAs use `findProgramAddressSync(seeds, programId)`. In `@solana/web3.js`:
+
+```typescript
+import { PublicKey } from "@solana/web3.js";
+
+const [pda, bump] = PublicKey.findProgramAddressSync(seeds, programId);
+```
+
+### `mint-redeem` PDAs
+
+```typescript
+// Market
+const [marketPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from(symbol)],   // symbol as ASCII bytes
+  mintRedeem.programId,
+);
+
+// User multi-collateral position (rare)
+const [userPos] = PublicKey.findProgramAddressSync(
+  [Buffer.from("user_collateral"), owner.toBuffer(), marketPDA.toBuffer()],
+  mintRedeem.programId,
+);
+
+// Fee waiver
+const [feeWaiver] = PublicKey.findProgramAddressSync(
+  [Buffer.from("fee_waiver"), donor.toBuffer(), marketPDA.toBuffer()],
+  mintRedeem.programId,
+);
+```
+
+### `oracle` PDAs
+
+```typescript
+// OracleConfig (per market)
+const [oracleConfig] = PublicKey.findProgramAddressSync(
+  [Buffer.from("oracle_config"), marketPDA.toBuffer()],
+  oracle.programId,
+);
+
+// OracleFeed (per (config, pyth feed))
+const [oracleFeed] = PublicKey.findProgramAddressSync(
+  [Buffer.from("oracle_feed"), oracleConfig.toBuffer(), pythFeed.toBuffer()],
+  oracle.programId,
+);
+```
+
+In practice you don't derive `oracle_config` — you read `market.oracle_address` directly from the Market account. The derivation is here for completeness.
+
+### `clp` PDAs
+
+```typescript
+// GlobalClp (singleton)
+const [globalClp] = PublicKey.findProgramAddressSync(
+  [Buffer.from("global_clp")],
+  clp.programId,
+);
+
+// Per-market Clp
+const [clpPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("clp"), marketPDA.toBuffer()],
+  clp.programId,
+);
+
+// Admin withdraw rate-limit window
+const [withdrawWindow] = PublicKey.findProgramAddressSync(
+  [Buffer.from("admin_withdraw_window")],
+  clp.programId,
+);
+```
+
+### `registry` PDAs
+
+```typescript
+// RegistryState (singleton)
+const [registryState] = PublicKey.findProgramAddressSync(
+  [Buffer.from("registry")],
+  registry.programId,
+);
+
+// MarketEntry — symbol padded to 16 bytes
+const symbol = "QQQ";
+const padded = Buffer.alloc(16);
+padded.write(symbol);
+const [marketEntry] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), padded],
+  registry.programId,
+);
+```
+
+Note the registry uses a **16-byte zero-padded symbol**, while mint-redeem uses the raw symbol bytes. They are different PDA seeds — don't confuse them.
+
+### `faucet` PDAs
+
+```typescript
+// FaucetState (per mint)
+const [faucetState] = PublicKey.findProgramAddressSync(
+  [Buffer.from("faucet"), cusdcMint.toBuffer()],
+  faucet.programId,
+);
+
+// DripRecord (per (mint, recipient))
+const [dripRecord] = PublicKey.findProgramAddressSync(
+  [Buffer.from("drip"), cusdcMint.toBuffer(), recipient.toBuffer()],
+  faucet.programId,
+);
+```
+
+### Token accounts (ATAs)
+
+ATAs are not PDAs of Continuum's programs but you'll derive them constantly:
+
+```typescript
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+
+const userCusdc = getAssociatedTokenAddressSync(cusdcMint, owner);
+const userLong  = getAssociatedTokenAddressSync(longMint,  owner);
+const userShort = getAssociatedTokenAddressSync(shortMint, owner);
+```
+
+## Composing a mint call
+
+For `mint_paired`, you need:
+
+```typescript
+{
+  market:           marketPDA,                                     // PDA derived from symbol
+  user:             owner,                                         // signer
+  userCollateral:   getAssociatedTokenAddressSync(cusdcMint, owner),
+  userLong:         getAssociatedTokenAddressSync(market.longMint, owner),
+  userShort:        getAssociatedTokenAddressSync(market.shortMint, owner),
+  longMint:         market.longMint,                               // from Market account
+  shortMint:        market.shortMint,
+  collateralVault:  market.collateralVault,
+  devTokenAccount:  getAssociatedTokenAddressSync(cusdcMint, market.feeRecipient),
+  oracleAddress:    market.oracleAddress,
+  tokenProgram:     TOKEN_PROGRAM_ID,
+}
+```
+
+Note the dependency chain:
+
+1. Derive `marketPDA` from symbol.
+2. Fetch `market` (one RPC call).
+3. From the fetched market, derive all child accounts.
+
+In production, batch the market fetch with the user's ATA balance fetch via `getMultipleAccountsInfo`.
+
+## Account-fetch helpers
+
+```typescript
+const market = await mintRedeem.account.market.fetch(marketPDA);
+const oracle = await oracleProgram.account.oracleConfig.fetch(market.oracleAddress);
+const clpAcc = await clp.account.clp.fetch(clpPDA);
+const global = await clp.account.globalClp.fetch(globalClpPDA);
+```
+
+For multi-market batched reads:
+
+```typescript
+const accounts = await mintRedeem.account.market.fetchMultiple(marketPDAs);
+// returns (Market | null)[]
+```
+
+## Discriminators
+
+Each Anchor account / instruction has an 8-byte discriminator. You don't compute these by hand — Anchor handles it. But if you need to manually decode account data without an IDL:
+
+```typescript
+const buf = (await connection.getAccountInfo(marketPDA))!.data;
+const discriminator = buf.slice(0, 8); // 8 bytes
+const accountData = buf.slice(8);      // the actual fields, Borsh-encoded
+```
+
+The discriminator is `sha256("account:Market").slice(0, 8)`. The keeper uses these manually for performance reasons; clients should rely on Anchor's `coder.accounts.decode`.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="SDK setup" icon="terminal" href="/build/sdk-setup">
+    Project bootstrap + first read.
+  </Card>
+  <Card title="End-to-end example" icon="code" href="/build/example-mint-redeem">
+    Mint and redeem in one script.
+  </Card>
+</CardGroup>

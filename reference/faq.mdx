@@ -1,0 +1,154 @@
+---
+title: FAQ
+description: Common questions about Continuum, paired tokens, the keeper, and integration.
+---
+
+## What is Continuum?
+
+A Solana protocol for **24/7 synthetic exposure to real-world assets**. Deposit USDC, get matched long and short tokens that track the asset's NAV. Sell either side on a DEX, hold to maturity, or redeem the pair back to USDC at any time. → [Introduction](/get-started/introduction).
+
+## Is it like a perp DEX?
+
+No. Perp DEXs use funding rates, margin, and liquidations. Continuum has none of these — positions are pre-paid SPL tokens, the long/short pair has a constant-product NAV invariant that bounds combined value, and there's no leverage. The position **is** an SPL token; you can transfer it, deposit it elsewhere, or redeem it.
+
+## What's the difference between long and short tokens?
+
+Both track the same underlying. The long token (`L`) appreciates as the asset price rises; the short token (`S`) depreciates reciprocally via the constant-product invariant `L_NAV × S_NAV = initial_l × initial_s`.
+
+A paired position has near-zero local delta — its value is bounded. To express direction, you sell one of the legs.
+
+## Can I lose more than my deposit?
+
+No. Continuum has no leverage and no liquidations. Mint cost equals NAV × paired count, paid in full upfront. Even if the protocol shut down tomorrow, holders of L+S can redeem at NAV against the existing collateral vault.
+
+The only way to lose: you sell one leg and that leg appreciates while you no longer hold it. That's normal directional risk, not unique to Continuum.
+
+## Can I just buy long-only?
+
+Yes — two paths:
+
+1. **Mint paired, sell short leg**: `mint_paired(100 cUSDC)` → `0.104 QQQL + 49.95 QQQS` → swap QQQS to cUSDC on Meteora → end with `0.104 QQQL + ~49.5 cUSDC`. Long-only QQQ exposure with cash buffer.
+2. **Buy directly on Meteora**: skip the mint. Faster but pays pool fee + slippage instead of mint fee.
+
+Path 1 is better for size; path 2 is better for small/urgent. → [Trade flow](/flows/trade).
+
+## Why "paired" if I can sell one leg?
+
+The protocol enforces **paired mint and redeem** for solvency. Once paired tokens exist, they're standard SPL tokens — you can do anything with them, including selling one leg. The pairing constraint is at the cUSDC ↔ token boundary, not at the token-trading layer.
+
+## Why no funding rate?
+
+The constant-product NAV invariant `L_NAV × S_NAV = initial_l × initial_s` does what funding does in a perp DEX — it redistributes value between holders of the popular vs unpopular side. As `L_NAV` rises, `S_NAV` falls reciprocally. Combined pair value stays bounded. There's nothing extra to redistribute.
+
+## How does the price stay anchored to NAV on the pool?
+
+A keeper bot runs an arbitrage loop. When pool price diverges from NAV by more than the pool fee, the keeper either mints fee-free at NAV and sells on the pool (if pool > NAV) or buys from the pool and redeems fee-free at NAV (if pool < NAV). The cUSDC delta is the keeper's profit; the pool price moves toward NAV as a side effect.
+
+You can run the same arb loop. The fee-free single-sided path is gated to the keeper authority; paired arb is open to everyone. → [Keeper](/concepts/keeper).
+
+## What if the keeper goes down?
+
+User mint and redeem still work — they go directly to the on-chain mint-redeem program, not through the keeper. NAV is read from the on-chain TWAP.
+
+What stales:
+- The TWAP itself stales after ~30s without keeper updates → risk state transitions to `ProxyMode`, mint pricing widens.
+- After ~120s of staleness → `Stress`, mint blocks. Redeem still works at last-fresh NAV.
+- Pool prices may drift from NAV until the keeper comes back.
+
+## Can I run my own keeper?
+
+Yes. The reference implementation is [open source](https://github.com/continuum-markets/continuum/tree/main/keeper). Limitations:
+
+- The market's `keeper_authority` is a single pubkey today. Two keepers signing as the same pubkey will collide.
+- For full keeper privileges, you need to be the canonical operator (rotate via `update_keeper_authority`).
+- For paired-arb-only operation (no `keeper_*_single` privilege), no authority needed — anyone can run a paired-arb bot.
+
+→ [Run a keeper](/keeper/running) · [External arb](/build/composability#2-arb-bot).
+
+## What chain / network is this on?
+
+Solana. Devnet for MVP. Mainnet launches after audits + bug bounty maturity.
+
+## What wallets work?
+
+Any Solana wallet that supports SPL tokens — Phantom, Backpack, Solflare, others. The frontend uses Solana Wallet Adapter; integration follows standard patterns.
+
+## How are L and S tokens priced?
+
+```
+L_NAV = Market.user_twap_price (or initial_l_price if TWAP == 0)
+S_NAV = (initial_l_price × initial_s_price) / L_NAV
+```
+
+This is on-chain protocol price. Pool price (Meteora active bin) may differ transiently but stays close due to keeper arb. → [NAV math](/concepts/nav).
+
+## What's the minimum mint?
+
+10 cUSDC (`10_000_000` lamports). Below that, `BelowMinimum` rejects.
+
+## What fees are there?
+
+| Fee | When | Default |
+|---|---|---|
+| `mint_fee_bps` | On `mint_paired` | 10 (0.10%) |
+| `redeem_fee_bps` | On `redeem_paired` | 10 (0.10%) |
+| Pool fee | On Meteora swaps | 0.10–0.25% (per market) |
+| Worst-case quoting markup | On mint in `ProxyMode` | 2× confidence (variable) |
+| Solana network fee | On every tx | ~0.000005 SOL |
+
+Round-trip mint+redeem at NAV is ~20 bps total.
+
+## What's the OI cap?
+
+Each market has a hard ceiling on `total_l_supply`. Mints reject when reached. Redeems remain open. Operators raise the cap as pool depth grows. Default is 250,000,000 cUSDC base units = 250M cUSDC nominal (the cap is wide; effective cap is governed by depth).
+
+## Why is the protocol the sole LP?
+
+MVP simplification. The mechanics for user LP shares exist in git history but are off — re-enabling is planned (no committed timeline yet). For now, capital is operator-funded.
+
+## Is there a token?
+
+Continuum's planned governance token is **CNTM**. Not yet live. The governance program is scaffolded but not wired to execution paths.
+
+## Where do I report bugs?
+
+- Discord: [#dev-help](https://discord.gg/continuum)
+- GitHub: [continuum-markets/continuum](https://github.com/continuum-markets/continuum) issues
+- Bug bounty (mainnet): TBD before mainnet launch
+
+## How can I get cUSDC for testing?
+
+Devnet has a faucet. → [Faucet program](/programs/faucet) · [Quickstart](/get-started/quickstart).
+
+## Why "Continuum"?
+
+Synthetic exposure across the continuum of real-world assets — equities, indices, commodities, FX — accessible 24/7 from any Solana wallet.
+
+## Can I integrate Continuum into my own product?
+
+Yes — please. Long and short tokens are SPL tokens. Paired mint and redeem are open to anyone. NAV is on-chain. CPI integration works. There are no licensing restrictions on integrating; the protocol is permissionless.
+
+For featured integrations on the docs and Twitter, drop a note in [#partners on Discord](https://discord.gg/continuum). → [Composability](/build/composability).
+
+## Where do I find the source code?
+
+Protocol: [github.com/continuum-markets/continuum](https://github.com/continuum-markets/continuum). MIT licensed. The keeper, frontend, and programs all live there.
+
+This docs site's source: [github.com/continuum-markets/docs](https://github.com/continuum-markets/docs). PRs welcome.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
+    First-time mint flow.
+  </Card>
+  <Card title="Concepts" icon="book" href="/concepts/overview">
+    The full mental model.
+  </Card>
+  <Card title="Glossary" icon="book" href="/reference/glossary">
+    Every term explained.
+  </Card>
+  <Card title="Errors" icon="circle-exclamation" href="/reference/errors">
+    What to do when things fail.
+  </Card>
+</CardGroup>

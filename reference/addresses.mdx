@@ -1,0 +1,137 @@
+---
+title: Address registry
+description: Every devnet address Continuum uses, in one place. Programs, mints, vaults, pools.
+---
+
+This is the canonical lookup table. Bookmark it.
+
+<Note>
+  Mainnet addresses will be added when mainnet launches. Until then, all addresses on this page are **devnet only**.
+</Note>
+
+## Programs
+
+| Program | Devnet ID |
+|---|---|
+| `mint-redeem` | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` |
+| `oracle` | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
+| `clp` | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` |
+| `registry` | `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap` |
+| `faucet` | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+| `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` |
+
+## Tokens
+
+| Token | Mint | Decimals |
+|---|---|---|
+| **cUSDC** (devnet collateral) | `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE` | 6 |
+
+| Per-market token mints | Long mint | Short mint |
+|---|---|---|
+| QQQ | `E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ` | `BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG` |
+| SPY | `8mVLeXHpchLvt3WZRhRrAZYJ4oU3e2crVF1QEomgdDQ8` | `3n5x1QaXSSw5ysAK5zkMo1XSm52TwzTBK48RAfkeKJiu` |
+| XAU | `AoufiP54693dn9HKonVBn6W75tKe8eHq5ncTwjTz6i5c` | `9XjYivtQfhDitFJugsskP6LppL7JJzANWwc7kmybpd55` |
+| VXX | `9GAPZW9pE8jkwzupFDnheDU1X35kh7vUMQvBkDLRuQn8` | `3Dnogj7nRYKEVBfPaBVkGw1Zbj5j3Nhm7RtGSKJfssch` |
+
+## Market PDAs
+
+| Market | PDA |
+|---|---|
+| QQQ | `F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5` |
+| SPY | `GT1XPJmWNxFukQXVxCmT6c9VdLdR6Da54aU9m9QGfd8b` |
+| XAU | `8HVoUTS3iNdKSCHhvhc2FNRnXjd7yHcEARD6mTFjem7b` |
+| VXX | `CkK5rTLKBHwo7NeRGrzjKUJAnKPrV2ko4UgbfBf788f6` |
+
+Derivation: `findProgramAddressSync([Buffer.from("market"), Buffer.from(symbol)], mintRedeemProgram)`.
+
+## Collateral vaults
+
+| Market | Vault |
+|---|---|
+| QQQ | `CGEMQpzitYvEnWE7sggqD4aBMpTmXhckQPYMhzhy9oJm` |
+| SPY | `DgL6UTux2gjRubznEnEQ1WprjajW5KYaegBEKgSncgPc` |
+| XAU | `2Z9W8e64czfRDu7DoJmZbhZGbm6W7ERuUnXS7iWzU2xx` |
+| VXX | `s7nNAEzhhP1nkahspsb5cWG8vZhPV4w1oNHrKwgvn6G` |
+
+Each is an SPL token account holding cUSDC for the corresponding market.
+
+## CLP accounts
+
+| | PDA | Vault |
+|---|---|---|
+| **Global CLP** | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| QQQ Clp | `EEDKqU3C4wgWQBcgFagHTqEAjKNMCV4eVYyaUt9swKHc` | `8Doh7uAU95RkqZDx66C1643Q8xJeg4T8eYKMak6ac1En` |
+| SPY Clp | `F4eAvoAd2tUnpDz7dSqj2d4eCBzHLHYTvPmiwHNe1nnX` | `J5cj2Ba1bMsgK4qk2uis6asL6hUSwAd53kYepteBG94B` |
+| XAU Clp | `DdUuCiNzv5A3XZJk5jj4vY8zGS1avcrcMu1MuR4J65BA` | `C6X4VEBggnwdC6Ju5tBMm8wxRiFekRZQrWSeX5Ja2kVn` |
+| VXX Clp | `BW82gQyxpNYCX8UNoqyKN29ZKXiPXhqvie75rnCyDhfm` | `Bx6hMqHuTN2XYJrzqNu5hgkzPbt3BUhosn4AUdepQ9fP` |
+
+## Oracle configs
+
+| Market | OracleConfig PDA | Pyth feed |
+|---|---|---|
+| QQQ | `7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1` | `8u6Bv99YnmTEr4R5fZ3UGdNjX2HeUbuZD82a52n2Dmuk` |
+| SPY | `CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE` | (multi-feed) |
+| XAU | `H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4` | (multi-feed) |
+| VXX | `GYiFbGPQnrB2WpecjaU9CvFHP5JneiZgqfh6JHLkXACA` | (multi-feed) |
+
+## Meteora DLMM pools
+
+| Market | Long pool (L/cUSDC) | Short pool (S/cUSDC) |
+|---|---|---|
+| QQQ | `3MN5oS1xvDNZBaGxJX5TurQEiww4bGyYqcnjSF2cxf6a` | `GMZdxttJsMaFKRPpcUVDhiu8S22m6s41xd5kxzh9wvPC` |
+| SPY | `HAVgkB471hUVivMBLzKV1GMamXoCVbXRjEub82MNUww3` | `F8ymHMLEvcnsGBNpFyxw4vhy2fgTrXNGi6GtQcLhfwvK` |
+| XAU | `Hea9Xh64q5F9Bx5iwnKbHMeBkx7QFH9YSfCQQR9R9642` | `8RRmXQqLQKiSe2RHknom2FDddK6tB6BatpC4sckfy17G` |
+| VXX | `6CkswPtW3kGdQC44DVYQrj9ab9Td5zqUPiabRDa6MT4q` | `4AfcArarfaDDDoKUQCVEQRcZKeVQ5emWem25o7tA4SzH` |
+
+All currently use `binStep=10, baseFactor=10000` (0.10% base fee).
+
+## Meteora positions (CLP-owned)
+
+These rotate during rebalance — the addresses below are the current positions as of last update. Read `clp.meteora_long_position` / `meteora_short_position` for live values.
+
+| Market | Long position | Short position |
+|---|---|---|
+| QQQ | (rotates) | (rotates) |
+| SPY | `FoW37DP2ocJEpKDerSYQBNJcDT9JPufnfGQY4N238VGy` | `Gzwi7C3NVNtLYXgrRRbXWAU8Q3uPvMFLCmMNdsRmtEEr` |
+| XAU | `3mBvXm49R9vkEgJUi1JGqGH7x5QVakUhVQgUmNEeVSLb` | `CeZXvCeW8BUSAUEzurSPvUCUjRC6wmn4k3SLVGiLKm92` |
+| VXX | `Cjt9Tp4UbykkUR4wTnZ8Z1wHQy46ts5buN6XHQqi6onw` | `GvaK7mun6mSjRPuiB1jsfPdxFB3Xqv5n17LTdyTwQ47W` |
+
+## External program IDs
+
+| Program | ID |
+|---|---|
+| Meteora DLMM | `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo` |
+| SPL Token | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Associated Token | `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL` |
+| Metaplex Token Metadata | `metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s` |
+
+## RPC endpoints
+
+| Cluster | Public endpoint |
+|---|---|
+| **Devnet** | `https://api.devnet.solana.com` |
+| Mainnet (when launched) | `https://api.mainnet-beta.solana.com` |
+
+For production, use a private RPC (Helius, Triton, QuickNode, Alchemy).
+
+## Programmatic access
+
+Always prefer reading from a registry or the protocol's bundled `frontend/lib/market-addresses.json` over hard-coding addresses. Addresses can change (e.g., on mainnet launch); your code shouldn't.
+
+```typescript
+import addresses from "./market-addresses.json";
+
+const qqq = addresses.markets.QQQ;
+const longPool = qqq.liquidity.venues.meteoraDlmm.longPool;
+```
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="chart-line" href="/markets/live">
+    Per-market detail pages.
+  </Card>
+  <Card title="Programs overview" icon="square-terminal" href="/programs/overview">
+    Program functionality and IDL sources.
+  </Card>
+</CardGroup>

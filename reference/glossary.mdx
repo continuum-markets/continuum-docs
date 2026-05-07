@@ -1,0 +1,139 @@
+---
+title: Glossary
+description: Continuum-specific terms in one place.
+---
+
+## A — F
+
+**Active bin** — Meteora DLMM's currently-live price bin. Trading happens at the active bin's price. Moves as swaps push the price up or down.
+
+**ATA** (Associated Token Account) — Solana's standard derivation for a wallet's token account: `getAssociatedTokenAddressSync(mint, owner)`. Always derived; not always created. Pre-create idempotently before instructions that expect them.
+
+**Anchor** — The Solana smart-contract framework Continuum is built on. Version 0.32.
+
+**`asset_symbol`** — The market's ticker (e.g., `"QQQ"`). Up to 16 chars. Used as the seed for the Market PDA.
+
+**Authority** — A signer with rights over an account. Continuum has multiple: `market.authority` (admin), `market.keeper_authority` (operational), `oracle_config.admin_authority`, `oracle_config.keeper_authority`, `globalClp.authority`.
+
+**Bin step** — Meteora DLMM's bin granularity, in basis points. `binStep=10` means each bin is 0.10% wide. Affects pool fee tier (`fee = binStep × baseFactor / 1e6`).
+
+**bps** (basis points) — 1 bps = 0.01%. Fees are quoted in bps: `mint_fee_bps = 10` means 0.10% fee.
+
+**cUSDC** — Continuum's devnet collateral mint (`B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`). On mainnet this is real USDC. We use "cUSDC" throughout these docs to avoid confusion.
+
+**CLP** (Capital and Liquidity Provider) — Continuum's on-chain treasury and DLMM proxy program. Holds protocol LP capital, owns Meteora positions. → [CLP concept](/concepts/clp).
+
+**CNTM** — Continuum's planned governance token. Not yet active.
+
+**Confidence interval** — Pyth's published uncertainty around the price. Continuum uses it for worst-case quoting markup in non-Normal risk states.
+
+**Constant-product invariant** — `L_NAV × S_NAV = initial_l × initial_s`. The relationship that bounds combined pair value and replaces funding rates.
+
+**CPI** (Cross-Program Invocation) — Solana's mechanism for one program to call another. Continuum's CLP CPIs into mint-redeem and Meteora.
+
+## D — L
+
+**DLMM** (Dynamic Liquidity Market Maker) — Meteora's concentrated-liquidity AMM. The trading venue for Continuum L/S tokens.
+
+**Drawdown** — Per-market peak value vs current value. Tracked by CLP for hard-bound gating.
+
+**Edge weight** — In the keeper's seeder: `(fee_rate + arb_rate) / (risk_weighted_q_deviation + drawdown)`. Drives capital allocation across markets.
+
+**Fee waiver** — A grant created via `donate_to_vault` that lets a donor mint/redeem fee-free for a duration. Requires the market vault to be over-collateralized.
+
+**Force price** — Devnet-only oracle override (`force_price` ix on the oracle program). Operator emergency tool.
+
+**Hermes** — Pyth's HTTP API for the latest price observations. Used by the keeper to push devnet prices on-chain.
+
+**`initial_l_price` / `initial_s_price`** — Constant-product anchors set at market initialization. Used as fallback NAV when TWAP is zero. Their product is invariant.
+
+**`is_long`** — Boolean argument to keeper-only single-side instructions. `true` → long side, `false` → short.
+
+**Keeper** — The off-chain Rust bot that runs oracle updates, arb, and DLMM rebalancing. → [Keeper overview](/keeper/overview).
+
+**`keeper_authority`** — The pubkey allowed to sign privileged single-side and CLP instructions for a given market. Stored on `Market`.
+
+**L** (Long) — One half of a Continuum paired position. Appreciates as the underlying rises.
+
+**`L_NAV`** — Long-side NAV. Equal to `Market.user_twap_price` (or `initial_l_price` if TWAP is zero).
+
+**LP** (Liquidity Provider) — In Continuum's MVP, the protocol is the sole LP via the CLP. User LP is on the roadmap.
+
+## M — R
+
+**Meteora** — The DEX hosting Continuum's L/cUSDC and S/cUSDC pools. Specifically Meteora DLMM.
+
+**`mint_paired`** — User-facing instruction. Deposits cUSDC, returns matched L+S at NAV. → [Mint flow](/flows/mint).
+
+**`mint_fee_bps`** — Per-market mint fee in basis points. Default 10 (0.10%).
+
+**Mint authority** — The signer that can mint new SPL tokens. For Continuum L/S mints, this is the Market PDA itself.
+
+**MVP** — The minimum-viable-product release. What's deployed today on devnet. Excludes governance, user LP, flash-loan, yield deployment.
+
+**NAV** (Net Asset Value) — The on-chain protocol price for L and S. What mint and redeem use. → [NAV math](/concepts/nav).
+
+**OI** (Open Interest) — Outstanding token supply. Tracked per side per market on the Market account (`total_l_supply` / `total_s_supply`).
+
+**`oi_cap`** — Hard ceiling on `total_l_supply` per market. Mints reject when reached. Stored on Clp account.
+
+**Oracle** — Continuum's on-chain price layer. Holds observations, TWAPs, risk state. → [Oracle concept](/concepts/oracle).
+
+**Paired** — As in `mint_paired` / `redeem_paired`. The user-facing entry where L and S are minted/burned at NAV-weighted values, not equal quantities.
+
+**PDA** (Program Derived Address) — Solana's deterministic-pubkey-from-seeds primitive. Continuum has many: `Market`, `Clp`, `OracleConfig`, etc. → [PDA derivations](/build/idls-and-pdas#pda-derivation-cheatsheet).
+
+**`ProxyMode`** — One of the four risk states. Oracle is stale or wide-confidence; mint is throttled with a 2× confidence markup. → [Risk states](/concepts/risk-states).
+
+**Pyth** — The on-chain oracle network Continuum reads. On mainnet, mint-redeem reads Pyth directly. On devnet, the keeper pushes Hermes (Pyth HTTP) observations.
+
+**q-imbalance** — The ratio of long-side value to short-side value. A market q far from 50/50 is a structural risk; the keeper drives it back through arb. CLP enforces hard bounds.
+
+**`redeem_paired`** — User-facing instruction. Burns L and S in independent quantities, returns cUSDC at NAV. → [Redeem flow](/flows/redeem).
+
+**`redeem_fee_bps`** — Per-market redeem fee. Default 10 (0.10%).
+
+**Recovery** — Risk state during post-Stress wind-down. Mint resumes (size-throttled).
+
+**Registry** — The on-chain symbol → market pubkey index. → [Registry program](/programs/registry).
+
+**`risk_state`** — One of `Normal` / `ProxyMode` / `Stress` / `Recovery`. Mirrored from oracle health by the keeper. → [Risk states](/concepts/risk-states).
+
+## S — Z
+
+**S** (Short) — One half of a Continuum paired position. Appreciates as the underlying falls.
+
+**`S_NAV`** — Short-side NAV. Derived: `(initial_l × initial_s) / L_NAV`.
+
+**Skip-rebuild** — DLMM rebalancer optimization. Skips remove + close + open when the existing range still covers active and NAV target.
+
+**Slippage** — Difference between expected and actual swap output. The keeper sets `MAX_SLIPPAGE_BPS=50` per swap; half is deducted from arb profit screens.
+
+**Solvency invariant** — A property the protocol enforces at all times. → [Solvency invariants](/concepts/solvency).
+
+**Stress** — Risk state when oracle confidence is extreme or staleness is severe. Mints reject; redeems still work.
+
+**Switchboard** — Alternative on-chain oracle (configurable per market on Continuum). Most markets use Pyth + Hermes today.
+
+**TWAP** (Time-Weighted Average Price) — A smoothed price computed over a window. Continuum runs two: `user_twap` (300s default) for user-facing NAV and `keeper_twap` (60s) for keeper arb decisions.
+
+**`user_twap_price`** — The Market account field that drives `L_NAV`. Updated by the oracle program via the keeper's observation push.
+
+**Vault** (collateral vault) — Per-market token account holding all backing cUSDC. Stored as `market.collateral_vault`.
+
+**Vol-adaptive radius** — DLMM rebalancer feature. Bin radius scales with realized volatility (calm 10, normal 20, elevated 30, stressed 34).
+
+**Worst-case quoting** — Mint pricing markup applied in non-Normal risk states. `mint_price = NAV × (1 + state_mult × confidence_bps / 10000)`.
+
+**Zombie position** — A Meteora position with phantom `liq_share > 0` after `remove_liquidity` but with all bin arrays drained. Meteora's `close_position2` rejects with `NonEmptyPosition`. The keeper skips close and opens fresh.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Errors" icon="circle-exclamation" href="/reference/errors">
+    Per-program error catalog.
+  </Card>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    All current devnet pubkeys.
+  </Card>
+</CardGroup>

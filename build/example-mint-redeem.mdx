@@ -1,0 +1,231 @@
+---
+title: Mint and redeem (full example)
+description: Copy-pasteable TypeScript script that drips cUSDC, mints a paired QQQ position, then redeems it.
+---
+
+End-to-end Bun + TypeScript example. ~60 lines including imports. Hits devnet, requires only a funded wallet.
+
+## Prereqs
+
+- A devnet wallet at `~/.config/solana/id.json` with ≥ 0.5 SOL.
+- IDLs for `mint_redeem` and `faucet` in `./idl/`.
+- `bun add @coral-xyz/anchor@0.32 @solana/web3.js @solana/spl-token`
+
+```bash
+solana airdrop 1
+```
+
+## The script
+
+```typescript
+// mint-and-redeem.ts
+import {
+  Connection, Keypair, PublicKey, Transaction,
+} from "@solana/web3.js";
+import { AnchorProvider, Program, Wallet, BN } from "@coral-xyz/anchor";
+import {
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+} from "@solana/spl-token";
+import fs from "fs";
+import path from "path";
+
+import mintRedeemIdl from "./idl/mint_redeem.json";
+import faucetIdl     from "./idl/faucet.json";
+
+// ─────────────────────────────────────────────────────────────────
+const RPC_URL    = "https://api.devnet.solana.com";
+const SYMBOL     = "QQQ";
+const CUSDC_MINT = new PublicKey("B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE");
+const MINT_AMT   = new BN(100_000_000); // 100 cUSDC (6 decimals)
+// ─────────────────────────────────────────────────────────────────
+
+async function main() {
+  const conn   = new Connection(RPC_URL, "confirmed");
+  const kp     = Keypair.fromSecretKey(new Uint8Array(JSON.parse(
+    fs.readFileSync(path.join(process.env.HOME!, ".config/solana/id.json"), "utf8"),
+  )));
+  const wallet = new Wallet(kp);
+  const provider = new AnchorProvider(conn, wallet, { commitment: "confirmed" });
+
+  const mr     = new Program(mintRedeemIdl as any, provider);
+  const faucet = new Program(faucetIdl as any, provider);
+
+  // 1. Derive market and load it
+  const [marketPDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("market"), Buffer.from(SYMBOL)], mr.programId,
+  );
+  const market = await mr.account.market.fetch(marketPDA);
+  console.log(`✓ Market loaded: ${SYMBOL} risk=${Object.keys(market.riskState)[0]}`);
+
+  // 2. ATAs
+  const userCusdc = getAssociatedTokenAddressSync(CUSDC_MINT, kp.publicKey);
+  const userLong  = getAssociatedTokenAddressSync(market.longMint, kp.publicKey);
+  const userShort = getAssociatedTokenAddressSync(market.shortMint, kp.publicKey);
+  const devCusdc  = getAssociatedTokenAddressSync(CUSDC_MINT, market.feeRecipient);
+
+  // 3. Drip cUSDC if balance < 100
+  const balance = await conn.getTokenAccountBalance(userCusdc).catch(() => null);
+  const lamports = balance ? Number(balance.value.amount) : 0;
+  if (lamports < 100_000_000) {
+    console.log("⌛ Dripping cUSDC from faucet…");
+    const [faucetState] = PublicKey.findProgramAddressSync(
+      [Buffer.from("faucet"), CUSDC_MINT.toBuffer()], faucet.programId,
+    );
+    const [dripRecord] = PublicKey.findProgramAddressSync(
+      [Buffer.from("drip"), CUSDC_MINT.toBuffer(), kp.publicKey.toBuffer()], faucet.programId,
+    );
+    const dripIx = await faucet.methods
+      .drip()
+      .accounts({
+        faucetState, dripRecord,
+        mint: CUSDC_MINT, recipient: kp.publicKey, recipientAta: userCusdc,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .instruction();
+    const tx = new Transaction().add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        kp.publicKey, userCusdc, kp.publicKey, CUSDC_MINT,
+      ),
+      dripIx,
+    );
+    const sig = await provider.sendAndConfirm(tx);
+    console.log(`  drip tx: ${sig}`);
+  }
+
+  // 4. Pre-create L and S ATAs idempotently
+  const preIxs = [
+    createAssociatedTokenAccountIdempotentInstruction(kp.publicKey, userLong,  kp.publicKey, market.longMint),
+    createAssociatedTokenAccountIdempotentInstruction(kp.publicKey, userShort, kp.publicKey, market.shortMint),
+    createAssociatedTokenAccountIdempotentInstruction(kp.publicKey, devCusdc,  market.feeRecipient, CUSDC_MINT),
+  ];
+
+  // 5. Mint paired
+  const mintIx = await mr.methods
+    .mintPaired(MINT_AMT)
+    .accounts({
+      market: marketPDA,
+      user: kp.publicKey,
+      userCollateral: userCusdc,
+      userLong, userShort,
+      longMint: market.longMint, shortMint: market.shortMint,
+      collateralVault: market.collateralVault,
+      devTokenAccount: devCusdc,
+      oracleAddress: market.oracleAddress,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .instruction();
+
+  const sig1 = await provider.sendAndConfirm(new Transaction().add(...preIxs, mintIx));
+  console.log(`✓ mint_paired: ${sig1}`);
+
+  const longBal  = await conn.getTokenAccountBalance(userLong);
+  const shortBal = await conn.getTokenAccountBalance(userShort);
+  console.log(`  +${longBal.value.uiAmountString} ${SYMBOL}L`);
+  console.log(`  +${shortBal.value.uiAmountString} ${SYMBOL}S`);
+
+  // 6. Wait one block, then redeem the full position
+  await new Promise(r => setTimeout(r, 2000));
+
+  const lToBurn = new BN(longBal.value.amount);
+  const sToBurn = new BN(shortBal.value.amount);
+
+  const redeemIx = await mr.methods
+    .redeemPaired(lToBurn, sToBurn)
+    .accounts({
+      market: marketPDA,
+      user: kp.publicKey,
+      userCollateral: userCusdc,
+      userLong, userShort,
+      longMint: market.longMint, shortMint: market.shortMint,
+      collateralVault: market.collateralVault,
+      devTokenAccount: devCusdc,
+      oracleAddress: market.oracleAddress,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .instruction();
+
+  const sig2 = await provider.sendAndConfirm(new Transaction().add(redeemIx));
+  console.log(`✓ redeem_paired: ${sig2}`);
+
+  const finalCusdc = await conn.getTokenAccountBalance(userCusdc);
+  console.log(`  cUSDC balance: ${finalCusdc.value.uiAmountString}`);
+}
+
+main().catch(e => { console.error(e); process.exit(1); });
+```
+
+Run:
+
+```bash
+bun mint-and-redeem.ts
+```
+
+Expected output (approximate):
+
+```
+✓ Market loaded: QQQ risk=normal
+⌛ Dripping cUSDC from faucet…
+  drip tx: 4uzC...8ahP
+✓ mint_paired: 9zKw...ePmQ
+  +0.10406 QQQL
+  +49.95   QQQS
+✓ redeem_paired: 7vBN...kLh3
+  cUSDC balance: 999.78
+```
+
+The 0.22 cUSDC delta is the round-trip fees: 0.10 cUSDC mint fee + 0.10 cUSDC redeem fee, plus tiny rounding losses. Net: ~22 bps for a full mint+redeem cycle.
+
+## What just happened
+
+- Step 3 dripped 1000 cUSDC if needed. Subsequent runs skip this.
+- Step 5 deposited 100 cUSDC, received ~0.104 QQQL + ~49.95 QQQS, paid 0.10 cUSDC fee.
+- Step 6 burned the entire position, received ~99.78 cUSDC, paid 0.10 cUSDC fee.
+
+If `redeem_paired` ever returned an unexpected number, double-check `L_NAV` and `S_NAV` against the on-chain market state — see [Reading state](/flows/read-state).
+
+## Asymmetric redeem
+
+Modify step 6 to redeem only one side:
+
+```typescript
+// Redeem only L (express bearish exit)
+const redeemIx = await mr.methods
+  .redeemPaired(lToBurn, new BN(0))
+  .accounts({ ... })
+  .rpc();
+```
+
+You'll receive `lToBurn × L_NAV - fee` cUSDC and still hold `sToBurn` worth of S. Sell it on Meteora when convenient, or hold for short exposure.
+
+## Common errors
+
+| Error | Fix |
+|---|---|
+| `MintNotAllowedInStress` | Wait for the keeper to push fresh observations and the risk state to recover. |
+| `OICapExceeded` | Pick a smaller `MINT_AMT`. |
+| `InsufficientCollateral` (mint side) | Your wallet's cUSDC balance is below `MINT_AMT`. Run faucet step. |
+| `BelowMinimum` | `MINT_AMT < 10_000_000`. Mint at least 10 cUSDC. |
+| `OraclePriceUnavailable` | Oracle is paused or `force_price` was used recently. Try another market or wait. |
+
+→ [Full error catalog](/reference/errors)
+
+## Extending the example
+
+- **Mint multiple markets in one tx**: build separate mint instructions for QQQ, SPY, etc., bundle in one Transaction.
+- **Reactive UI**: subscribe to `marketPDA` via `connection.onAccountChange` to refresh NAV automatically.
+- **Trade post-mint**: after step 5, immediately swap the short leg on Meteora to express directional view — see [Trade flow](/flows/trade).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reading prices" icon="chart-line" href="/build/reading-prices">
+    Read NAV from on-chain TWAP, Hermes, and pool active bin.
+  </Card>
+  <Card title="Composability" icon="puzzle-piece" href="/build/composability">
+    Use cases: arb bot, structured products, integrations.
+  </Card>
+</CardGroup>

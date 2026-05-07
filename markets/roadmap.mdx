@@ -1,0 +1,116 @@
+---
+title: Roadmap
+description: What's live, what's next, and what's not coming.
+---
+
+Continuum's MVP runs on devnet. The path to mainnet and the planned market roster:
+
+## What's live (devnet)
+
+| Market | Asset | Live since |
+|---|---|---|
+| **QQQ** | Nasdaq-100 ETF | Apr 2026 |
+| **SPY** | SPDR S&P 500 ETF | Apr 2026 |
+| **XAU** | Gold spot | Apr 2026 |
+| **VXX** | VIX short-term futures ETN | Apr 2026 |
+
+All four use 0.10% bin-step pools. See [Live markets](/markets/live) for full pubkeys.
+
+## Planned markets
+
+Continuum's targeted launch is **TradFi-only**. No crypto markets — the constant-product invariant doesn't add value over an actual perp DEX for crypto pairs.
+
+### Indices
+- SPX (S&P 500 raw index)
+- NDX (Nasdaq-100 raw index)
+- FTSE 100
+- DAX
+- Russell 2000
+
+### Equities
+- NVDA (Nvidia)
+- AAPL (Apple)
+- TSLA (Tesla)
+- GME (GameStop)
+- AMC (AMC Entertainment)
+- META (Meta)
+- AMZN (Amazon)
+- GOOGL (Alphabet)
+
+### Commodities
+- XAG (Silver)
+- WTI (Crude oil)
+- BRENT (Brent crude)
+- HG (Copper)
+
+### Forex
+- EUR/USD
+- USD/JPY
+- GBP/USD
+- USD/CHF
+
+The order of rollout depends on:
+
+1. **Pyth feed quality** — does Pyth publish a reliable feed on Solana for this asset?
+2. **Liquidity targeting** — index ETFs first (deepest external arb), single equities second, commodities and FX third.
+3. **Operator capital** — each market needs ~$100K–$500K of LP seed; capital is finite.
+
+## Mainnet path
+
+Going from devnet to mainnet is gated on:
+
+| Gate | Status |
+|---|---|
+| Security audits | 🟡 In progress (Sec3 / OtterSec / Neodyme — at least one before launch) |
+| Devnet stability under load | 🟡 ~4 weeks of devnet stress testing |
+| Bug bounty program | 🟡 Live before mainnet |
+| Multisig migration of upgrade authorities | 🟡 Squads (≥3-of-5) for upgrade authority + separate multisig for CLP authority |
+| Conservative initial OI caps per market | ✅ Pattern set on devnet |
+| Pyth feed availability for every targeted asset | 🟡 Pre-flight check per market |
+| Gradual rollout (invite-only first market) | ✅ Plan agreed |
+
+Mainnet launch will be **single-market**, invite-only, with a small initial OI cap. Expansion is observation-driven.
+
+## Features behind feature flags
+
+Things that compile but are off:
+
+- **MarginFi / Kamino flash-loan integration** in the keeper. Off by default; enables larger arb trade sizes without keeper treasury. Mainnet-only since both protocols are mainnet-only.
+- **Idle-collateral yield deployment** (`YIELD_ENABLED=false`). The CLP can deploy idle vault balance into Kamino lending. Audit-gated.
+- **L/S direct pool arb** (`LS_POOLS` env var unset). Deprecated by single-side keeper mint/redeem. Stays disabled.
+- **Multi-keeper coordination beyond basic primary/standby**. Future addition for higher availability.
+
+## Features under design
+
+- **Governance activation.** CNTM staking, listing votes, parameter votes. Program scaffold exists; on-chain wiring is the remaining work.
+- **User-supplied LP shares.** For MVP the protocol is the sole LP. Re-enabling user LP requires restoring the `GlobalLPAccount` state and three deposit/withdraw/lockup instructions (still in git history).
+- **Cross-market keeper coordination.** Edge-weighted dispatching across operators.
+- **Vol-regime auto-tuning.** Per-asset percentile calibration of the volatility thresholds (currently VIX-inspired heuristics).
+- **Custom per-bin DLMM weights.** The keeper currently uses Meteora's `CurveBalanced` shape; custom weights from fee distribution history would be strictly better but require a new CLP instruction.
+- **Public arb-bot SDK.** A TypeScript / Rust library for external arb bots, packaging the keeper's spread-detection and execution logic.
+
+## What's explicitly NOT planned
+
+- **Crypto markets.** Use a real perp DEX.
+- **Funding rate.** The constant-product NAV invariant replaces it.
+- **Liquidations.** Paired positions are pre-paid.
+- **Margin / leverage.** Synthetic leverage via external borrowing is fine; native leverage is out of scope.
+- **In-house AMM.** Meteora DLMM is the trading venue.
+- **Closed-source frontend.** The official frontend will remain open-source.
+
+## Tracking progress
+
+- [GitHub roadmap project](https://github.com/orgs/continuum-markets/projects)
+- [Discord #releases channel](https://discord.gg/continuum)
+- [Twitter @ContinuumMkts](https://twitter.com/ContinuumMkts) for major announcements
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    What's live on devnet today.
+  </Card>
+  <Card title="Listing flow" icon="plus" href="/markets/listing">
+    How a market gets added.
+  </Card>
+</CardGroup>

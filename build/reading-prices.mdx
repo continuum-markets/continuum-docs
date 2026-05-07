@@ -1,0 +1,174 @@
+---
+title: Reading prices
+description: Three ways to get a price for a Continuum market — on-chain TWAP, Hermes HTTP, and DLMM pool active bin.
+---
+
+A Continuum market exposes prices in three places. They serve different purposes:
+
+| Source | Latency | Purpose |
+|---|---|---|
+| `Market.user_twap_price` | ~15s | What mint and redeem use. Authoritative for protocol P&L. |
+| `OracleConfig.last_price` | ~15s | Same source, more metadata (confidence, freshness). |
+| Pyth Hermes (HTTP) | seconds | Off-chain raw spot. For predictive UI updates. |
+| Meteora DLMM pool active bin | instant | What the pool trades at. May diverge from NAV transiently. |
+
+## On-chain NAV (the canonical price)
+
+Read `Market` → derive both NAVs:
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+
+const market = await mintRedeem.account.market.fetch(marketPDA);
+
+const lNav = market.userTwapPrice.gtn(0)
+  ? market.userTwapPrice
+  : market.initialLPrice;
+const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav);
+
+const lNavUI = lNav.toNumber() / 1e6;
+const sNavUI = sNav.toNumber() / 1e6;
+```
+
+This is the most-authoritative price for the protocol — what `mint_paired`, `redeem_paired`, `keeper_mint_single`, `keeper_redeem_single` all use.
+
+## Oracle freshness and confidence
+
+For more granular signal, fetch the oracle:
+
+```typescript
+const oracle = await oracleProgram.account.oracleConfig.fetch(market.oracleAddress);
+
+const stale = Date.now() / 1000 - oracle.lastUpdateTime.toNumber();
+const confBps = (oracle.lastConfidence.toNumber() / oracle.lastPrice.toNumber()) * 10_000;
+
+console.log(`stale: ${stale.toFixed(1)}s, confidence: ${confBps.toFixed(0)} bps`);
+```
+
+Use this to:
+
+- Surface a **"price is stale"** warning in your UI when `stale > 30`.
+- Disable mint at confidence > some threshold (mirrors what the program would do anyway).
+- Compute the worst-case quote a user would actually pay (NAV × (1 + state_mult × confidence_bps / 10000)).
+
+## Pyth Hermes (off-chain)
+
+For lowest-latency display:
+
+```typescript
+async function fetchHermes(feedId: string): Promise<{ price: number, conf: number }> {
+  const res = await fetch(
+    `https://hermes.pyth.network/v2/updates/price/latest?ids[]=${feedId}`,
+  );
+  const data = await res.json();
+  const p = data.parsed[0].price;
+  return {
+    price: Number(p.price) * 10 ** Number(p.expo),
+    conf:  Number(p.conf)  * 10 ** Number(p.expo),
+  };
+}
+
+// QQQ Pyth feed ID (Hermes)
+const { price, conf } = await fetchHermes(
+  "0x9695e2b96ea7b3859da9ed25b7a46a920a776e2fdae19a7bcfdf2b219230452d",
+);
+console.log(`QQQ Hermes: ${price.toFixed(2)} ± ${conf.toFixed(2)}`);
+```
+
+Hermes feeds publish session-aware (regular / pre-market / post-market / overnight). The keeper picks the right session feed when pushing observations on-chain. Your client can match by checking the current US/Eastern hour.
+
+| Hour ET | Active feed kind |
+|---|---|
+| 04:00 – 09:30 | `PreMarket` |
+| 09:30 – 16:00 | `Primary` |
+| 16:00 – 20:00 | `PostMarket` |
+| 20:00 – 04:00 | `Overnight` |
+
+## Pool active-bin price
+
+```typescript
+import DLMM from "@meteora-ag/dlmm";
+
+const dlmm = await DLMM.create(connection, longPoolAddr);
+const activeId = dlmm.lbPair.activeId;
+const pricePerLamport = dlmm.fromPricePerLamport(
+  dlmm.getPricePerLamport(activeId),
+);
+console.log(`QQQL pool active price: ${pricePerLamport}`);
+```
+
+Compare to NAV → spread:
+
+```typescript
+const spreadPct = ((pricePerLamport / lNavUI) - 1) * 100;
+console.log(`Pool vs NAV: ${spreadPct.toFixed(3)}%`);
+```
+
+In steady state this is < pool fee tier (0.10% for index ETFs). Wider → arb opportunity.
+
+## Combining for a UX
+
+A typical "live price" UI for a Continuum market:
+
+```typescript
+async function getLivePrice(symbol: string) {
+  const market = await mintRedeem.account.market.fetch(marketPDAs[symbol]);
+  const oracle = await oracleProgram.account.oracleConfig.fetch(market.oracleAddress);
+
+  const lNav = market.userTwapPrice.gtn(0)
+    ? market.userTwapPrice.toNumber() / 1e6
+    : market.initialLPrice.toNumber() / 1e6;
+  const sNav = (market.initialLPrice.toNumber() / 1e6) *
+               (market.initialSPrice.toNumber() / 1e6) / lNav;
+
+  const stale = Date.now() / 1000 - oracle.lastUpdateTime.toNumber();
+  const riskState = Object.keys(market.riskState)[0];
+
+  return {
+    symbol,
+    lNav, sNav,
+    stale, riskState,
+    canMint: riskState !== "stress" && !oracle.isPaused,
+  };
+}
+```
+
+Render: `lNav` as the primary price, `riskState` as a chip if non-`normal`, `stale` as a warning if > 30s. For pool-trade users, also show pool active price.
+
+## When to subscribe vs poll
+
+- **Subscribe** (`onAccountChange`) when you need < 1 second update. Costs are RPC connections; many wallets and bots can do this concurrently.
+- **Poll** (every 5–15s) for dashboards. Cheaper RPC bill, "good enough" latency.
+- **Hermes HTTP** when you want the rawest spot price independent of what the keeper has pushed. Bypasses on-chain TWAP smoothing.
+
+The reference frontend polls every 15s for the market list and uses `onAccountChange` for the actively-displayed market detail page.
+
+## Decimals matter
+
+Everything in account data is **6 decimals**. Don't mix raw lamports with UI numbers in the same expression:
+
+```typescript
+// WRONG
+const wrong = market.userTwapPrice.toNumber() * market.totalLSupply.toNumber();
+
+// CORRECT (UI value)
+const ui = (market.userTwapPrice.toNumber() / 1e6) *
+           (market.totalLSupply.toNumber() / 1e6);
+
+// CORRECT (BN math, stays in lamports)
+const lamports = market.userTwapPrice.mul(market.totalLSupply).div(new BN(1e6));
+```
+
+`BN` arithmetic doesn't overflow easily; prefer it over `toNumber()` for anything you might multiply.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    Full state-fetch patterns (markets, vaults, positions).
+  </Card>
+  <Card title="Risk states" icon="shield-check" href="/concepts/risk-states">
+    What `Stress`, `ProxyMode`, `Recovery` mean and how to surface them.
+  </Card>
+</CardGroup>

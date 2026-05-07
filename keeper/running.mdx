@@ -1,0 +1,236 @@
+---
+title: Running a keeper
+description: Build, configure, deploy, and troubleshoot the reference keeper.
+---
+
+The reference keeper is a Rust async bot. Source: [`keeper/`](https://github.com/continuum-markets/continuum/tree/main/keeper) in the protocol repo.
+
+This page is for operators who want to run their own. Most integrators don't need to.
+
+## Prerequisites
+
+- Rust 1.75+ and Cargo
+- Solana CLI 1.18+
+- A funded keeper wallet (≥ 0.5 SOL on devnet, more on mainnet)
+- A separate CLP authority keypair (≥ 0.1 SOL)
+- A private RPC URL (Helius, Triton, etc.) — public devnet is rate-limited
+- For arb operation: keeper wallet must be the canonical `market.keeper_authority` for any market you want to operate (single-pubkey constraint today)
+
+## Build
+
+```bash
+git clone https://github.com/continuum-markets/continuum.git
+cd continuum/keeper
+cargo build --release
+```
+
+Output: `keeper/target/release/keeper` (~50MB binary).
+
+## Configure
+
+```bash
+cp .env.example .env
+```
+
+Key knobs:
+
+```env
+# RPC — set both for dual-network mode
+MAINNET_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+DEVNET_RPC_URL=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+
+# Keypairs — JSON byte array (Railway) or file path (local)
+KEEPER_KEYPAIR_JSON=[12,34,56,...]   # or
+KEEPER_KEYPAIR=~/.config/solana/id.json
+
+CLP_AUTHORITY_KEYPAIR_JSON=[...]     # separate from KEEPER_KEYPAIR
+# or
+CLP_AUTHORITY_KEYPAIR=keeper/key/keeper-keypair.json
+
+# USDC — ON DEVNET, MUST SET EXPLICITLY
+DEVNET_USDC_MINT=B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE
+MAINNET_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+
+# Active markets
+ACTIVE_MARKETS=QQQ,SPY,XAU,VXX
+
+# Intervals
+ARB_INTERVAL_SECS=15
+DLMM_INTERVAL_SECS=120
+
+# Sizing and thresholds
+MIN_ARB_PROFIT=100000          # $0.10 (cUSDC lamports)
+MAX_SLIPPAGE_BPS=50
+LIQUIDITY_SEED_FRACTION_BPS=6500
+
+# Optional: hard cap per arb (unset for dynamic sizing)
+# ARB_TRADE_AMOUNT=10000000000  # $10K
+
+# Logging
+RUST_LOG=continuum_keeper=info
+```
+
+<Warning>
+  **`USDC_MINT` is the most common misconfig.** If unset, it falls back to mainnet USDC even on devnet — this silently breaks every ATA derivation, vault balance reads as 0, and the seeder skips with no error. Always set `DEVNET_USDC_MINT=B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE` on devnet.
+</Warning>
+
+## Run
+
+```bash
+./target/release/keeper
+```
+
+Or via the workspace script:
+
+```bash
+cd ..  # back to repo root
+bun run keeper:local
+```
+
+You should see, within ~30 seconds:
+
+```
+INFO continuum_keeper: starting keeper
+INFO continuum_keeper::oracle: pushed observation for QQQ price=480.32 conf=0.04
+INFO continuum_keeper::risk: market QQQ state=Normal
+INFO continuum_keeper::dashboard: http listener on 0.0.0.0:8485
+```
+
+The dashboard is at `http://localhost:8485` (devnet) or `:8484` (mainnet).
+
+## Multi-keeper considerations
+
+The market's `keeper_authority` is a single pubkey. Two keepers signing as the same pubkey will collide on `keeper_*_single` calls — only one tx will land per slot.
+
+If you want redundancy:
+
+- **Active/standby**: peer heartbeat (already in the keeper) + manual primary/standby logic. The reference keeper has basic peer heartbeat; primary/standby logic is on the [roadmap](/markets/roadmap).
+- **Different markets per operator**: rotate `keeper_authority` per market. `update_keeper_authority` is admin-callable.
+
+External arb bots (no keeper authority) can run alongside the canonical keeper without coordination — they compete for paired-arb opportunities directly.
+
+## Solvency-checking the keeper
+
+```bash
+# Check keeper wallet balance
+solana balance <KEEPER_PUBKEY>
+
+# Check L/S residual in keeper wallet (should be 0 in steady state)
+spl-token accounts --owner <KEEPER_PUBKEY>
+
+# Check global vault balance
+bun run scripts/protocol-status.ts
+```
+
+If you see non-zero L or S in the keeper wallet, restart the keeper — boot-time sweep will redeem them.
+
+## Common issues
+
+### "Keeper seeder skipping silently"
+
+The most common issue. Check:
+
+1. Is `USDC_MINT` set correctly for your cluster?
+2. Is the global vault balance > `liquidity_seed_threshold` (default $1k)?
+3. Is the keeper authority correct? Check `market.keeper_authority` matches your `KEEPER_KEYPAIR` pubkey.
+
+### "Unauthorized keeper" on every arb
+
+The keeper signed with a key that doesn't match `market.keeper_authority`. Two common causes:
+
+1. Wrong `KEEPER_KEYPAIR` configured.
+2. Admin rotated `keeper_authority` and you didn't update.
+
+Check the on-chain market account vs your keypair pubkey.
+
+### "Position is zombied"
+
+Meteora's `close_position2` failing with `NonEmptyPosition` (6030) after multiple `remove_liquidity` attempts. The keeper detects this automatically and skips the close step. The position's ~0.05 SOL rent is sacrificed.
+
+If your CLP-state pointer is also lost (rare), recover via:
+
+```bash
+MARKET=QQQ SIDE=1 bun run scripts/recover-orphaned-position.ts
+```
+
+This calls `clp_set_meteora_position` to restore the pointer; the keeper drains it on the next tick.
+
+### "RPC rate-limited"
+
+The keeper has fallback RPC built in — set a comma-separated list:
+
+```env
+MAINNET_RPC_URL=https://primary,https://fallback
+```
+
+The keeper rotates on 429.
+
+For production, run a dedicated RPC (Helius / Triton premium tier).
+
+### "Keeper wallet has stranded synth tokens"
+
+Restart the keeper. Boot-time sweep handles it. If the keeper can't run, manually call `redeem_paired` (paired residue) or `keeper_redeem_single` (asymmetric) signed with the keeper authority.
+
+### "Pool prices drifted far from NAV"
+
+Diagnostics:
+
+1. **Per-side depegs but combined spread tight** → Paired arb can't close. On mainnet external flow corrects per-side; on devnet you're alone.
+2. **Pool depth exhausted** → `spl-token balance <reserve_y_account>`. If near-zero, seed more capital: `LIQUIDITY_SEED_FRACTION_BPS=8000`.
+3. **Zombie positions trapping liquidity** → see above.
+
+Manual push toward NAV (operator override, doesn't route through CLP):
+
+```bash
+bun run scripts/fix-pool-prices.ts
+```
+
+Use sparingly.
+
+## Production deployment notes
+
+- **Multisig the admin keypair.** The keeper authority is a hot key by design (signs every cycle). The admin authority should be a Squads multisig — separate from the keeper.
+- **Run one keeper per cluster.** The reference keeper supports dual-network mode (one process, both mainnet and devnet). Separate dashboard ports.
+- **Monitor the dashboard.** It's on `:8484` / `:8485`. Pipe to your monitoring (Datadog, Grafana, custom Prometheus exporter).
+- **Set up alerts.** Watch for: stale oracle (> 60s), unsuccessful arbs in a row (>3), low keeper SOL balance (< 0.1).
+- **Keep keeper SOL topped up.** The keeper pays for every transaction. Burn rate is roughly 0.05 SOL/day on devnet, more under high arb volume.
+
+## Logging
+
+```env
+RUST_LOG=continuum_keeper=info,continuum_keeper::arb=debug
+```
+
+Per-module log levels. Useful in production:
+
+- `continuum_keeper=info` — normal operation
+- `continuum_keeper::arb=debug` — every arb decision
+- `continuum_keeper::dlmm=debug` — every rebalance decision
+- `continuum_keeper::rpc=warn` — RPC failures only
+
+## Updating
+
+```bash
+cd continuum
+git pull
+cd keeper
+cargo build --release
+# Restart with:
+systemctl restart continuum-keeper   # or whatever your supervisor is
+```
+
+The keeper does a clean shutdown (boot-time sweep is idempotent so a fast restart is safe).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Keeper overview" icon="robot" href="/keeper/overview">
+    What the keeper does, why it's privileged.
+  </Card>
+  <Card title="Arb paths" icon="route" href="/keeper/arb-paths">
+    The four arb cycles.
+  </Card>
+  <Card title="DLMM management" icon="chart-line" href="/keeper/dlmm">
+    Position rebalancing details.
+  </Card>
+</CardGroup>

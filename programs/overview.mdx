@@ -1,0 +1,131 @@
+---
+title: Programs overview
+description: The five Anchor programs that make up the Continuum protocol. Devnet IDs, IDLs, and where each fits.
+---
+
+Continuum's protocol layer is split across five Anchor programs. They are deployed to **devnet** today; mainnet IDs will be added when mainnet launches.
+
+| Program | Devnet ID | Role |
+|---|---|---|
+| [`mint-redeem`](/programs/mint-redeem) | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` | User-facing mint and redeem at NAV; keeper-only single-sided ixns. |
+| [`oracle`](/programs/oracle) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` | Pyth/Hermes price observations, TWAP, risk-state machine. |
+| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Capital and Liquidity Provider — vaults, Meteora DLMM proxy. |
+| [`registry`](/programs/registry) | `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap` | Market registry (symbol → market PDA + pools). |
+| [`faucet`](/programs/faucet) (devnet only) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` | Drip cUSDC for testing. |
+| `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` | CNTM staking, listings, parameter votes (future). |
+
+## How they relate
+
+```
+mint-redeem ─── reads NAV from ──► oracle
+mint-redeem ─── checked by      ──► clp (OI cap, inventory)
+clp ─── proxies CPI to ──► Meteora DLMM (pool ops)
+clp ─── allocates to    ──► per-market vaults
+registry ─── lists ──► market PDAs
+faucet ─── mints ──► cUSDC (devnet only)
+```
+
+## IDLs
+
+IDLs (Anchor interface description language) are JSON files describing each program's instructions, accounts, and types. You need them to build instruction calls from a TypeScript client.
+
+The canonical IDLs ship in the [protocol repo](https://github.com/continuum-markets/continuum/tree/main/target/idl) at `target/idl/<program>.json`. After cloning the repo and running `anchor build`, they regenerate. They're also packaged in `frontend/lib/idl/` for the official frontend.
+
+Drop them into your project:
+
+```bash
+# From a clone of the protocol repo:
+cp target/idl/mint_redeem.json my-app/idl/
+cp target/idl/oracle.json my-app/idl/
+cp target/idl/clp.json my-app/idl/
+cp target/idl/faucet.json my-app/idl/
+```
+
+Then in your TypeScript:
+
+```typescript
+import idl from "./idl/mint_redeem.json";
+import { Program } from "@coral-xyz/anchor";
+
+const program = new Program(idl, provider);
+```
+
+Anchor v0.32 derives types from the IDL automatically. No separate type generation step.
+
+## PDAs at a glance
+
+| Program | PDA | Seeds |
+|---|---|---|
+| mint-redeem | `Market` | `[b"market", asset_symbol]` |
+| mint-redeem | `UserCollateralPosition` | `[b"user_collateral", owner, market]` |
+| mint-redeem | `FeeWaiver` | `[b"fee_waiver", donor, market]` |
+| oracle | `OracleConfig` | `[b"oracle_config", market_id]` |
+| oracle | `OracleFeed` | `[b"oracle_feed", oracle_config, pyth_oracle]` |
+| clp | `GlobalClp` | `[b"global_clp"]` |
+| clp | `Clp` | `[b"clp", market_id]` |
+| clp | `AdminWithdrawWindow` | `[b"admin_withdraw_window"]` |
+| registry | `RegistryState` | `[b"registry"]` |
+| registry | `MarketEntry` | `[b"market", symbol_padded_to_16]` |
+| faucet | `FaucetState` | `[b"faucet", mint]` |
+| faucet | `DripRecord` | `[b"drip", mint, recipient]` |
+
+## Authority model
+
+Different operations require different signers:
+
+| Authority | What it controls |
+|---|---|
+| **Anyone** | `mint_paired`, `redeem_paired`, `redeem_paired_with_waiver`, `donate_to_vault`, `faucet::drip` |
+| **`market.keeper_authority`** | `keeper_mint_single`, `keeper_redeem_single`, `update_risk_state`, all `clp_*` Meteora-proxy ixns |
+| **`market.authority`** (admin) | `update_market`, `update_keeper_authority`, `update_market_oracle`, `configure_*` |
+| **`globalClp.authority`** (admin) | `admin_fund`, `admin_withdraw`, `initialize_clp` (per-market), `update_oi_cap` |
+| **`oracle.admin_authority`** | `update_oracle_config`, `configure_health_thresholds`, `force_price` (devnet), `emergency_pause` |
+| **`oracle.keeper_authority`** | `update_price_observation` |
+
+The `keeper_authority` and `admin_authority` are typically **separate** keypairs — a keeper rotation doesn't require admin signature. Mainnet authorities will be Squads multisigs.
+
+## Errors
+
+Each program exposes its own error catalog. Anchor maps them to numeric codes starting at `6000` per program.
+
+Full lookup table: [Reference → Errors](/reference/errors).
+
+Programs:
+
+- [mint-redeem errors](/programs/mint-redeem#errors)
+- [oracle errors](/programs/oracle#errors)
+- [clp errors](/programs/clp#errors)
+- [registry errors](/programs/registry#errors)
+- [faucet errors](/programs/faucet#errors)
+
+## Choosing what to call
+
+| Goal | Program | Instruction |
+|---|---|---|
+| Mint a paired position | `mint-redeem` | `mint_paired` |
+| Redeem at NAV | `mint-redeem` | `redeem_paired` |
+| Read NAV / risk state | `mint-redeem` (Market account) | account fetch only |
+| Read fine-grained oracle data | `oracle` (OracleConfig) | account fetch only |
+| Read OI cap / depth | `clp` (Clp account) | account fetch only |
+| Get devnet cUSDC | `faucet` | `drip` |
+| Operator: list a market | `mint-redeem` + `clp` | `initialize_market` then `initialize_clp` |
+| Operator: fund treasury | `clp` | `admin_fund` |
+
+For trading L/S directly (not at NAV), use Meteora DLMM SDK — see [Trade](/flows/trade).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="mint-redeem" icon="square-terminal" href="/programs/mint-redeem">
+    Paired mint/redeem; keeper single-side; market admin.
+  </Card>
+  <Card title="oracle" icon="square-terminal" href="/programs/oracle">
+    Price observations, TWAP, risk states.
+  </Card>
+  <Card title="clp" icon="square-terminal" href="/programs/clp">
+    Capital vaults, DLMM proxy, OI cap.
+  </Card>
+  <Card title="SDK setup" icon="terminal" href="/build/sdk-setup">
+    Bootstrapping a TypeScript project against these programs.
+  </Card>
+</CardGroup>

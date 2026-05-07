@@ -1,0 +1,181 @@
+---
+title: oracle
+description: Price observations, dual TWAP windows, risk-state machine.
+---
+
+Source of NAV, gate of operations. The oracle program holds per-market price observations (Pyth on-chain or Hermes-pushed by the keeper), maintains keeper- and user-facing TWAPs, and exposes a state machine that downstream programs read.
+
+```
+Devnet ID: 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC
+```
+
+## Accounts
+
+### `OracleConfig` PDA
+
+```
+seeds = [b"oracle_config", market_id]
+```
+
+One per market.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `market_id` | Pubkey | Bound market PDA |
+| `admin_authority` | Pubkey | Admin signer (configure, force, pause) |
+| `keeper_authority` | Pubkey | Keeper signer (push observations) |
+| `pyth_oracle` | Pubkey | Default Pyth feed pubkey |
+| `switchboard_oracle` | Pubkey | Optional Switchboard feed |
+| `max_confidence_interval` | u64 | Reject observations with confidence above this |
+| `max_staleness` | i64 | Seconds before health degrades |
+| `is_paused` | bool | Emergency stop |
+| `last_price` | u64 | Most recent observation (6 decimals) |
+| `last_confidence` | u64 | Most recent confidence (6 decimals) |
+| `last_update_time` | i64 | Last observation unix-ts |
+| `user_twap` | TwapState | User-facing TWAP (longer window) |
+| `keeper_twap` | TwapState | Keeper-facing TWAP (shorter window) |
+| `market_state` | enum | `Active` / `Paused` |
+| `recent_volatility_bps` | u32 | Rolling realized vol |
+| `recent_move_count` | u32 | Counter for volatility window |
+| `observations` | ring buffer | Recent `PriceObservation` entries |
+
+`TwapState` fields: `last_twap`, `cumulative_price`, `cumulative_time`, `last_update`, `window_seconds`.
+
+`PriceObservation` fields: `price`, `confidence`, `timestamp`.
+
+### `OracleFeed` PDA
+
+```
+seeds = [b"oracle_feed", oracle_config, pyth_oracle]
+```
+
+Per-feed registration. A market can have multiple feeds for different trading sessions.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `oracle_config` | Pubkey | Bound oracle config |
+| `pyth_oracle` | Pubkey | Pyth feed account |
+| `priority` | u8 | Lower = higher priority |
+| `kind` | enum | `Primary` / `PreMarket` / `PostMarket` / `Overnight` / `Fallback` / `Custom` |
+| `is_active` | bool | If false, ignored in feed selection |
+
+The keeper picks the feed whose `kind` matches the current US trading session.
+
+## Instructions
+
+### Initialization (admin)
+
+#### `initialize_oracle_config(max_confidence_interval, max_staleness)`
+
+Create the OracleConfig for a new market. Sets initial admin, keeper, and primary Pyth pubkey.
+
+#### `upsert_oracle_feed(...)`
+
+Register or update an additional feed (e.g., a pre-market feed kind). Used to extend a market's session coverage.
+
+### Updates
+
+#### `update_price_observation` (keeper-signer)
+
+The hot path. Keeper calls every ~15s with the latest Pyth/Hermes price + confidence. The instruction:
+
+1. Validates `signer == oracle_config.keeper_authority`.
+2. Rejects if price moves > 20% in one update (`PriceMovementTooLarge`).
+3. Rejects if confidence > `max_confidence_interval` (`ConfidenceTooHigh`).
+4. Pushes observation into the ring buffer.
+5. Updates `last_price`, `last_confidence`, `last_update_time`.
+6. Recomputes `user_twap`, `keeper_twap`.
+7. Updates `recent_volatility_bps`.
+8. Writes `user_twap.last_twap` to the bound `Market.user_twap_price` (CPI).
+
+### Configuration (admin)
+
+#### `configure_twap_windows(keeper_window_seconds, user_window_seconds)`
+
+Defaults are 60s and 300s respectively. Adjust per market based on volatility.
+
+#### `configure_health_thresholds`
+
+Per-market override of the staleness / confidence thresholds that drive `MarketState` transitions.
+
+#### `update_oracle_config`
+
+Update admin/keeper authorities, Pyth pubkey, etc.
+
+#### `reset_volatility_counters`
+
+Clear `recent_volatility_bps` (used after large legitimate move that should not bias future regime classification).
+
+### Read-only helpers
+
+These instructions don't write — they're convenient CPI-callable helpers if your own program needs to query oracle state without account-fetching.
+
+- `get_keeper_twap` — returns the keeper-window TWAP.
+- `get_user_twap` — returns the user-window TWAP.
+- `get_market_state` — returns `MarketState` enum.
+- `get_oracle_health` — returns a struct combining staleness, confidence, state.
+- `get_price` — returns most-recent observation.
+- `get_user_price` / `get_keeper_price` — TWAP-based price for the right window.
+
+In practice you can also just `account.fetch(oracleConfig)` and read fields directly. The CPI helpers exist for programs that want to enforce on-chain price consistency.
+
+### Operator emergency
+
+#### `force_price(price, confidence)` (admin, devnet)
+
+Manually set a price. Used to set up tests or force-recover a market with corrupted feed data. Should never be used on mainnet outside extreme emergencies.
+
+#### `emergency_pause` (admin)
+
+Set `is_paused = true`. All reads return `OraclePaused`. Mint-redeem treats this as `OraclePriceUnavailable` and rejects mints.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `OraclePaused` | `is_paused = true` |
+| 6001 | `InvalidPythAccount` | Wrong Pyth account passed |
+| 6002 | `PriceUnavailable` | No fresh observation |
+| 6003 | `ConfidenceTooHigh` | Confidence > `max_confidence_interval` |
+| 6004 | `PriceStale` | Last update older than `max_staleness` |
+| 6005 | `PriceMovementTooLarge` | New observation > 20% from prior |
+| 6006 | `TwapNotReady` | TWAP buffer not yet populated |
+| 6007 | `InvalidTwapWindow` | TWAP window < 1s or > 24h |
+| 6008 | `MarketStateRestriction` | Operation not allowed in current state |
+| 6009 | `UnauthorizedKeeper` | Signer ≠ `keeper_authority` |
+| 6010 | `UnauthorizedAdmin` | Signer ≠ `admin_authority` |
+| 6011 | `InvalidRegisteredFeed` | Feed not in `OracleFeed` registry |
+| 6012 | `InactiveOracleFeed` | Feed exists but `is_active = false` |
+| 6013 | `MathOverflow` | Should be unreachable |
+
+→ [Full error catalog](/reference/errors)
+
+## TypeScript
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import idl from "./oracle.json";
+
+const oracle = new Program(idl, provider);
+
+const oracleConfig = await oracle.account.oracleConfig.fetch(market.oracleAddress);
+
+console.log("Last price:", oracleConfig.lastPrice.toString(), "(6 decimals)");
+console.log("Confidence:", oracleConfig.lastConfidence.toString());
+console.log("Stale (s):", Date.now() / 1000 - oracleConfig.lastUpdateTime.toNumber());
+console.log("Volatility (bps):", oracleConfig.recentVolatilityBps);
+console.log("State:", Object.keys(oracleConfig.marketState)[0]);
+console.log("User TWAP:", oracleConfig.userTwap.lastTwap.toString());
+```
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Oracle concept" icon="book" href="/concepts/oracle">
+    How prices flow, why dual TWAPs, session-aware feeds.
+  </Card>
+  <Card title="Risk states" icon="shield-check" href="/concepts/risk-states">
+    Downstream effects of oracle state on user operations.
+  </Card>
+</CardGroup>
