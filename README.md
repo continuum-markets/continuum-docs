@@ -1,6 +1,6 @@
 # Continuum Docs
 
-Developer documentation for [Continuum.Markets](https://continuum.markets) — 24/7 synthetic exposure to real-world assets on Solana.
+Developer documentation for [Continuum.Markets](https://continuum.markets) - 24/7 synthetic exposure to real-world assets on Solana.
 
 This repo is the source for [docs.continuum.markets](https://docs.continuum.markets). Built with [Mintlify](https://mintlify.com).
 
@@ -38,6 +38,6 @@ continuum-docs/
 
 ## Contributing
 
-PRs welcome. Keep examples copy-pasteable — assume the reader has a fresh Solana CLI install and a wallet on devnet.
+PRs welcome. Keep examples copy-pasteable - assume the reader has a fresh Solana CLI install and a wallet on devnet.
 
 For doc-system questions (Mintlify config, navigation, theming) see the [Mintlify docs](https://mintlify.com/docs).

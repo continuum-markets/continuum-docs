@@ -1,6 +1,6 @@
 ---
 title: Listing a market
-description: How a new asset becomes a Continuum market — the operator flow, end to end.
+description: How a new asset becomes a Continuum market - the operator flow, end to end.
 ---
 
 Listing a new market is an operator action today (admin authority on the protocol). Once governance is wired, listings will route through CNTM votes.
@@ -13,14 +13,14 @@ This page describes the operational flow at a level you can use to:
 
 ## Decision: pick the asset
 
-Continuum's targeted launch is **TradFi only** — equities, indices, commodities, FX. No crypto.
+Continuum's targeted launch is **TradFi only** - equities, indices, commodities, FX. No crypto.
 
 Asset checklist:
 
 - [ ] Has a reliable Pyth on-chain feed (preferred) or Hermes feed (fallback).
 - [ ] Volatility regime is defined enough to pick a fee tier (index vs liquid equity vs volatile equity).
-- [ ] Initial price (`initial_l_price`) chosen — this anchors the constant product. Pick something close to the current spot.
-- [ ] OI cap chosen — typically 2× expected initial pool depth.
+- [ ] Initial price (`initial_l_price`) chosen - this anchors the constant product. Pick something close to the current spot.
+- [ ] OI cap chosen - typically 2× expected initial pool depth.
 
 ## Sequence
 
@@ -52,7 +52,7 @@ The reference scripts live in [`scripts/`](https://github.com/continuum-markets/
     The CLP PDA needs ATAs for L, S, and cUSDC so it can hold tokens before deploying to Meteora.
   </Step>
   <Step title="Create Meteora DLMM pools">
-    Two pools per market — one L/cUSDC, one S/cUSDC. Pool fee tier per asset volatility:
+    Two pools per market - one L/cUSDC, one S/cUSDC. Pool fee tier per asset volatility:
 
     | Asset class | binStep | Base fee |
     |---|---|---|
@@ -103,7 +103,7 @@ The reference scripts live in [`scripts/`](https://github.com/continuum-markets/
 | Smaller intra-day range covered | Larger intra-day range covered |
 | Better for stable underlyings | Better for volatile underlyings |
 
-Going below `binStep=5` is not recommended — position range collapses too tight, intraday spikes blow active_id out of range, triggering close+reopen rebalance cycles.
+Going below `binStep=5` is not recommended - position range collapses too tight, intraday spikes blow active_id out of range, triggering close+reopen rebalance cycles.
 
 ## What happens once a market is live
 
@@ -114,7 +114,7 @@ Going below `binStep=5` is not recommended — position range collapses too tigh
 | ~5 min | Keeper's first risk-state mirror, seeder cycle. Capital allocated. |
 | ~10 min | Meteora positions opened. Pool trading viable. |
 | ~30 min | First arb cycle if pool drifted from NAV during seeding. |
-| ~1 hour | Steady state — mints, redeems, trades all functional. |
+| ~1 hour | Steady state - mints, redeems, trades all functional. |
 
 A user **could** mint during the warm-up window (between t=0 and the first TWAP population) but `OraclePriceUnavailable` will reject. Safe to assume markets need ~5 minutes warm-up after listing.
 
@@ -128,7 +128,7 @@ SYMBOL=NVDA bun run scripts/register-market.ts
 
 This calls `registry::register_market` with the new mints, pools, and the `MeteoraDlmm` venue. After this, the registry-driven frontend picks the market up automatically.
 
-If you skip registration, the market still works at the program layer — `mint_paired` etc. all succeed. But the official frontend won't know to display it.
+If you skip registration, the market still works at the program layer - `mint_paired` etc. all succeed. But the official frontend won't know to display it.
 
 ## Adding to the asset list (frontend)
 

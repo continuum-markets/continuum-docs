@@ -9,7 +9,7 @@ Continuum's protocol layer is split across five Anchor programs. They are deploy
 |---|---|---|
 | [`mint-redeem`](/programs/mint-redeem) | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` | User-facing mint and redeem at NAV; keeper-only single-sided ixns. |
 | [`oracle`](/programs/oracle) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` | Pyth/Hermes price observations, TWAP, risk-state machine. |
-| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Capital and Liquidity Provider — vaults, Meteora DLMM proxy. |
+| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Capital and Liquidity Provider - vaults, Meteora DLMM proxy. |
 | [`registry`](/programs/registry) | `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap` | Market registry (symbol → market PDA + pools). |
 | [`faucet`](/programs/faucet) (devnet only) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` | Drip cUSDC for testing. |
 | `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` | CNTM staking, listings, parameter votes (future). |
@@ -82,7 +82,7 @@ Different operations require different signers:
 | **`oracle.admin_authority`** | `update_oracle_config`, `configure_health_thresholds`, `force_price` (devnet), `emergency_pause` |
 | **`oracle.keeper_authority`** | `update_price_observation` |
 
-The `keeper_authority` and `admin_authority` are typically **separate** keypairs — a keeper rotation doesn't require admin signature. Mainnet authorities will be Squads multisigs.
+The `keeper_authority` and `admin_authority` are typically **separate** keypairs - a keeper rotation doesn't require admin signature. Mainnet authorities will be Squads multisigs.
 
 ## Errors
 
@@ -111,7 +111,7 @@ Programs:
 | Operator: list a market | `mint-redeem` + `clp` | `initialize_market` then `initialize_clp` |
 | Operator: fund treasury | `clp` | `admin_fund` |
 
-For trading L/S directly (not at NAV), use Meteora DLMM SDK — see [Trade](/flows/trade).
+For trading L/S directly (not at NAV), use Meteora DLMM SDK - see [Trade](/flows/trade).
 
 ## See also
 

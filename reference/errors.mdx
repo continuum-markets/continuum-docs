@@ -3,7 +3,7 @@ title: Error catalog
 description: Every error code, by program, with the reason and how to recover.
 ---
 
-Anchor maps program errors to numeric codes starting at `6000` per program. The same numeric code can mean different things in different programs — always pair the code with the program ID.
+Anchor maps program errors to numeric codes starting at `6000` per program. The same numeric code can mean different things in different programs - always pair the code with the program ID.
 
 ## mint-redeem
 
@@ -11,7 +11,7 @@ Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
 
 | Code | Name | Cause | How to fix |
 |---|---|---|---|
-| 6000 | `MarketNotActive` | `Market.is_active = false` | Wait — operator may pause a market for maintenance. |
+| 6000 | `MarketNotActive` | `Market.is_active = false` | Wait - operator may pause a market for maintenance. |
 | 6001 | `InvalidAmount` | Zero or negative amount | Pass a positive `BN`. |
 | 6002 | `InsufficientCollateral` | Vault can't cover the redeem (rare; would imply solvency bug) | Report immediately. |
 | 6003 | `InvalidOracle` | Oracle account passed doesn't match `market.oracle_address` | Use `market.oracle_address` always. |

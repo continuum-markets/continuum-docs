@@ -24,7 +24,7 @@ anchor build   # regenerates target/idl/*
 ls target/idl/
 ```
 
-The `frontend/lib/idl/` directory packages the same IDLs for the official frontend — copy from there if you don't want to clone the full protocol repo.
+The `frontend/lib/idl/` directory packages the same IDLs for the official frontend - copy from there if you don't want to clone the full protocol repo.
 
 ## PDA derivation cheatsheet
 
@@ -74,7 +74,7 @@ const [oracleFeed] = PublicKey.findProgramAddressSync(
 );
 ```
 
-In practice you don't derive `oracle_config` — you read `market.oracle_address` directly from the Market account. The derivation is here for completeness.
+In practice you don't derive `oracle_config` - you read `market.oracle_address` directly from the Market account. The derivation is here for completeness.
 
 ### `clp` PDAs
 
@@ -107,7 +107,7 @@ const [registryState] = PublicKey.findProgramAddressSync(
   registry.programId,
 );
 
-// MarketEntry — symbol padded to 16 bytes
+// MarketEntry - symbol padded to 16 bytes
 const symbol = "QQQ";
 const padded = Buffer.alloc(16);
 padded.write(symbol);
@@ -117,7 +117,7 @@ const [marketEntry] = PublicKey.findProgramAddressSync(
 );
 ```
 
-Note the registry uses a **16-byte zero-padded symbol**, while mint-redeem uses the raw symbol bytes. They are different PDA seeds — don't confuse them.
+Note the registry uses a **16-byte zero-padded symbol**, while mint-redeem uses the raw symbol bytes. They are different PDA seeds - don't confuse them.
 
 ### `faucet` PDAs
 
@@ -193,7 +193,7 @@ const accounts = await mintRedeem.account.market.fetchMultiple(marketPDAs);
 
 ## Discriminators
 
-Each Anchor account / instruction has an 8-byte discriminator. You don't compute these by hand — Anchor handles it. But if you need to manually decode account data without an IDL:
+Each Anchor account / instruction has an 8-byte discriminator. You don't compute these by hand - Anchor handles it. But if you need to manually decode account data without an IDL:
 
 ```typescript
 const buf = (await connection.getAccountInfo(marketPDA))!.data;

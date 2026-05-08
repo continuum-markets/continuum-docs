@@ -60,7 +60,7 @@ Phase 2: redeem_paired(actual_L, actual_S) → cUSDC at NAV
 End:     +cUSDC, 0 synth
 ```
 
-Captures the case where both sides are under-priced. Note: `actual_L` and `actual_S` are read at execution time, not pre-computed as `min_amount_out` — otherwise the slippage buffer leaks as residual synth.
+Captures the case where both sides are under-priced. Note: `actual_L` and `actual_S` are read at execution time, not pre-computed as `min_amount_out` - otherwise the slippage buffer leaks as residual synth.
 
 ## Path selection
 
@@ -91,7 +91,7 @@ So: a 0.10% pool needs spread > ~0.225% to fire. A 0.20% pool needs spread > ~0.
 
 ## Profit accounting: actual vs expected
 
-`expected_profit` is an upper bound — it ignores worst-case quoting, real-time bin-curve slippage, and other slippage sources. The keeper measures **actual** profit:
+`expected_profit` is an upper bound - it ignores worst-case quoting, real-time bin-curve slippage, and other slippage sources. The keeper measures **actual** profit:
 
 ```
 keeper_balance_pre = read keeper_wallet cUSDC balance
@@ -133,7 +133,7 @@ This recovers slippage-buffer micro-leaks. Without it, every arb leaves a tiny d
 
 ## Boot-time sweep
 
-On startup, before any new arb runs, the keeper does the same residual sweep on whatever was left from the prior process. Crashes during an arb cycle leave non-zero L or S in the keeper wallet — boot-time sweep redeems them.
+On startup, before any new arb runs, the keeper does the same residual sweep on whatever was left from the prior process. Crashes during an arb cycle leave non-zero L or S in the keeper wallet - boot-time sweep redeems them.
 
 ## LS-pool path (deprecated)
 
@@ -150,7 +150,7 @@ The code remains in the keeper, gated behind the `LS_POOLS` env var (unset in pr
 | Config | Behavior |
 |---|---|
 | Flash-loan adapters configured (mainnet only) | Borrow cUSDC for the cycle; atomic single-tx execution |
-| Flash-loan adapters missing (devnet) | **Direct mode** — sequential phases using keeper's own cUSDC |
+| Flash-loan adapters missing (devnet) | **Direct mode** - sequential phases using keeper's own cUSDC |
 | `USE_JITO=true` | Future: bundle via Jito for MEV protection (no-op currently) |
 
 Flash-loan adapters are auto-disabled on devnet. The MarginFi/Kamino integration is mainnet-only.

@@ -1,6 +1,6 @@
 ---
 title: registry
-description: On-chain registry of markets — symbol → mints, pools, positions, active flag.
+description: On-chain registry of markets - symbol → mints, pools, positions, active flag.
 ---
 
 The registry program is the canonical on-chain index of Continuum markets. It maps each asset symbol to the corresponding mints, Meteora pool addresses, and current position pubkeys. Frontends and bots query it (or the bundled `market-addresses.json` snapshot) to discover live markets.
@@ -9,7 +9,7 @@ The registry program is the canonical on-chain index of Continuum markets. It ma
 Devnet ID: REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap
 ```
 
-The registry is informational. Mint-redeem and CLP do not depend on it; they use direct PDA derivation. The registry is for discovery — when you don't know which markets exist, ask the registry.
+The registry is informational. Mint-redeem and CLP do not depend on it; they use direct PDA derivation. The registry is for discovery - when you don't know which markets exist, ask the registry.
 
 ## Accounts
 
@@ -113,9 +113,9 @@ console.log(accounts.map(a => ({
 | Use case | Best path |
 |---|---|
 | Local development, fast prototyping | `market-addresses.json` (pre-computed snapshot) |
-| Production frontend, must be live | Registry — markets can be added/paused without redeploy |
+| Production frontend, must be live | Registry - markets can be added/paused without redeploy |
 | Bot needs to detect new markets | Registry, polled |
-| Operator scripts, controlled deploy | Either — the JSON ships with the protocol repo |
+| Operator scripts, controlled deploy | Either - the JSON ships with the protocol repo |
 
 The frontend currently uses `market-addresses.json` for fast load + the registry as the canonical source it refreshes from.
 

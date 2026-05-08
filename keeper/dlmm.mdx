@@ -3,7 +3,7 @@ title: DLMM position management
 description: How the keeper opens, sizes, centers, and rebalances Meteora DLMM positions for the protocol.
 ---
 
-The keeper owns each market's long and short positions on Meteora DLMM. Position operations go through CLP proxy instructions (`clp_open_meteora_position`, `clp_remove_meteora_liquidity`, etc.) so the **CLP PDA** — not the keeper wallet — owns the positions.
+The keeper owns each market's long and short positions on Meteora DLMM. Position operations go through CLP proxy instructions (`clp_open_meteora_position`, `clp_remove_meteora_liquidity`, etc.) so the **CLP PDA** - not the keeper wallet - owns the positions.
 
 ## What the rebalancer does
 
@@ -16,7 +16,7 @@ Every 120s (`DLMM_INTERVAL_SECS`), for each market × side:
 5. If existing range still covers active **and** NAV target → skip (no rebuild).
 6. Else: remove + close + open with new range.
 
-The skip check is critical — Meteora positions have fixed ranges, so "rebalancing" requires a full remove + close + open cycle costing ~0.05 SOL rent + several CU-heavy txs. The skip-rebuild optimization avoids this when the existing range is already adequate.
+The skip check is critical - Meteora positions have fixed ranges, so "rebalancing" requires a full remove + close + open cycle costing ~0.05 SOL rent + several CU-heavy txs. The skip-rebuild optimization avoids this when the existing range is already adequate.
 
 ## Volatility-adaptive `bin_radius`
 
@@ -86,17 +86,17 @@ Occasionally Meteora's `remove_liquidity_by_range2` leaves a position with phant
 
 The rebalancer detects zombies via `is_position_zombie`, **skips the close step**, and opens a fresh position. The zombie account's ~0.05 SOL rent is sacrificed; all tokens have already been transferred out.
 
-The rare alternative — keeper's CLP-state pointer is lost while the Meteora account still exists — is handled by `find_positions_in_pool` which scans the pool for orphan CLP-owned positions. Operators can manually recover via `recover-orphaned-position.ts`.
+The rare alternative - keeper's CLP-state pointer is lost while the Meteora account still exists - is handled by `find_positions_in_pool` which scans the pool for orphan CLP-owned positions. Operators can manually recover via `recover-orphaned-position.ts`.
 
 ## Coverage gating
 
-Rebalance requires **either** fresh Hermes price **or** on-chain oracle freshness. If both are stale, the keeper refuses to trigger a rebuild — the NAV target would come from stale data.
+Rebalance requires **either** fresh Hermes price **or** on-chain oracle freshness. If both are stale, the keeper refuses to trigger a rebuild - the NAV target would come from stale data.
 
 Overflow-only rebalances (active bin blown past position edge) are allowed without NAV freshness, since they're purely defensive.
 
 ## RPC-failure guard
 
-`position_exists` returns `Err` on RPC rate-limit. The naive interpretation (`unwrap_or(false)`) caused a 61-position leak on an early devnet iteration — the keeper thought positions didn't exist and opened duplicates. Current behavior treats `Err` as "alive" to prevent orphans.
+`position_exists` returns `Err` on RPC rate-limit. The naive interpretation (`unwrap_or(false)`) caused a 61-position leak on an early devnet iteration - the keeper thought positions didn't exist and opened duplicates. Current behavior treats `Err` as "alive" to prevent orphans.
 
 ## Liquidity seeder
 

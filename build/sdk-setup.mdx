@@ -3,7 +3,7 @@ title: SDK setup
 description: Bootstrap a TypeScript project to call Continuum programs. RPC, wallet, IDLs, provider.
 ---
 
-You can interact with Continuum from any Solana-compatible client — TypeScript / Anchor is the most-trodden path. This page sets up a minimal project end-to-end.
+You can interact with Continuum from any Solana-compatible client - TypeScript / Anchor is the most-trodden path. This page sets up a minimal project end-to-end.
 
 ## Stack
 
@@ -74,7 +74,7 @@ export function loadPrograms(provider: AnchorProvider) {
 }
 ```
 
-Anchor v0.32 derives types from the IDL automatically — no separate codegen step. The `as any` casts are for IDL types that don't perfectly satisfy the strict Anchor 0.32 IDL schema; they're a no-op at runtime.
+Anchor v0.32 derives types from the IDL automatically - no separate codegen step. The `as any` casts are for IDL types that don't perfectly satisfy the strict Anchor 0.32 IDL schema; they're a no-op at runtime.
 
 ## Loading the right IDL
 
@@ -85,7 +85,7 @@ jq -r '.address' idl/mint_redeem.json
 # → 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
 ```
 
-Devnet IDs are listed in [Programs overview](/programs/overview). Mainnet IDs (when launched) will differ — keep cluster-specific IDLs side by side.
+Devnet IDs are listed in [Programs overview](/programs/overview). Mainnet IDs (when launched) will differ - keep cluster-specific IDLs side by side.
 
 ## RPC choice
 
@@ -110,8 +110,8 @@ For browser apps use Solana Wallet Adapter. For scripts, use a file-loaded keypa
 
 If you're testing as the keeper authority on devnet, the relevant keypairs are:
 
-- `KEEPER_KEYPAIR` — payer + arb signer.
-- `CLP_AUTHORITY_KEYPAIR` — separate keypair that signs CLP CPI instructions.
+- `KEEPER_KEYPAIR` - payer + arb signer.
+- `CLP_AUTHORITY_KEYPAIR` - separate keypair that signs CLP CPI instructions.
 
 These should be **different** from the admin authority for mainnet operation.
 

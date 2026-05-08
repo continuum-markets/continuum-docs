@@ -1,6 +1,6 @@
 ---
 title: clp
-description: Capital and Liquidity Provider — the protocol's vaults and Meteora DLMM proxy.
+description: Capital and Liquidity Provider - the protocol's vaults and Meteora DLMM proxy.
 ---
 
 The CLP program holds protocol LP capital and is the owner of all Meteora DLMM positions. Per-market `Clp` PDAs hold inventory budgets, OI cap, and Meteora pointers. A single `GlobalClp` PDA tracks total deposits and routes capital to per-market vaults.
@@ -104,7 +104,7 @@ Move cUSDC from `global_clp_vault` to per-market `clp_vault`. Advances `Clp.allo
 
 #### `return_to_global` (keeper)
 
-Reverse — move idle per-market cUSDC back to global. Used after position closure or when a market's edge drops.
+Reverse - move idle per-market cUSDC back to global. Used after position closure or when a market's edge drops.
 
 #### `deposit_profit(amount: u64)` (keeper)
 
@@ -200,7 +200,7 @@ Mirror `market.total_l_supply` into `clp.current_oi`. Called atomically inside m
 
 #### `check_inventory_restrictions`
 
-Returns whether the market is at hard bound — programs can call this via CPI to gate operations.
+Returns whether the market is at hard bound - programs can call this via CPI to gate operations.
 
 #### `get_yield_status`
 

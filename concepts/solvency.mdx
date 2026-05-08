@@ -3,7 +3,7 @@ title: Solvency invariants
 description: The set of properties Continuum enforces no matter what users, the keeper, or external markets do.
 ---
 
-Continuum's design encodes solvency as **structural invariants** — properties enforced by program logic, not by trust in any actor. Here is the full list.
+Continuum's design encodes solvency as **structural invariants** - properties enforced by program logic, not by trust in any actor. Here is the full list.
 
 ## 1. Paired-only mint and redeem for users
 
@@ -23,8 +23,8 @@ Redeem is symmetric: burn L+S in independent quantities, return cUSDC value at N
 
 The mint-redeem program does have single-sided instructions:
 
-- `keeper_mint_single(is_long, collateral)` — fee-free, single-sided mint.
-- `keeper_redeem_single(is_long, token_amount)` — fee-free, single-sided redeem.
+- `keeper_mint_single(is_long, collateral)` - fee-free, single-sided mint.
+- `keeper_redeem_single(is_long, token_amount)` - fee-free, single-sided redeem.
 
 These check **`signer == market.keeper_authority`** and reject otherwise (`UnauthorizedKeeper`). They are used by the keeper inside two-phase arb cycles:
 
@@ -53,9 +53,9 @@ Beyond this hard ceiling, mints reject. Redeems remain open. The cap is a per-ma
 
 ## 5. Hard inventory bounds (q + drawdown)
 
-The CLP program tracks per-market q-imbalance and drawdown vs peak, with both **soft** (warning) and **hard** (rejection) bounds. Hard-bound breach blocks new allocations from the global vault and new keeper-driven mints into per-market vaults — the protocol unwinds via user flow + arb until q renormalizes.
+The CLP program tracks per-market q-imbalance and drawdown vs peak, with both **soft** (warning) and **hard** (rejection) bounds. Hard-bound breach blocks new allocations from the global vault and new keeper-driven mints into per-market vaults - the protocol unwinds via user flow + arb until q renormalizes.
 
-The single-sided keeper instructions intentionally **bypass** the q-imbalance check, by design — they exist to push q **back** toward 50/50 by closing per-side NAV divergence.
+The single-sided keeper instructions intentionally **bypass** the q-imbalance check, by design - they exist to push q **back** toward 50/50 by closing per-side NAV divergence.
 
 ## 6. Keeper post-sweep solvency
 
@@ -63,7 +63,7 @@ Every keeper arb cycle ends with cUSDC at the keeper or CLP vault. The keeper en
 
 - **Boot-time sweep** (`sweep_residual_pairs`): on startup, redeem any leftover synth in the keeper wallet.
 - **End-of-cycle sweep**: after every arb, redeem post-swap residue (paired or single-sided as appropriate).
-- **Profit deposit gating**: `deposit_profit` sends `min(actual_delta, expected_profit)` — a favorable-slippage run doesn't over-deposit.
+- **Profit deposit gating**: `deposit_profit` sends `min(actual_delta, expected_profit)` - a favorable-slippage run doesn't over-deposit.
 
 There is no path where the keeper accumulates synth inventory past one cycle.
 
@@ -84,7 +84,7 @@ Redeem is **never** size-gated. Users can always exit at the last fresh NAV.
 
 ## 9. Oracle source authentication
 
-The mint-redeem program checks `market.oracle_address` against the supplied oracle account on every read. Wrong oracle → `InvalidOracle` error. The oracle program itself signs `update_price_observation` against the registered keeper authority — random callers cannot push prices.
+The mint-redeem program checks `market.oracle_address` against the supplied oracle account on every read. Wrong oracle → `InvalidOracle` error. The oracle program itself signs `update_price_observation` against the registered keeper authority - random callers cannot push prices.
 
 ## 10. Admin-withdraw rate limit
 
@@ -92,10 +92,10 @@ The CLP global vault enforces a 24-hour rolling cap (`AdminWithdrawCapExceeded`)
 
 ## What is NOT enforced
 
-A few things to be aware of — they are by design but worth knowing:
+A few things to be aware of - they are by design but worth knowing:
 
 - **NAV reflects on-chain TWAP, not external markets.** If Pyth/Hermes goes offline and the keeper can't push observations, NAV stales. The risk state machine catches this (Stress) but during transient drift, mint pricing can lag external markets briefly.
-- **Pool prices can diverge from NAV during keeper outages.** Solvency is unaffected — users still mint and redeem at NAV — but pool-only traders get worse fills. The keeper closes the gap when it comes back.
+- **Pool prices can diverge from NAV during keeper outages.** Solvency is unaffected - users still mint and redeem at NAV - but pool-only traders get worse fills. The keeper closes the gap when it comes back.
 - **No protection against external market manipulation of Pyth.** If Pyth itself is wrong, NAV is wrong. Mitigation: max-staleness, max-confidence, max-single-update-move (>20% rejected) thresholds reduce blast radius.
 
 ## What this means for users
@@ -108,6 +108,6 @@ If only one side of your position survives (you sold the other, lost it, transfe
 
 You can integrate Continuum without worrying about counterparty risk on positions. Long and short tokens are SPL tokens with a redemption guarantee at NAV; if you receive 100 QQQS in payment from someone, you can redeem them anytime as long as the collateral vault is solvent (it always is, by invariant 1).
 
-The one operational thing to monitor: **risk state**. During `Stress`, mints reject — your UI should surface this and suggest waiting or trading on the pool instead.
+The one operational thing to monitor: **risk state**. During `Stress`, mints reject - your UI should surface this and suggest waiting or trading on the pool instead.
 
 → [Risk states](/concepts/risk-states) · [Reading state](/flows/read-state)

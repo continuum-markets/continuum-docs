@@ -5,9 +5,9 @@ description: The off-chain bot that pushes oracle observations, runs arbitrage, 
 
 The **keeper** is an off-chain Rust async bot that owns three operational duties on Continuum:
 
-1. **Oracle updates** — publishes Pyth/Hermes observations to the oracle program every ~15 s.
-2. **Peg-enforcing arbitrage** — closes price divergence between Meteora DLMM pools and protocol NAV.
-3. **DLMM position management** — opens, rebalances, and closes the protocol's LP positions on Meteora.
+1. **Oracle updates** - publishes Pyth/Hermes observations to the oracle program every ~15 s.
+2. **Peg-enforcing arbitrage** - closes price divergence between Meteora DLMM pools and protocol NAV.
+3. **DLMM position management** - opens, rebalances, and closes the protocol's LP positions on Meteora.
 
 It is **not in your call path**. User mints and redeems go directly to on-chain programs. The keeper acts independently to keep prices anchored.
 
@@ -15,10 +15,10 @@ It is **not in your call path**. User mints and redeems go directly to on-chain 
 
 The keeper signs as the privileged `keeper_authority` stored on each market account. This grants it access to:
 
-- `keeper_mint_single(is_long, collateral)` — fee-free, single-sided mint at NAV.
-- `keeper_redeem_single(is_long, token_amount)` — fee-free, single-sided redeem at NAV.
-- `update_risk_state(new_state)` — mirror oracle risk state into the market.
-- All `clp_*` proxy instructions — Meteora position management on the CLP PDA's behalf.
+- `keeper_mint_single(is_long, collateral)` - fee-free, single-sided mint at NAV.
+- `keeper_redeem_single(is_long, token_amount)` - fee-free, single-sided redeem at NAV.
+- `update_risk_state(new_state)` - mirror oracle risk state into the market.
+- All `clp_*` proxy instructions - Meteora position management on the CLP PDA's behalf.
 
 The single-sided privileges would be unsafe for an arbitrary user (mint without an offsetting deposit creates an unbacked claim against the vault). The keeper uses them only inside two-phase arb cycles that net back to cUSDC. See [Solvency invariants](/concepts/solvency).
 
@@ -65,7 +65,7 @@ For each market × side, decides whether to remove + close + reopen the Meteora 
 
 - **Active bin** has overflowed the position's range (bin price moved past the edge).
 - **NAV target** has moved enough that the existing range no longer covers `[active, target]`.
-- **Volatility regime** has shifted (calm ↔ stressed) — wider/narrower bin radius.
+- **Volatility regime** has shifted (calm ↔ stressed) - wider/narrower bin radius.
 
 The rebalancer **skips** the rebuild if the existing range still covers `[min(active, target), max(active, target)]` with a small slack. Saves ~0.05 SOL of rent + several CU-heavy txs per skipped cycle.
 
@@ -99,7 +99,7 @@ Allocates capital from `GlobalClp` (the global cUSDC vault) into per-market vaul
 
 ### Peer heartbeat (30s)
 
-Multi-keeper primary/standby coordination. Currently basic — one canonical keeper at a time. Future versions will support active/active across multiple operators.
+Multi-keeper primary/standby coordination. Currently basic - one canonical keeper at a time. Future versions will support active/active across multiple operators.
 
 ## Solvency guarantees
 
@@ -130,12 +130,12 @@ Full list: [keeper running guide](/keeper/running).
 
 ## Can I run my own keeper?
 
-Yes — and there's a public reference implementation in the [protocol repo](https://github.com/continuum-markets/continuum/tree/main/keeper).
+Yes - and there's a public reference implementation in the [protocol repo](https://github.com/continuum-markets/continuum/tree/main/keeper).
 
 Limitations to know:
 
 - **Only one canonical keeper authority per market.** The market's `keeper_authority` field is single-pubkey today. Two keepers signing as the same pubkey will collide. Multi-keeper requires either coordination (peer heartbeat with primary/standby logic) or future on-chain support for keeper sets.
-- **You don't need keeper authority to arb.** Single-sided keeper-only paths are fee-free; paired arb is open to anyone. An external arb bot can run paired-arb without any privilege at all — just ordinary `mint_paired` + `redeem_paired` + Meteora swaps.
+- **You don't need keeper authority to arb.** Single-sided keeper-only paths are fee-free; paired arb is open to anyone. An external arb bot can run paired-arb without any privilege at all - just ordinary `mint_paired` + `redeem_paired` + Meteora swaps.
 - **The CLP authority is separate from the payer.** The keeper signs CLP instructions with `CLP_AUTHORITY_KEYPAIR`, distinct from the payer keypair. This lets operators rotate signers without re-creating positions.
 
 → [Running a keeper](/keeper/running) · [External arb bot](/build/composability)

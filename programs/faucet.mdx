@@ -1,9 +1,9 @@
 ---
 title: faucet (devnet)
-description: Drips cUSDC for development and testing. Devnet only — no mainnet equivalent.
+description: Drips cUSDC for development and testing. Devnet only - no mainnet equivalent.
 ---
 
-The faucet program mints small amounts of cUSDC to any wallet on a per-recipient cooldown. It exists exclusively for devnet — there is no faucet on mainnet (mainnet uses real USDC).
+The faucet program mints small amounts of cUSDC to any wallet on a per-recipient cooldown. It exists exclusively for devnet - there is no faucet on mainnet (mainnet uses real USDC).
 
 ```
 Devnet ID: 9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY
@@ -50,7 +50,7 @@ One-shot setup of `FaucetState`. The faucet's `mint_authority` on the cUSDC mint
 
 Mint `drip_amount` cUSDC to the caller's ATA. Reverts with `CooldownNotElapsed` if the per-recipient cooldown hasn't passed since `last_drip`.
 
-The caller pays Solana fees but receives free cUSDC. There's no rate limit beyond the cooldown — burst behavior is bounded only by SOL transaction fee.
+The caller pays Solana fees but receives free cUSDC. There's no rate limit beyond the cooldown - burst behavior is bounded only by SOL transaction fee.
 
 ### `update_params(drip_amount, cooldown_seconds)` (admin)
 
@@ -108,7 +108,7 @@ await provider.sendAndConfirm(
       recipientAta,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      // (the IDL describes the full account list — the above is the typical shape)
+      // (the IDL describes the full account list - the above is the typical shape)
     })
     .transaction(),
 );
@@ -132,7 +132,7 @@ The protocol's bootstrap scripts use the faucet to fund the CLP global vault on 
 3. Restore `drip_amount` to the default.
 4. Transfer the $200K to `global_clp_vault`.
 
-This is a faster path than calling `admin_fund` repeatedly with a default-sized drip. On mainnet there is no equivalent — admin must hold real USDC.
+This is a faster path than calling `admin_fund` repeatedly with a default-sized drip. On mainnet there is no equivalent - admin must hold real USDC.
 
 ## See also
 

@@ -14,7 +14,7 @@ When you call `mint_paired(amount)`, the protocol:
 3. Splits `amount` (after fees) in half by **value**, not quantity.
 4. Mints `(amount / 2) / L_NAV` long tokens and `(amount / 2) / S_NAV` short tokens.
 
-The two quantities differ — usually by a lot. For QQQ at `L_NAV = 480, S_NAV = 0.00208`, a 100 cUSDC mint produces ~0.104 QQQL and ~24,038 QQQS.
+The two quantities differ - usually by a lot. For QQQ at `L_NAV = 480, S_NAV = 0.00208`, a 100 cUSDC mint produces ~0.104 QQQL and ~24,038 QQQS.
 
 The **value** of each leg at mint time is identical (50 cUSDC each, before fees). As the underlying price moves, the long leg's value rises while the short leg's falls reciprocally.
 
@@ -24,7 +24,7 @@ A user-facing single-sided mint is unsafe. Minting only L without an offsetting 
 
 Paired mint sidesteps this: every cUSDC of collateral is matched by tokens whose combined value is exactly that cUSDC (modulo fees). The vault's solvency is structural, not dependent on price.
 
-The keeper has a fee-free single-sided mint/redeem path — but it's gated by signer match against `market.keeper_authority`, and used only inside arb cycles that net back to cUSDC. See [Solvency invariants](/concepts/solvency).
+The keeper has a fee-free single-sided mint/redeem path - but it's gated by signer match against `market.keeper_authority`, and used only inside arb cycles that net back to cUSDC. See [Solvency invariants](/concepts/solvency).
 
 ## The constant-product invariant
 
@@ -36,7 +36,7 @@ This is the heart of Continuum. It means:
 
 - As `L_NAV` rises, `S_NAV` falls **reciprocally**, not linearly.
 - Combined pair value `L_NAV + S_NAV` is bounded; it has a minimum at `L_NAV = S_NAV = √(initial_l × initial_s)` (geometric mean) and grows as either NAV moves away from that point.
-- The short side asymptotically approaches zero but never crosses below — short-token holders never owe more than they paid.
+- The short side asymptotically approaches zero but never crosses below - short-token holders never owe more than they paid.
 - The long side can appreciate unboundedly while the short side provides diminishing counterpart.
 
 → [Full NAV math](/concepts/nav)
@@ -69,14 +69,14 @@ Position value = 0.104 × 432 + 49.95 × 1.111
               = 100.42 cUSDC
 ```
 
-The paired position has **near-zero net delta**. It's essentially neutral — the value drift is just the geometric-mean curvature of the constant product. To actually take a directional view, you sell one of the legs.
+The paired position has **near-zero net delta**. It's essentially neutral - the value drift is just the geometric-mean curvature of the constant product. To actually take a directional view, you sell one of the legs.
 
 ## Selling a leg
 
 Both QQQL and QQQS are tradeable on Meteora DLMM:
 
-- `QQQL/cUSDC` pool — sell QQQL to express bearish view, buy QQQL to express bullish view.
-- `QQQS/cUSDC` pool — symmetric.
+- `QQQL/cUSDC` pool - sell QQQL to express bearish view, buy QQQL to express bullish view.
+- `QQQS/cUSDC` pool - symmetric.
 
 A common flow:
 
@@ -89,7 +89,7 @@ A common flow:
 
 You started with 100 cUSDC and now hold a long-only QQQ position worth ~100 cUSDC plus 50 cUSDC of dry powder. The 50 cUSDC came from selling the short leg into the keeper's market-making bid.
 
-The reverse — sell QQQL, hold QQQS — gives you a short-only exposure.
+The reverse - sell QQQL, hold QQQS - gives you a short-only exposure.
 
 ## What if NAV and pool price disagree?
 
@@ -99,7 +99,7 @@ The keeper exists to make this not happen, but in transient periods it can:
 - **Pool < NAV** (underpriced on pool): the keeper buys on the pool, redeems fee-free at NAV (single-sided), pockets the difference. Pool price rises toward NAV.
 - **Combined spread** (both sides off in the same direction): paired arb mint+sell or buy+redeem.
 
-You can run the same arb. There's no protocol-layer fee discount for the keeper on paired arb — only on single-sided. See [Composability](/build/composability) for how to write an external arb bot.
+You can run the same arb. There's no protocol-layer fee discount for the keeper on paired arb - only on single-sided. See [Composability](/build/composability) for how to write an external arb bot.
 
 ## Decimals and minimums
 
@@ -129,7 +129,7 @@ Yes. Both L and S are standard SPL tokens. Transfer them like any other Solana t
 No. Mint must be paired; redeem can be any combination of L and S the user holds. Redemption is **value-weighted**, not quantity-paired.
 
 **Q: What happens if I lose access to half the pair?**
-The other half is still redeemable on its own. Solvency invariant 1 (paired-only **mint**) doesn't apply to redeem — see [Solvency](/concepts/solvency).
+The other half is still redeemable on its own. Solvency invariant 1 (paired-only **mint**) doesn't apply to redeem - see [Solvency](/concepts/solvency).
 
 **Q: Are there fees on transfers?**
 No. Continuum's fees are at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`, both ~10 bps). Transfers are free at the protocol layer; you pay normal Solana fees only.

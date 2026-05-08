@@ -3,7 +3,7 @@ title: Devnet info
 description: Cluster, RPC endpoints, program IDs, the cUSDC faucet, and gotchas specific to devnet.
 ---
 
-Continuum's MVP runs on Solana **devnet**. Mainnet launch is gated on audits and bug-bounty maturity — see [Roadmap](/markets/roadmap).
+Continuum's MVP runs on Solana **devnet**. Mainnet launch is gated on audits and bug-bounty maturity - see [Roadmap](/markets/roadmap).
 
 ## Cluster
 
@@ -13,7 +13,7 @@ WS:      wss://api.devnet.solana.com
 Cluster: devnet
 ```
 
-For production work, use a private RPC (Helius, Triton, QuickNode) — the public devnet endpoint is rate-limited.
+For production work, use a private RPC (Helius, Triton, QuickNode) - the public devnet endpoint is rate-limited.
 
 ## Program IDs
 
@@ -26,7 +26,7 @@ For production work, use a private RPC (Helius, Triton, QuickNode) — the publi
 | `faucet` | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
 | `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` |
 
-The same IDs are pinned in [`Anchor.toml`](https://github.com/continuum-markets/continuum/blob/main/Anchor.toml) on the protocol repo. Mainnet IDs will differ — when mainnet launches, this page will list both.
+The same IDs are pinned in [`Anchor.toml`](https://github.com/continuum-markets/continuum/blob/main/Anchor.toml) on the protocol repo. Mainnet IDs will differ - when mainnet launches, this page will list both.
 
 ## cUSDC (devnet collateral mint)
 
@@ -38,7 +38,7 @@ Decimals: 6
 This is **not** real USDC. It is a custom mint controlled by the Continuum faucet program for testing. Mainnet will use real USDC (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`).
 
 <Warning>
-  Throughout these docs, we refer to the devnet collateral as **"cUSDC"** to distinguish it from real USDC. Code, env vars, and on-chain accounts often just call it "USDC" — but on devnet it's the test mint above.
+  Throughout these docs, we refer to the devnet collateral as **"cUSDC"** to distinguish it from real USDC. Code, env vars, and on-chain accounts often just call it "USDC" - but on devnet it's the test mint above.
 </Warning>
 
 ## Faucet
@@ -54,7 +54,7 @@ bun install
 bun run scripts/faucet-drip.ts
 ```
 
-Or call the `drip` instruction directly — see [Faucet program](/programs/faucet).
+Or call the `drip` instruction directly - see [Faucet program](/programs/faucet).
 
 ## Live markets
 
@@ -73,7 +73,7 @@ A few things to know:
 
 ### Oracle is keeper-driven on devnet
 
-On mainnet, prices flow from Pyth on-chain feeds directly. On devnet, Pyth's RWA feeds are unreliable, so Continuum's keeper polls **Pyth Hermes** (HTTP) every 15 seconds and pushes observations into the oracle program. If you stop the keeper, prices stop updating — and the [risk state](/concepts/risk-states) transitions to `ProxyMode` after a staleness threshold.
+On mainnet, prices flow from Pyth on-chain feeds directly. On devnet, Pyth's RWA feeds are unreliable, so Continuum's keeper polls **Pyth Hermes** (HTTP) every 15 seconds and pushes observations into the oracle program. If you stop the keeper, prices stop updating - and the [risk state](/concepts/risk-states) transitions to `ProxyMode` after a staleness threshold.
 
 You'll see this most often when:
 - The keeper is restarting → expect 30–60s of staleness.
@@ -85,7 +85,7 @@ Most devnet markets boot with `user_twap_price = 0`, in which case `L_NAV` falls
 
 ### Flash-loan adapters disabled
 
-The keeper's MarginFi/Kamino flash-loan adapters auto-disable on devnet (those protocols are mainnet-only). The keeper falls back to **direct mode** — using its own cUSDC balance for arbs. As an integrator, you don't need to think about this; it only affects keeper economics.
+The keeper's MarginFi/Kamino flash-loan adapters auto-disable on devnet (those protocols are mainnet-only). The keeper falls back to **direct mode** - using its own cUSDC balance for arbs. As an integrator, you don't need to think about this; it only affects keeper economics.
 
 ### Faucet cooldown
 

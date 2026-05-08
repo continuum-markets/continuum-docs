@@ -108,14 +108,14 @@ Clear `recent_volatility_bps` (used after large legitimate move that should not 
 
 ### Read-only helpers
 
-These instructions don't write — they're convenient CPI-callable helpers if your own program needs to query oracle state without account-fetching.
+These instructions don't write - they're convenient CPI-callable helpers if your own program needs to query oracle state without account-fetching.
 
-- `get_keeper_twap` — returns the keeper-window TWAP.
-- `get_user_twap` — returns the user-window TWAP.
-- `get_market_state` — returns `MarketState` enum.
-- `get_oracle_health` — returns a struct combining staleness, confidence, state.
-- `get_price` — returns most-recent observation.
-- `get_user_price` / `get_keeper_price` — TWAP-based price for the right window.
+- `get_keeper_twap` - returns the keeper-window TWAP.
+- `get_user_twap` - returns the user-window TWAP.
+- `get_market_state` - returns `MarketState` enum.
+- `get_oracle_health` - returns a struct combining staleness, confidence, state.
+- `get_price` - returns most-recent observation.
+- `get_user_price` / `get_keeper_price` - TWAP-based price for the right window.
 
 In practice you can also just `account.fetch(oracleConfig)` and read fields directly. The CPI helpers exist for programs that want to enforce on-chain price consistency.
 

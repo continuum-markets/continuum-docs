@@ -103,7 +103,7 @@ Donate cUSDC into the market's collateral vault. Creates or extends a `FeeWaiver
 
 #### `permissionless_burn`
 
-Burns excess L or S in the donor wallet without redemption. Used when token supply needs to drop without affecting the vault — niche flow, used rarely.
+Burns excess L or S in the donor wallet without redemption. Used when token supply needs to drop without affecting the vault - niche flow, used rarely.
 
 ### Keeper-privileged (signer = `market.keeper_authority`)
 
@@ -116,7 +116,7 @@ Fee-free, single-sided mint at NAV. Deposits `collateral_amount` cUSDC, mints on
 | `is_long = true` | Receive `collateral_amount / L_NAV` long tokens |
 | `is_long = false` | Receive `collateral_amount / S_NAV` short tokens |
 
-No mint fee, no worst-case quoting markup, no q-imbalance check. Solvency is preserved across the arb cycle, not within this single instruction — see [Solvency invariants](/concepts/solvency).
+No mint fee, no worst-case quoting markup, no q-imbalance check. Solvency is preserved across the arb cycle, not within this single instruction - see [Solvency invariants](/concepts/solvency).
 
 #### `keeper_redeem_single(is_long: bool, token_amount: u64)`
 
@@ -124,7 +124,7 @@ Fee-free, single-sided redeem at NAV. Burns `token_amount` of the chosen side, r
 
 #### `keeper_burn_single`
 
-Burn only — no cUSDC transfer. Used for residue cleanup in edge cases.
+Burn only - no cUSDC transfer. Used for residue cleanup in edge cases.
 
 #### `update_risk_state(new_state: RiskState)`
 

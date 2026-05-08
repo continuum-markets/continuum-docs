@@ -9,13 +9,13 @@ A Solana protocol for **24/7 synthetic exposure to real-world assets**. Deposit 
 
 ## Is it like a perp DEX?
 
-No. Perp DEXs use funding rates, margin, and liquidations. Continuum has none of these — positions are pre-paid SPL tokens, the long/short pair has a constant-product NAV invariant that bounds combined value, and there's no leverage. The position **is** an SPL token; you can transfer it, deposit it elsewhere, or redeem it.
+No. Perp DEXs use funding rates, margin, and liquidations. Continuum has none of these - positions are pre-paid SPL tokens, the long/short pair has a constant-product NAV invariant that bounds combined value, and there's no leverage. The position **is** an SPL token; you can transfer it, deposit it elsewhere, or redeem it.
 
 ## What's the difference between long and short tokens?
 
 Both track the same underlying. The long token (`L`) appreciates as the asset price rises; the short token (`S`) depreciates reciprocally via the constant-product invariant `L_NAV × S_NAV = initial_l × initial_s`.
 
-A paired position has near-zero local delta — its value is bounded. To express direction, you sell one of the legs.
+A paired position has near-zero local delta - its value is bounded. To express direction, you sell one of the legs.
 
 ## Can I lose more than my deposit?
 
@@ -25,7 +25,7 @@ The only way to lose: you sell one leg and that leg appreciates while you no lon
 
 ## Can I just buy long-only?
 
-Yes — two paths:
+Yes - two paths:
 
 1. **Mint paired, sell short leg**: `mint_paired(100 cUSDC)` → `0.104 QQQL + 49.95 QQQS` → swap QQQS to cUSDC on Meteora → end with `0.104 QQQL + ~49.5 cUSDC`. Long-only QQQ exposure with cash buffer.
 2. **Buy directly on Meteora**: skip the mint. Faster but pays pool fee + slippage instead of mint fee.
@@ -34,11 +34,11 @@ Path 1 is better for size; path 2 is better for small/urgent. → [Trade flow](/
 
 ## Why "paired" if I can sell one leg?
 
-The protocol enforces **paired mint and redeem** for solvency. Once paired tokens exist, they're standard SPL tokens — you can do anything with them, including selling one leg. The pairing constraint is at the cUSDC ↔ token boundary, not at the token-trading layer.
+The protocol enforces **paired mint and redeem** for solvency. Once paired tokens exist, they're standard SPL tokens - you can do anything with them, including selling one leg. The pairing constraint is at the cUSDC ↔ token boundary, not at the token-trading layer.
 
 ## Why no funding rate?
 
-The constant-product NAV invariant `L_NAV × S_NAV = initial_l × initial_s` does what funding does in a perp DEX — it redistributes value between holders of the popular vs unpopular side. As `L_NAV` rises, `S_NAV` falls reciprocally. Combined pair value stays bounded. There's nothing extra to redistribute.
+The constant-product NAV invariant `L_NAV × S_NAV = initial_l × initial_s` does what funding does in a perp DEX - it redistributes value between holders of the popular vs unpopular side. As `L_NAV` rises, `S_NAV` falls reciprocally. Combined pair value stays bounded. There's nothing extra to redistribute.
 
 ## How does the price stay anchored to NAV on the pool?
 
@@ -48,7 +48,7 @@ You can run the same arb loop. The fee-free single-sided path is gated to the ke
 
 ## What if the keeper goes down?
 
-User mint and redeem still work — they go directly to the on-chain mint-redeem program, not through the keeper. NAV is read from the on-chain TWAP.
+User mint and redeem still work - they go directly to the on-chain mint-redeem program, not through the keeper. NAV is read from the on-chain TWAP.
 
 What stales:
 - The TWAP itself stales after ~30s without keeper updates → risk state transitions to `ProxyMode`, mint pricing widens.
@@ -61,7 +61,7 @@ Yes. The reference implementation is [open source](https://github.com/continuum-
 
 - The market's `keeper_authority` is a single pubkey today. Two keepers signing as the same pubkey will collide.
 - For full keeper privileges, you need to be the canonical operator (rotate via `update_keeper_authority`).
-- For paired-arb-only operation (no `keeper_*_single` privilege), no authority needed — anyone can run a paired-arb bot.
+- For paired-arb-only operation (no `keeper_*_single` privilege), no authority needed - anyone can run a paired-arb bot.
 
 → [Run a keeper](/keeper/running) · [External arb](/build/composability#2-arb-bot).
 
@@ -71,7 +71,7 @@ Solana. Devnet for MVP. Mainnet launches after audits + bug bounty maturity.
 
 ## What wallets work?
 
-Any Solana wallet that supports SPL tokens — Phantom, Backpack, Solflare, others. The frontend uses Solana Wallet Adapter; integration follows standard patterns.
+Any Solana wallet that supports SPL tokens - Phantom, Backpack, Solflare, others. The frontend uses Solana Wallet Adapter; integration follows standard patterns.
 
 ## How are L and S tokens priced?
 
@@ -104,7 +104,7 @@ Each market has a hard ceiling on `total_l_supply`. Mints reject when reached. R
 
 ## Why is the protocol the sole LP?
 
-MVP simplification. The mechanics for user LP shares exist in git history but are off — re-enabling is planned (no committed timeline yet). For now, capital is operator-funded.
+MVP simplification. The mechanics for user LP shares exist in git history but are off - re-enabling is planned (no committed timeline yet). For now, capital is operator-funded.
 
 ## Is there a token?
 
@@ -122,11 +122,11 @@ Devnet has a faucet. → [Faucet program](/programs/faucet) · [Quickstart](/get
 
 ## Why "Continuum"?
 
-Synthetic exposure across the continuum of real-world assets — equities, indices, commodities, FX — accessible 24/7 from any Solana wallet.
+Synthetic exposure across the continuum of real-world assets - equities, indices, commodities, FX - accessible 24/7 from any Solana wallet.
 
 ## Can I integrate Continuum into my own product?
 
-Yes — please. Long and short tokens are SPL tokens. Paired mint and redeem are open to anyone. NAV is on-chain. CPI integration works. There are no licensing restrictions on integrating; the protocol is permissionless.
+Yes - please. Long and short tokens are SPL tokens. Paired mint and redeem are open to anyone. NAV is on-chain. CPI integration works. There are no licensing restrictions on integrating; the protocol is permissionless.
 
 For featured integrations on the docs and Twitter, drop a note in [#partners on Discord](https://discord.gg/continuum). → [Composability](/build/composability).
 

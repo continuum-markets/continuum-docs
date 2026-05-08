@@ -1,18 +1,18 @@
 ---
 title: Markets
-description: A market is one synthetic asset — a pair of SPL mints, two DLMM pools, an oracle, and a CLP slot. Here's how they're shaped and listed.
+description: A market is one synthetic asset - a pair of SPL mints, two DLMM pools, an oracle, and a CLP slot. Here's how they're shaped and listed.
 ---
 
 A **market** in Continuum is one synthetic asset. Each market has:
 
 - A `Market` PDA (mint-redeem program) holding initial prices, fees, supply, oracle pointer, keeper authority.
-- Two SPL mints — long (`L`) and short (`S`) — both with the market PDA as mint authority.
+- Two SPL mints - long (`L`) and short (`S`) - both with the market PDA as mint authority.
 - One collateral vault (cUSDC token account) holding all collateral backing outstanding L+S supply.
 - An `OracleConfig` PDA tracking observations, TWAP, and risk state.
 - A `Clp` PDA tracking per-market capital allocation, OI cap, inventory state, and Meteora position pointers.
-- Two Meteora DLMM pools — `L/cUSDC` and `S/cUSDC` — at a chosen fee tier.
+- Two Meteora DLMM pools - `L/cUSDC` and `S/cUSDC` - at a chosen fee tier.
 
-Markets are not interchangeable — a QQQL token is a different mint from an SPYL token, even though both are "long" tokens.
+Markets are not interchangeable - a QQQL token is a different mint from an SPYL token, even though both are "long" tokens.
 
 ## Market PDA derivation
 
@@ -91,7 +91,7 @@ The full operator flow lives in the protocol's [operations runbook](https://gith
     Picks symbol, initial prices, mint/redeem fees, sets the keeper authority. Creates the Market PDA, L and S SPL mints (mint authority = market PDA), and the collateral vault.
   </Step>
   <Step title="Initialize the CLP slot">
-    Per-market `Clp` PDA holds the OI cap and inventory state. Set OI cap conservatively — typically ~2× expected LP depth.
+    Per-market `Clp` PDA holds the OI cap and inventory state. Set OI cap conservatively - typically ~2× expected LP depth.
   </Step>
   <Step title="Create CLP token ATAs">
     The CLP PDA gets ATAs for L, S, and cUSDC so it can hold tokens before deploying them to Meteora.
@@ -148,16 +148,16 @@ No crypto markets. The constant-product invariant gives no edge over an actual p
 The asset itself trades during traditional market hours, but **Continuum markets are 24/7**:
 
 - During TradFi hours, NAV reflects the live oracle.
-- Outside TradFi hours, NAV reflects whatever Pyth's "off-hours" feed reports — typically the last close, with limited price discovery.
+- Outside TradFi hours, NAV reflects whatever Pyth's "off-hours" feed reports - typically the last close, with limited price discovery.
 - The keeper publishes session-aware feeds (`Primary` / `PreMarket` / `PostMarket` / `Overnight`) so the oracle program selects the right Pyth feed based on time-of-day.
 
-This means you can mint, redeem, and trade Continuum positions any time. P&L attribution outside market hours has lower discovery — the keeper's arb edge is thinner because there's less external flow.
+This means you can mint, redeem, and trade Continuum positions any time. P&L attribution outside market hours has lower discovery - the keeper's arb edge is thinner because there's less external flow.
 
 ## Read more
 
 <CardGroup cols={2}>
   <Card title="Live market addresses" icon="address-book" href="/markets/live">
-    QQQ, SPY, XAU, VXX — every pubkey.
+    QQQ, SPY, XAU, VXX - every pubkey.
   </Card>
   <Card title="How to read market state" icon="magnifying-glass" href="/flows/read-state">
     Batch fetch markets, derive NAV, query position depth.

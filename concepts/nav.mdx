@@ -21,7 +21,7 @@ For QQQ at launch: `initial_l_price = 480, initial_s_price = 1`. So if `L_NAV = 
 The relationship `L_NAV × S_NAV = initial_l × initial_s` is invariant by construction. This produces several useful properties:
 
 1. **Pair value is bounded.** `L_NAV + S_NAV` is minimized at `L_NAV = S_NAV = √(initial_l × initial_s)` (the geometric mean) and grows as either side moves away. There is no scenario where the pair value collapses to zero.
-2. **No funding rate needed.** In a perp DEX, funding redistributes from longs to shorts (or vice versa) when one side is over-popular. Continuum doesn't need this — the constant-product NAV does the redistribution **automatically** through reciprocal NAV movement. If everyone holds L, S becomes cheap, and any new mint on the popular side is dilutive in NAV terms.
+2. **No funding rate needed.** In a perp DEX, funding redistributes from longs to shorts (or vice versa) when one side is over-popular. Continuum doesn't need this - the constant-product NAV does the redistribution **automatically** through reciprocal NAV movement. If everyone holds L, S becomes cheap, and any new mint on the popular side is dilutive in NAV terms.
 3. **Short side can never go negative.** As `L_NAV → ∞`, `S_NAV → 0`. A holder of S can lose 100% of their position but never owe more.
 4. **Long side has unbounded upside.** No cliff, no liquidation; if the underlying 100xs, the L side 100xs.
 
@@ -41,7 +41,7 @@ n_L                 = mint_value_per_side / L_NAV_at_mint
 n_S                 = mint_value_per_side / S_NAV_at_mint
 ```
 
-So at mint time, the position value equals `mint_amount × (1 - mint_fee_bps / 10_000)` — i.e., your deposit minus fees. Trivially.
+So at mint time, the position value equals `mint_amount × (1 - mint_fee_bps / 10_000)` - i.e., your deposit minus fees. Trivially.
 
 ## How position value moves with the underlying
 
@@ -72,7 +72,7 @@ Some sample values:
 | QQQ price | Position value | Note |
 |---|---|---|
 | 240 (-50%) | 124.85 cUSDC | gain on short side dominates |
-| 384 (-20%) | 102.39 cUSDC | small gain — convexity |
+| 384 (-20%) | 102.39 cUSDC | small gain - convexity |
 | 432 (-10%) | 100.43 cUSDC | small gain |
 | **480** (mint) | **100.00 cUSDC** | break-even (modulo fee) |
 | 528 (+10%) | 100.30 cUSDC | small gain |
@@ -80,7 +80,7 @@ Some sample values:
 | 720 (+50%) | 108.20 cUSDC | gain on long side dominates |
 | 1440 (+200%) | 166.50 cUSDC | long appreciation |
 
-Note: a paired position has **near-zero delta** locally — it's a curved zero-coupon. The pair becomes valuable only at large moves in either direction. To take a directional view, sell one leg.
+Note: a paired position has **near-zero delta** locally - it's a curved zero-coupon. The pair becomes valuable only at large moves in either direction. To take a directional view, sell one leg.
 
 ## NAV in the on-chain Market account
 
@@ -90,7 +90,7 @@ The relevant fields on the [`Market` PDA](/programs/mint-redeem#market-account):
 pub struct Market {
     pub initial_l_price: u64,    // 6 decimals (lamports of cUSDC per L token)
     pub initial_s_price: u64,    // 6 decimals
-    pub user_twap_price: u64,    // 6 decimals — the on-chain TWAP source for L_NAV
+    pub user_twap_price: u64,    // 6 decimals - the on-chain TWAP source for L_NAV
     pub twap_updated_at: i64,    // unix seconds
     // ... fees, mints, oracle, etc.
 }
@@ -123,7 +123,7 @@ When the oracle's risk state is **not** `Normal`, the mint-redeem program applie
 | `Stress` | (mint blocked) | mint rejected with `MintNotAllowedInStress` |
 | `Recovery` | 1× | NAV directly (post-stress recovery) |
 
-Redeem prices are not marked up — only mint. (Otherwise users would be stranded when the oracle goes shaky.)
+Redeem prices are not marked up - only mint. (Otherwise users would be stranded when the oracle goes shaky.)
 
 → [Risk states explained](/concepts/risk-states)
 
@@ -140,11 +140,11 @@ Mints during the boot window use the initial prices. Once TWAP populates, NAV be
 
 ## Edge: oracle stale or paused
 
-If `last_oracle_update` is past the staleness threshold, the oracle's `OracleHealth` flips to `Passive`, and the mint-redeem program rejects new mints (`OraclePriceUnavailable`). Existing redeems still work, but at the last-fresh NAV — see [Risk states](/concepts/risk-states).
+If `last_oracle_update` is past the staleness threshold, the oracle's `OracleHealth` flips to `Passive`, and the mint-redeem program rejects new mints (`OraclePriceUnavailable`). Existing redeems still work, but at the last-fresh NAV - see [Risk states](/concepts/risk-states).
 
 ## NAV vs pool price
 
-NAV is what the protocol mints/redeems at. **Pool price** is what Meteora DLMM trades at — these are not always equal. The keeper's arb loop closes the gap.
+NAV is what the protocol mints/redeems at. **Pool price** is what Meteora DLMM trades at - these are not always equal. The keeper's arb loop closes the gap.
 
 In steady state, `pool_price ≈ NAV ± pool_fee/2`. Outside steady state (after a fast move, oracle staleness, RPC outage), the gap widens until the keeper closes it. A user choosing between mint-redeem and pool trade picks based on size and urgency:
 

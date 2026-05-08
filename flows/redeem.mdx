@@ -3,7 +3,7 @@ title: Redeem paired tokens
 description: Burn long and short tokens (independently), receive cUSDC at NAV.
 ---
 
-`redeem_paired(l_amount, s_amount)` burns L and S in **independently chosen quantities** and returns the value at NAV in cUSDC. Unlike mint, redeem amounts are not quantity-paired — they are NAV-weighted.
+`redeem_paired(l_amount, s_amount)` burns L and S in **independently chosen quantities** and returns the value at NAV in cUSDC. Unlike mint, redeem amounts are not quantity-paired - they are NAV-weighted.
 
 ## Math
 
@@ -72,7 +72,7 @@ L and S have very different unit prices (e.g. QQQ: `L_NAV ≈ 480`, `S_NAV ≈ 0
 | `(0.1, 50)` | both | `48 + 50 = 98` cUSDC |
 | `(0.1, 25)` | both, asymmetric | `48 + 25 = 73` cUSDC |
 
-There's no penalty for asymmetric redeems. They're how you implement directional position closing — sell one leg, redeem the other.
+There's no penalty for asymmetric redeems. They're how you implement directional position closing - sell one leg, redeem the other.
 
 ## Maximum redeem
 
@@ -84,7 +84,7 @@ require!(user_short_balance >= s_amount, InsufficientFunds);
 require!(vault_balance >= return_value, InsufficientCollateral);
 ```
 
-If `InsufficientCollateral` ever fires it would mean a solvency bug — the vault should always cover NAV-weighted outstanding supply by [invariant 1](/concepts/solvency#1-paired-only-mint-and-redeem-for-users).
+If `InsufficientCollateral` ever fires it would mean a solvency bug - the vault should always cover NAV-weighted outstanding supply by [invariant 1](/concepts/solvency#1-paired-only-mint-and-redeem-for-users).
 
 ## Behavior across risk states
 
@@ -105,7 +105,7 @@ Redeem is **never blocked** by risk state. Solvency invariant 1 says users must 
 | `InvalidAmount` | Both `l_amount` and `s_amount` are zero |
 | `InsufficientFunds` | User's L or S balance below request |
 | `InsufficientCollateral` | Vault balance can't cover NAV value (should be unreachable) |
-| `OraclePriceUnavailable` | Oracle paused (extreme case — only emergency_pause triggers this) |
+| `OraclePriceUnavailable` | Oracle paused (extreme case - only emergency_pause triggers this) |
 | `MathOverflow` | Should be unreachable |
 
 → [Full error catalog](/reference/errors)
@@ -145,7 +145,7 @@ Your final P&L is the redeem cUSDC plus whatever cUSDC you got from selling the 
 
 ## When pool > NAV: redeem vs sell
 
-If pool price > NAV (long pool overvalued), it's slightly better to **sell on the pool** than redeem at NAV — the pool gives you the higher price minus the fee. The keeper's arb closes this gap quickly, but during transient drift, check both prices.
+If pool price > NAV (long pool overvalued), it's slightly better to **sell on the pool** than redeem at NAV - the pool gives you the higher price minus the fee. The keeper's arb closes this gap quickly, but during transient drift, check both prices.
 
 The opposite (pool < NAV) → redeeming is better. The keeper will close that gap by buying from the pool and redeeming at NAV.
 
@@ -153,7 +153,7 @@ The opposite (pool < NAV) → redeeming is better. The keeper will close that ga
 
 <CardGroup cols={2}>
   <Card title="Mint" icon="circle-plus" href="/flows/mint">
-    The inverse — deposit cUSDC, receive paired tokens.
+    The inverse - deposit cUSDC, receive paired tokens.
   </Card>
   <Card title="Trade on Meteora" icon="chart-mixed" href="/flows/trade">
     When pool price diverges from NAV, sometimes selling on the pool beats redeeming.

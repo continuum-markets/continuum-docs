@@ -1,6 +1,6 @@
 ---
 title: Reading on-chain state
-description: Patterns for fetching market data, NAV, pool depth, position state, and risk — efficiently.
+description: Patterns for fetching market data, NAV, pool depth, position state, and risk - efficiently.
 ---
 
 Continuum's state is fully on-chain. This page covers the common reads you'll need to build a UI, a bot, or a monitoring dashboard.
@@ -207,9 +207,9 @@ For pool prices, subscribe to the `LbPair` account directly via Meteora's SDK or
 
 **Wrong oracle account.** Use `market.oracle_address`, never hard-code. The address is per-market; reusing one across markets returns wrong NAV.
 
-**TWAP == 0 trap.** Right after a market init, TWAP is zero. Fall back to `initial_l_price`. The frontend's `useMarkets()` hook handles this — replicate the pattern.
+**TWAP == 0 trap.** Right after a market init, TWAP is zero. Fall back to `initial_l_price`. The frontend's `useMarkets()` hook handles this - replicate the pattern.
 
-**Stale market data after mint/redeem.** Anchor's account-fetch returns the *current* state, but if you're displaying stale numbers from before the user's tx, refetch after `confirmed`. The Anchor provider's `sendAndConfirm` returns when the cluster is at `confirmed` — re-fetch then.
+**Stale market data after mint/redeem.** Anchor's account-fetch returns the *current* state, but if you're displaying stale numbers from before the user's tx, refetch after `confirmed`. The Anchor provider's `sendAndConfirm` returns when the cluster is at `confirmed` - re-fetch then.
 
 **Pool address mismatch.** If you read `clp.meteora_long_pool` and find it equals the default pubkey (all zeros), pools are not configured for that market yet. Use the registry / `market-addresses.json` as the source of truth for pools that should exist.
 

@@ -58,7 +58,7 @@ Differences vs the keeper:
 - You compete with the keeper on paired arb. The keeper has lower latency (it's the canonical operator).
 - Profitable opportunities for you: when the keeper is idle, slow, or operating on a different market. Devnet often has gaps; mainnet will be tighter.
 
-**Design tip**: monitor the keeper's deposit_profit cadence. If you see the keeper hasn't profited in N minutes, the spreads are too tight or it's offline — your edge is in the second case.
+**Design tip**: monitor the keeper's deposit_profit cadence. If you see the keeper hasn't profited in N minutes, the spreads are too tight or it's offline - your edge is in the second case.
 
 ## 3. Structured products
 
@@ -142,7 +142,7 @@ Continuum has no leverage. But you can synthetically leverage:
 4. Mint paired QQQ again           → repeat
 ```
 
-**Caveats**: each loop pays mint+swap fees. Borrow rates apply. And — most importantly — this introduces liquidation risk **on the lender's side** (Kamino), not on Continuum. Continuum positions themselves remain unliquidatable.
+**Caveats**: each loop pays mint+swap fees. Borrow rates apply. And - most importantly - this introduces liquidation risk **on the lender's side** (Kamino), not on Continuum. Continuum positions themselves remain unliquidatable.
 
 This is a power-user composition; not something to expose to retail without disclosure.
 
@@ -192,7 +192,7 @@ Show the user "you'll get 0.104 QQQL and 49.95 QQQS for 100 cUSDC" before they s
 
 ## 10. Data product
 
-Continuum's on-chain state is rich — every mint/redeem, every TWAP push, every CLP allocation is on-chain. Indexers can:
+Continuum's on-chain state is rich - every mint/redeem, every TWAP push, every CLP allocation is on-chain. Indexers can:
 
 - Track keeper profitability over time (`deposit_profit` ix history).
 - Plot TWAP vs Pyth-spot divergence (where Continuum users got better/worse than spot).
@@ -211,13 +211,13 @@ A historical index of pool depth, NAV, and arb spread is a marketable dataset fo
 ## Patterns to avoid
 
 - **Don't pre-mint and hold.** Continuum positions are NAV-tracking; they don't need pre-positioning. Mint at the moment of need.
-- **Don't assume per-market NAVs are correlated.** They are not — QQQ NAV is set by QQQ's oracle, SPY by SPY's. Your basket math should treat them independently.
+- **Don't assume per-market NAVs are correlated.** They are not - QQQ NAV is set by QQQ's oracle, SPY by SPY's. Your basket math should treat them independently.
 - **Don't skip ATA creation.** Idempotent ATA creation costs ~0.002 SOL once per (user, mint). Less than a transaction's worth. Always pre-create.
 - **Don't assume infinite OI.** Each market has an `oi_cap`. If your integration is cap-blowing for a small market, expect rejection. Surface this to the user.
 
 ## Talk to us
 
-If you're building, drop a note in [Discord](https://discord.gg/continuum) — we'd love to feature your project and help with integration. Mainnet partner integrations get prioritized listing slots.
+If you're building, drop a note in [Discord](https://discord.gg/continuum) - we'd love to feature your project and help with integration. Mainnet partner integrations get prioritized listing slots.
 
 ## See also
 

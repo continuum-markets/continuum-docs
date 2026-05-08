@@ -185,7 +185,7 @@ The 0.22 cUSDC delta is the round-trip fees: 0.10 cUSDC mint fee + 0.10 cUSDC re
 - Step 5 deposited 100 cUSDC, received ~0.104 QQQL + ~49.95 QQQS, paid 0.10 cUSDC fee.
 - Step 6 burned the entire position, received ~99.78 cUSDC, paid 0.10 cUSDC fee.
 
-If `redeem_paired` ever returned an unexpected number, double-check `L_NAV` and `S_NAV` against the on-chain market state — see [Reading state](/flows/read-state).
+If `redeem_paired` ever returned an unexpected number, double-check `L_NAV` and `S_NAV` against the on-chain market state - see [Reading state](/flows/read-state).
 
 ## Asymmetric redeem
 
@@ -217,7 +217,7 @@ You'll receive `lToBurn × L_NAV - fee` cUSDC and still hold `sToBurn` worth of 
 
 - **Mint multiple markets in one tx**: build separate mint instructions for QQQ, SPY, etc., bundle in one Transaction.
 - **Reactive UI**: subscribe to `marketPDA` via `connection.onAccountChange` to refresh NAV automatically.
-- **Trade post-mint**: after step 5, immediately swap the short leg on Meteora to express directional view — see [Trade flow](/flows/trade).
+- **Trade post-mint**: after step 5, immediately swap the short leg on Meteora to express directional view - see [Trade flow](/flows/trade).
 
 ## See also
 

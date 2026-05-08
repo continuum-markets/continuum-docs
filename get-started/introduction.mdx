@@ -3,7 +3,7 @@ title: Introduction
 description: Continuum is a Solana-native protocol for 24/7 synthetic exposure to real-world assets. Here's the mental model.
 ---
 
-Continuum is a Solana protocol for **24/7 synthetic exposure to real-world assets** — equities, indices, commodities, FX. You deposit USDC, you get paired long and short tokens that track the asset's NAV. Sell either side on a DEX, hold to maturity, or redeem the pair back to USDC at any time.
+Continuum is a Solana protocol for **24/7 synthetic exposure to real-world assets** - equities, indices, commodities, FX. You deposit USDC, you get paired long and short tokens that track the asset's NAV. Sell either side on a DEX, hold to maturity, or redeem the pair back to USDC at any time.
 
 It is not a perp DEX, not a margin platform, not a wrapped-asset protocol. There are no funding rates, no liquidations, no leverage. The position **is** an SPL token.
 
@@ -24,17 +24,17 @@ It is not a perp DEX, not a margin platform, not a wrapped-asset protocol. There
 
 ## What you can build
 
-Continuum is composable — long and short tokens are standard SPL tokens. Some examples:
+Continuum is composable - long and short tokens are standard SPL tokens. Some examples:
 
 - **Wrapper UIs** that present long-only or short-only flows on top of the paired primitive.
 - **Structured products** (delta-neutral baskets, covered-call simulators, dispersion plays) that combine multiple Continuum markets.
-- **Trading bots** that arb pool prices vs NAV — the same way the keeper does, but for any market.
+- **Trading bots** that arb pool prices vs NAV - the same way the keeper does, but for any market.
 - **Portfolio analytics** that read on-chain market state and compute position P&L from NAV, no off-chain feed required.
 - **CPI integrations** where another Solana program holds, mints, or redeems Continuum positions as part of a larger flow.
 
 ## How it works in one paragraph
 
-A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the on-chain NAV, transfers `amount` USDC into the market's collateral vault, and mints matched long (`L`) and short (`S`) tokens to the user. The two NAVs are bound by a constant-product invariant — `L_NAV × S_NAV = initial_l × initial_s` — so as one side appreciates the other depreciates reciprocally. To exit, the user calls `redeem_paired(l_amount, s_amount)` and gets USDC back at NAV. In between, both tokens trade on Meteora DLMM pools where a [keeper bot](/concepts/keeper) runs an arbitrage loop that pulls pool prices toward NAV. All of this is on-chain Solana state — no off-chain custodian, no oracle dependency that can freeze user funds.
+A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the on-chain NAV, transfers `amount` USDC into the market's collateral vault, and mints matched long (`L`) and short (`S`) tokens to the user. The two NAVs are bound by a constant-product invariant - `L_NAV × S_NAV = initial_l × initial_s` - so as one side appreciates the other depreciates reciprocally. To exit, the user calls `redeem_paired(l_amount, s_amount)` and gets USDC back at NAV. In between, both tokens trade on Meteora DLMM pools where a [keeper bot](/concepts/keeper) runs an arbitrage loop that pulls pool prices toward NAV. All of this is on-chain Solana state - no off-chain custodian, no oracle dependency that can freeze user funds.
 
 ## Where this doc lives in the stack
 
@@ -56,7 +56,7 @@ A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The keeper bot runs separately, off-chain, and signs as the privileged `keeper_authority` for arbitrage and DLMM rebalancing. It is not in your call path — your transactions go directly to the on-chain programs.
+The keeper bot runs separately, off-chain, and signs as the privileged `keeper_authority` for arbitrage and DLMM rebalancing. It is not in your call path - your transactions go directly to the on-chain programs.
 
 ## Core invariants you can rely on
 

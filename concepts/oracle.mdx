@@ -12,7 +12,7 @@ The [`oracle` program](/programs/oracle) is Continuum's price layer. It maintain
 | **Pyth on-chain** | Primary on mainnet. Read directly from Pyth's price account. |
 | **Pyth Hermes** (HTTP) | Primary on devnet. Keeper pulls every 15s and pushes observations on-chain. |
 | **Switchboard** | Configurable per market (alternative on-chain source). |
-| **Manual** (devnet only) | `force_price` for testing — operators can override. |
+| **Manual** (devnet only) | `force_price` for testing - operators can override. |
 
 The current MVP runs primarily on Hermes-pushed observations on devnet. Mainnet will favor on-chain Pyth (lower latency, no keeper dependency for the price step). You can see which source a market uses via `market.oracle_type`.
 
@@ -24,7 +24,7 @@ Pyth's RWA feeds on devnet are unreliable (often stale, sometimes missing for en
 2. Selecting the right session-aware feed (`Primary` for regular hours, `PreMarket`, `PostMarket`, `Overnight`).
 3. Calling `oracle::update_price_observation` with the result.
 
-Mainnet won't need this for liquid TradFi assets — Pyth on-chain is reliable for those. But the keeper-push path remains as a fallback.
+Mainnet won't need this for liquid TradFi assets - Pyth on-chain is reliable for those. But the keeper-push path remains as a fallback.
 
 ## Session-aware feeds
 
@@ -43,14 +43,14 @@ The oracle program stores these as `OracleFeed` PDAs (one per (market, feed) pai
 
 Two TWAPs run in parallel per market:
 
-- **`user_twap`** (`window_seconds = 300` default) — drives `L_NAV` for user-facing mint/redeem.
-- **`keeper_twap`** (`window_seconds = 60` default) — drives keeper arb decisions.
+- **`user_twap`** (`window_seconds = 300` default) - drives `L_NAV` for user-facing mint/redeem.
+- **`keeper_twap`** (`window_seconds = 60` default) - drives keeper arb decisions.
 
 Why two? The keeper needs faster reaction to actual market moves; users get a smoother price for fewer mid-price-jump complaints. Both windows are configurable per oracle.
 
 The TWAP is computed from a ring buffer of `PriceObservation` records. Each observation records `(price, confidence, timestamp)`. The TWAP is time-weighted across the window.
 
-If the buffer is too short for the requested window, the TWAP returns 0 — the consuming program treats this as a fallback to `initial_l_price`.
+If the buffer is too short for the requested window, the TWAP returns 0 - the consuming program treats this as a fallback to `initial_l_price`.
 
 ## Risk-state machine
 
@@ -63,7 +63,7 @@ Active → fully operational
 Paused → emergency halt; all reads blocked
 ```
 
-`Paused` is admin-only — set via `emergency_pause` for kill-switch use cases.
+`Paused` is admin-only - set via `emergency_pause` for kill-switch use cases.
 
 ### Risk regime (mirrored to mint-redeem)
 
@@ -94,7 +94,7 @@ const lNav = market.userTwapPrice.gtn(0)
 const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav);
 ```
 
-`market.user_twap_price` is updated by the oracle program directly into the market account. No oracle CPI needed at read time — it's a plain account fetch.
+`market.user_twap_price` is updated by the oracle program directly into the market account. No oracle CPI needed at read time - it's a plain account fetch.
 
 ### 2. Read from the OracleConfig account
 
@@ -123,7 +123,7 @@ The on-chain TWAP and Hermes will agree to within a few seconds of staleness. Us
 
 ## Confidence intervals
 
-Every Pyth observation includes a confidence interval — the publisher's estimate of price uncertainty. The oracle stores it on `last_confidence`. The mint-redeem program multiplies confidence by a state-specific multiplier when applying its **worst-case quoting markup**:
+Every Pyth observation includes a confidence interval - the publisher's estimate of price uncertainty. The oracle stores it on `last_confidence`. The mint-redeem program multiplies confidence by a state-specific multiplier when applying its **worst-case quoting markup**:
 
 ```
 mint_price = NAV × (1 + state_mult × confidence_bps / 10_000)
@@ -135,11 +135,11 @@ mint_price = NAV × (1 + state_mult × confidence_bps / 10_000)
 | `ProxyMode` | 2× |
 | `Stress` | n/a (mint blocked) |
 
-This is the mechanism by which Continuum charges more during uncertain times — not by raising the explicit `mint_fee_bps`, but by quoting NAV at a worse-than-actual rate.
+This is the mechanism by which Continuum charges more during uncertain times - not by raising the explicit `mint_fee_bps`, but by quoting NAV at a worse-than-actual rate.
 
 ## Volatility tracking
 
-The oracle program also tracks **recent realized volatility**. Each observation push contributes to a rolling volatility bps figure (`recent_volatility_bps`). The keeper reads this for [DLMM rebalancing](/keeper/dlmm) — wider radius in higher-vol regimes.
+The oracle program also tracks **recent realized volatility**. Each observation push contributes to a rolling volatility bps figure (`recent_volatility_bps`). The keeper reads this for [DLMM rebalancing](/keeper/dlmm) - wider radius in higher-vol regimes.
 
 The thresholds (calm < 10%, normal < 25%, elevated < 50%, stressed ≥ 50% annualized) are VIX-inspired heuristics. Per-market calibration is on the roadmap.
 
@@ -153,14 +153,14 @@ oracle::emergency_pause(authority signer)
 
 A paused oracle returns errors on all reads. The mint-redeem program treats this as `OraclePriceUnavailable` and rejects mints. Redeems still work using the last-fresh NAV.
 
-Mainnet pause authority will be a multisig (Squads) — operator pauses are emergency-only.
+Mainnet pause authority will be a multisig (Squads) - operator pauses are emergency-only.
 
 ## Integration patterns
 
 If you're building on Continuum, the most common pattern is:
 
 ```typescript
-// 1. Fetch market — gives you NAV directly
+// 1. Fetch market - gives you NAV directly
 const market = await mintRedeem.account.market.fetch(marketPDA);
 
 // 2. (Optional) Fetch oracle for confidence and freshness
@@ -173,7 +173,7 @@ if (stale) {
 }
 ```
 
-Don't roll your own price source for actions that touch the protocol — the protocol uses the on-chain NAV regardless of what your client computes.
+Don't roll your own price source for actions that touch the protocol - the protocol uses the on-chain NAV regardless of what your client computes.
 
 ## Read more
 

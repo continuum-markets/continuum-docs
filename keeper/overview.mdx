@@ -3,7 +3,7 @@ title: Keeper overview
 description: A higher-level look at what the keeper does, why it's privileged, and what an external operator gets if they run one.
 ---
 
-The keeper is an off-chain Rust async bot. It's the operational layer that connects on-chain Continuum to external markets — pushing oracle observations, running peg-enforcing arbitrage, and managing the protocol's LP positions on Meteora DLMM.
+The keeper is an off-chain Rust async bot. It's the operational layer that connects on-chain Continuum to external markets - pushing oracle observations, running peg-enforcing arbitrage, and managing the protocol's LP positions on Meteora DLMM.
 
 There's a [reference implementation](https://github.com/continuum-markets/continuum/tree/main/keeper) in the protocol repo. It's the canonical operator today; multi-operator support is on the [roadmap](/markets/roadmap).
 
@@ -54,10 +54,10 @@ The fee-free single-sided paths are the **primary** keeper economic edge. Everyw
 
 The keeper signs with two **separate** keypairs:
 
-- **`KEEPER_KEYPAIR`** — payer + arb signer. Pays SOL fees, signs direct swap txs and `keeper_*_single` ixns.
-- **`CLP_AUTHORITY_KEYPAIR`** — signs CLP proxy instructions (Meteora positions, vault mint/redeem, allocate, return).
+- **`KEEPER_KEYPAIR`** - payer + arb signer. Pays SOL fees, signs direct swap txs and `keeper_*_single` ixns.
+- **`CLP_AUTHORITY_KEYPAIR`** - signs CLP proxy instructions (Meteora positions, vault mint/redeem, allocate, return).
 
-This split is intentional. Operators can rotate the payer (e.g., a hot key that gets occasional drift) without touching the CLP authority. The CLP authority is a more sensitive key — it controls LP capital — and is rotated less often.
+This split is intentional. Operators can rotate the payer (e.g., a hot key that gets occasional drift) without touching the CLP authority. The CLP authority is a more sensitive key - it controls LP capital - and is rotated less often.
 
 Both keypairs need their own SOL balance for transaction fees.
 
@@ -71,7 +71,7 @@ Both keypairs need their own SOL balance for transaction fees.
 | Profit | Routes to `GlobalClp` via `deposit_profit` | Stays in operator wallet |
 | Latency edge | First in line | Competes with other ext. operators |
 
-If you run an external paired-arb bot, you compete with the keeper on paired-arb opportunities — and you get **all** the profit instead of routing it to the protocol vault. The keeper has lower latency (it's the canonical operator), but on devnet and during periods of low keeper activity, external bots can find edges.
+If you run an external paired-arb bot, you compete with the keeper on paired-arb opportunities - and you get **all** the profit instead of routing it to the protocol vault. The keeper has lower latency (it's the canonical operator), but on devnet and during periods of low keeper activity, external bots can find edges.
 
 ## Solvency guarantees
 
@@ -86,11 +86,11 @@ These ensure that the keeper can crash, restart, run on a stale RPC, or be kille
 
 ## What the keeper does NOT do
 
-- **Modify market parameters.** Fees, OI cap, oracle pointer — all admin-authority, separate keypair.
+- **Modify market parameters.** Fees, OI cap, oracle pointer - all admin-authority, separate keypair.
 - **Pause oracles.** Emergency pause is admin-authority on the oracle program.
 - **Mint cUSDC.** Faucet is its own program; keeper has no mint authority on collateral.
 - **Custody user funds.** User mint/redeem flows go directly to mint-redeem program; keeper is not in the call path.
-- **Decide protocol-level economics.** Fee tiers, OI caps, asset additions — all operator/governance decisions.
+- **Decide protocol-level economics.** Fee tiers, OI caps, asset additions - all operator/governance decisions.
 
 ## Reference dashboard
 
@@ -101,7 +101,7 @@ http://localhost:8484   (mainnet)
 http://localhost:8485   (devnet)
 ```
 
-Shows oracle freshness, risk state, arb opportunities, position status, vault balances. For operators only — as an integrator, you read state directly from on-chain accounts.
+Shows oracle freshness, risk state, arb opportunities, position status, vault balances. For operators only - as an integrator, you read state directly from on-chain accounts.
 
 ## Where to go next
 

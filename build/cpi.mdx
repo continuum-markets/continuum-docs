@@ -13,9 +13,9 @@ This page covers the calling patterns. The receiving programs (`mint-redeem`, `c
 
 ## Important caveats first
 
-**Most users don't need CPI.** If your integration is off-chain (a bot, a frontend), you don't need CPI — you sign transactions directly. CPI is for cases where the protocol you're building is itself on-chain.
+**Most users don't need CPI.** If your integration is off-chain (a bot, a frontend), you don't need CPI - you sign transactions directly. CPI is for cases where the protocol you're building is itself on-chain.
 
-**Privileged ixns can't be CPI'd by random callers.** `keeper_mint_single` requires `signer == market.keeper_authority`. CPI doesn't change this — your program would need to be the keeper authority to call it. Privileged paths are not designed for general CPI integration.
+**Privileged ixns can't be CPI'd by random callers.** `keeper_mint_single` requires `signer == market.keeper_authority`. CPI doesn't change this - your program would need to be the keeper authority to call it. Privileged paths are not designed for general CPI integration.
 
 **The `mint_paired` and `redeem_paired` paths can be CPI'd freely** because they have no signer privilege beyond the user's own signature.
 
@@ -102,7 +102,7 @@ let cpi_ctx = CpiContext::new_with_signer(
 mint_redeem::cpi::mint_paired(cpi_ctx, amount)
 ```
 
-This is what the CLP program does internally — it wraps `mint_paired` with the CLP PDA as signer.
+This is what the CLP program does internally - it wraps `mint_paired` with the CLP PDA as signer.
 
 ## Reading state via CPI
 
@@ -119,7 +119,7 @@ let price_result = oracle::cpi::get_user_price(cpi_ctx)?;
 let lNav = price_result.get().price;
 ```
 
-Or just deserialize the oracle account in your handler — cheaper, same result for most use cases:
+Or just deserialize the oracle account in your handler - cheaper, same result for most use cases:
 
 ```rust
 let oracle_data = oracle_config.try_borrow_data()?;
@@ -137,9 +137,9 @@ Symmetric to mint. Your program calls `mint_redeem::cpi::redeem_paired(cpi_ctx, 
 
 Some flows are not CPI-friendly:
 
-- **`keeper_mint_single` / `keeper_redeem_single`** — require `signer == market.keeper_authority`. You'd need to be the keeper authority. Generally, only the canonical keeper has this, and on mainnet it'll be a multisig.
-- **All `clp_*` Meteora-proxy ixns** — same. CLP authority requirement.
-- **Admin ixns (`update_market`, `admin_fund`, etc.)** — admin authority required.
+- **`keeper_mint_single` / `keeper_redeem_single`** - require `signer == market.keeper_authority`. You'd need to be the keeper authority. Generally, only the canonical keeper has this, and on mainnet it'll be a multisig.
+- **All `clp_*` Meteora-proxy ixns** - same. CLP authority requirement.
+- **Admin ixns (`update_market`, `admin_fund`, etc.)** - admin authority required.
 
 Your CPI integration is limited to the public-user surface unless you've been granted the keeper authority for a market.
 
@@ -147,7 +147,7 @@ Your CPI integration is limited to the public-user surface unless you've been gr
 
 **Account list ordering.** Anchor's CPI account context expects a specific order. If you build the account list manually (e.g., from a TypeScript instruction), order must match the IDL's `accounts` array exactly.
 
-**`#[account(mut)]` correctness.** Forgetting to mark accounts mutable in your wrapping context — when they need to be mutated by the inner CPI — produces `AccountNotMutable` errors. Match the inner program's account constraints.
+**`#[account(mut)]` correctness.** Forgetting to mark accounts mutable in your wrapping context - when they need to be mutated by the inner CPI - produces `AccountNotMutable` errors. Match the inner program's account constraints.
 
 **Compute budget.** `mint_paired` is moderate-CU. Wrapping it adds your program's overhead. If you bundle multiple Continuum CPIs in one outer ix, you may need to set a compute budget instruction:
 
@@ -196,6 +196,6 @@ A user opts in by depositing into your program; your program then watches for tr
     Off-chain integration patterns: arb bots, structured products.
   </Card>
   <Card title="Programs overview" icon="square-terminal" href="/programs/overview">
-    Authority model — who can call what.
+    Authority model - who can call what.
   </Card>
 </CardGroup>

@@ -1,6 +1,6 @@
 ---
 title: How Continuum works
-description: The full mental model — what's on-chain, what runs off-chain, and how they interact.
+description: The full mental model - what's on-chain, what runs off-chain, and how they interact.
 ---
 
 Continuum has five moving pieces. Three live on-chain, two run off-chain.
@@ -45,45 +45,45 @@ Continuum has five moving pieces. Three live on-chain, two run off-chain.
 
 ## What each piece does
 
-### `mint-redeem` — the user-facing entry point
+### `mint-redeem` - the user-facing entry point
 
 The only program a regular user ever writes to. Two instructions matter for normal use:
 
 - **`mint_paired(amount)`** deposits cUSDC, mints matched long + short tokens at NAV.
 - **`redeem_paired(l_amount, s_amount)`** burns long + short (in independent quantities) and returns cUSDC at NAV.
 
-NAV is read live from the oracle account. The market PDA holds initial prices, total supply, fees, and the keeper authority. There's no path for a user to mint single-sided — see [Solvency](/concepts/solvency) for why.
+NAV is read live from the oracle account. The market PDA holds initial prices, total supply, fees, and the keeper authority. There's no path for a user to mint single-sided - see [Solvency](/concepts/solvency) for why.
 
 → [Full reference](/programs/mint-redeem)
 
-### `oracle` — price and risk
+### `oracle` - price and risk
 
 Maintains a per-market price observation buffer, a TWAP, and a risk-state machine. The keeper pushes observations every ~15 seconds. The oracle's state (`Active` / `Passive`) and risk regime (`Normal` / `ProxyMode` / `Stress` / `Recovery`) gate user-facing operations: if prices stale, mints throttle; if oracle goes passive, mints close.
 
 → [Risk states explained](/concepts/risk-states) · [Full reference](/programs/oracle)
 
-### `clp` — Capital and Liquidity Provider
+### `clp` - Capital and Liquidity Provider
 
-Owns the protocol's LP capital. A CLP PDA per market signs Meteora DLMM CPIs, holds the long/short token ATAs that back each LP position, and routes profit back into a global vault. There's no end-user interaction here — CLP instructions are gated by keeper authority or admin authority.
+Owns the protocol's LP capital. A CLP PDA per market signs Meteora DLMM CPIs, holds the long/short token ATAs that back each LP position, and routes profit back into a global vault. There's no end-user interaction here - CLP instructions are gated by keeper authority or admin authority.
 
 The reason this is its own program: Meteora positions have an `owner` field. By making the CLP PDA the owner, no individual keeper wallet has unilateral control over LP capital, and operators can rotate keeper signers without re-creating positions.
 
 → [Full reference](/programs/clp)
 
-### Keeper bot — off-chain, owns the loop
+### Keeper bot - off-chain, owns the loop
 
 A Rust async bot (the [public reference implementation](https://github.com/continuum-markets/continuum/tree/main/keeper)) that runs:
 
-1. **Oracle loop** (15s) — fetch Pyth/Hermes, push observations.
-2. **Arb loop** (15s) — scan pool prices vs NAV, execute the profitable side.
-3. **DLMM loop** (120s) — open / rebalance / close Meteora positions via CLP CPI.
-4. **Seeder loop** (600s) — allocate from global vault to per-market vaults; recall when worst-edge.
+1. **Oracle loop** (15s) - fetch Pyth/Hermes, push observations.
+2. **Arb loop** (15s) - scan pool prices vs NAV, execute the profitable side.
+3. **DLMM loop** (120s) - open / rebalance / close Meteora positions via CLP CPI.
+4. **Seeder loop** (600s) - allocate from global vault to per-market vaults; recall when worst-edge.
 
-The keeper signs as the privileged `keeper_authority` — this gives it access to fee-free single-sided mint/redeem (used inside arb cycles) and CLP proxy instructions. **Anyone can run a keeper**, but only one signer at a time is the canonical authority on a given market. Future versions will support multiple authorities and operator-specified rotation.
+The keeper signs as the privileged `keeper_authority` - this gives it access to fee-free single-sided mint/redeem (used inside arb cycles) and CLP proxy instructions. **Anyone can run a keeper**, but only one signer at a time is the canonical authority on a given market. Future versions will support multiple authorities and operator-specified rotation.
 
 → [Keeper overview](/keeper/overview)
 
-### Meteora DLMM — the trading venue
+### Meteora DLMM - the trading venue
 
 Continuum has no in-house AMM. Long and short tokens trade on **Meteora DLMM** pools (one L/cUSDC pool, one S/cUSDC pool per market). The protocol is the sole LP for the MVP; user-side LP shares don't exist yet. From a user's perspective:
 
@@ -91,7 +91,7 @@ Continuum has no in-house AMM. Long and short tokens trade on **Meteora DLMM** p
 - Want to exit fast? Sell on the pool.
 - Want to redeem at NAV? Burn paired (or asymmetric) on the mint-redeem program.
 
-The keeper's arb loop is what keeps pool prices anchored to NAV. As an external builder you can also arb — see [Composability](/build/composability).
+The keeper's arb loop is what keeps pool prices anchored to NAV. As an external builder you can also arb - see [Composability](/build/composability).
 
 ## End-to-end mint flow
 
@@ -108,7 +108,7 @@ The keeper's arb loop is what keeps pool prices anchored to NAV. As an external 
                                             deposit_profit ──► global CLP vault
 ```
 
-The user's transaction is **independent** of the keeper. The keeper only steps in when pool prices diverge from NAV — never blocking the user's flow.
+The user's transaction is **independent** of the keeper. The keeper only steps in when pool prices diverge from NAV - never blocking the user's flow.
 
 ## End-to-end redeem flow
 
@@ -131,7 +131,7 @@ L and S amounts are independent because their NAVs differ. The pair is **value-w
 | Why no funding rate? | The constant-product NAV invariant `L_NAV × S_NAV = const` bounds combined pair value. Gains on one side mirror losses on the other. There's nothing to redistribute. |
 | Why no liquidations? | A paired position prepays full collateral. There is no margin to call. |
 | Why no in-house AMM? | Meteora DLMM is mature, has dynamic fees, and concentrated-liquidity bins. Building one in-house added zero edge. |
-| Why is the keeper privileged? | The keeper's single-sided mint/redeem is fee-free at the protocol layer — used inside two-phase arb cycles that net back to cUSDC. A user with the same privilege could mint unbacked claims. |
+| Why is the keeper privileged? | The keeper's single-sided mint/redeem is fee-free at the protocol layer - used inside two-phase arb cycles that net back to cUSDC. A user with the same privilege could mint unbacked claims. |
 | Why is the protocol the sole LP? | MVP simplification. The mechanics for user LP shares exist in git history; turning them on is a future-work item. |
 
 ## Where to go next

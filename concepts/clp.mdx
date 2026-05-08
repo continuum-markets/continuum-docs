@@ -1,17 +1,17 @@
 ---
-title: CLP — Capital and Liquidity Provider
+title: CLP - Capital and Liquidity Provider
 description: The on-chain treasury and DLMM proxy. Holds protocol LP capital, owns Meteora positions, routes fees and profit.
 ---
 
 The **CLP** (Capital and Liquidity Provider) is an on-chain program that owns the protocol's LP capital and Meteora positions. The CLP PDA per market signs Meteora DLMM CPIs; a global vault PDA holds idle cUSDC available for redeployment.
 
-You don't interact with the CLP as an end user — there are no user-facing deposit or withdraw instructions on it. Everything is operator- or keeper-gated.
+You don't interact with the CLP as an end user - there are no user-facing deposit or withdraw instructions on it. Everything is operator- or keeper-gated.
 
 ## Why a separate program
 
 Two reasons:
 
-1. **Solvency separation.** A keeper wallet shouldn't own LP positions directly — if a keeper key is compromised, the attacker drains positions. By making the CLP PDA the position owner, position operations are gated by program logic that validates each call against stored pool/position addresses, market PDA, and authority.
+1. **Solvency separation.** A keeper wallet shouldn't own LP positions directly - if a keeper key is compromised, the attacker drains positions. By making the CLP PDA the position owner, position operations are gated by program logic that validates each call against stored pool/position addresses, market PDA, and authority.
 2. **Keeper rotation.** Operators can rotate the keeper authority pubkey without re-creating positions. The CLP PDA's authority is the position owner; only the right to call CLP instructions changes when a keeper rotates.
 
 ## Account layout
@@ -86,10 +86,10 @@ When the seeder calls `allocate_to_market(amount)`:
 
 Then the seeder typically:
 
-1. Calls `vault_mint_pairs(amount)` on CLP — CPIs `mint_redeem::mint_paired`. The CLP PDA pays `amount` cUSDC, receives matched L+S into its ATAs.
-2. Calls `clp_open_meteora_position(side, amount_x, amount_y, ...)` on each side — deploys to Meteora.
+1. Calls `vault_mint_pairs(amount)` on CLP - CPIs `mint_redeem::mint_paired`. The CLP PDA pays `amount` cUSDC, receives matched L+S into its ATAs.
+2. Calls `clp_open_meteora_position(side, amount_x, amount_y, ...)` on each side - deploys to Meteora.
 
-Two-sided seed: the seeder typically splits 50/50 — half stays as cUSDC (Y side of the pool), half goes to L+S (X side). Meteora's `add_liquidity_by_strategy2` places Y below active and X above.
+Two-sided seed: the seeder typically splits 50/50 - half stays as cUSDC (Y side of the pool), half goes to L+S (X side). Meteora's `add_liquidity_by_strategy2` places Y below active and X above.
 
 ## What happens on rebalance
 
@@ -103,10 +103,10 @@ Every 120s (`DLMM_INTERVAL_SECS`), the keeper checks:
 
 If a rebuild is needed:
 
-1. `clp_remove_meteora_liquidity(side, lower_bin, upper_bin)` — drains tokens back to CLP PDA's ATAs.
-2. `clp_close_meteora_position(side, lower_bin, upper_bin)` — closes the position and reclaims rent.
+1. `clp_remove_meteora_liquidity(side, lower_bin, upper_bin)` - drains tokens back to CLP PDA's ATAs.
+2. `clp_close_meteora_position(side, lower_bin, upper_bin)` - closes the position and reclaims rent.
 3. `clp_init_bin_array(index)` (if the new range needs an array that doesn't exist).
-4. `clp_open_meteora_position(side, amount_x, amount_y, active_id, target_bin, bin_radius)` — fresh position in the new range.
+4. `clp_open_meteora_position(side, amount_x, amount_y, active_id, target_bin, bin_radius)` - fresh position in the new range.
 
 Otherwise (skip-rebuild path): no action this cycle.
 
@@ -140,7 +140,7 @@ The protocol unwinds the breach by recalling capital and waiting for the q to re
 
 ## Yield strategy (scaffolded, off)
 
-The CLP program has a yield-deployment scaffold for idle collateral — `record_deployment`, `record_withdrawal`, `record_harvest` instructions, plus per-state deployment percentages (Normal / ProxyMode / Stress). This is **off by default** (`YIELD_ENABLED=false`).
+The CLP program has a yield-deployment scaffold for idle collateral - `record_deployment`, `record_withdrawal`, `record_harvest` instructions, plus per-state deployment percentages (Normal / ProxyMode / Stress). This is **off by default** (`YIELD_ENABLED=false`).
 
 When enabled, idle collateral can be deployed into external lending protocols (Kamino, etc.) for yield. Withdrawals are blocked until deployment is recalled (`InsufficientLiquidCollateral` error).
 
@@ -177,9 +177,9 @@ console.log("Long position:", clp.meteoraLongPosition.toBase58());
 You don't call CLP instructions directly. But CLP state tells you:
 
 - **Pool depth** at the protocol layer (`vault_l_deployed`, `vault_s_deployed`).
-- **OI utilization** (`current_oi / oi_cap`) — useful for warning users approaching cap.
-- **Position addresses** — useful for monitoring active bin, fee accumulation directly on Meteora.
-- **Inventory state** — useful for surfacing risk to traders ("market q-imbalanced; redeem limited").
+- **OI utilization** (`current_oi / oi_cap`) - useful for warning users approaching cap.
+- **Position addresses** - useful for monitoring active bin, fee accumulation directly on Meteora.
+- **Inventory state** - useful for surfacing risk to traders ("market q-imbalanced; redeem limited").
 
 → [Reading state](/flows/read-state) for end-to-end examples.
 
