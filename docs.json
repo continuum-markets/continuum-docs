@@ -2,16 +2,16 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Continuum",
-  "description": "24/7 synthetic exposure to real-world assets on Solana — developer documentation.",
+  "description": "24/7 synthetic exposure to real-world assets on Solana - developer documentation.",
   "colors": {
     "primary": "#7C3AED",
     "light": "#A78BFA",
     "dark": "#5B21B6"
   },
-  "favicon": "/logo/favicon.svg",
+  "favicon": "/logo/favicon.webp",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/light.webp",
+    "dark": "/logo/dark.webp"
   },
   "navigation": {
     "tabs": [
