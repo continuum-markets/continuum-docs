@@ -1,6 +1,6 @@
 ---
 title: Reading prices
-description: Three ways to get a price for a Continuum market - on-chain TWAP, Hermes HTTP, and DLMM pool active bin.
+description: Three ways to get a price for a Continuum market - on-chain TWAP, Hermes HTTP, and the native book's base price.
 ---
 
 A Continuum market exposes prices in three places. They serve different purposes:
@@ -10,7 +10,7 @@ A Continuum market exposes prices in three places. They serve different purposes
 | `Market.user_twap_price` | ~15s | What mint and redeem use. Authoritative for protocol P&L. |
 | `OracleConfig.last_price` | ~15s | Same source, more metadata (confidence, freshness). |
 | Pyth Hermes (HTTP) | seconds | Off-chain raw spot. For predictive UI updates. |
-| Meteora DLMM pool active bin | instant | What the pool trades at. May diverge from NAV transiently. |
+| Native book base price (`Pool` account) | instant | Where the per-side book is pinned. May float during closed hours. |
 
 ## On-chain NAV (the canonical price)
 
@@ -85,27 +85,30 @@ Hermes feeds publish session-aware (regular / pre-market / post-market / overnig
 | 16:00 – 20:00 | `PostMarket` |
 | 20:00 – 04:00 | `Overnight` |
 
-## Pool active-bin price
+## Book base price (native `Pool` account)
+
+Each side's book is a single `Pool` account (seeds `[b"pool", market, side]`) in the CLP program. Its `base_price_1e6` is where the keeper last pinned the book; bins ladder out from it.
 
 ```typescript
-import DLMM from "@meteora-ag/dlmm";
-
-const dlmm = await DLMM.create(connection, longPoolAddr);
-const activeId = dlmm.lbPair.activeId;
-const pricePerLamport = dlmm.fromPricePerLamport(
-  dlmm.getPricePerLamport(activeId),
+const [poolPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPDA.toBuffer(), Buffer.from([0])], // 0 = long, 1 = short
+  clpProgram.programId,
 );
-console.log(`QQQL pool active price: ${pricePerLamport}`);
+const pool = await clpProgram.account.pool.fetchNullable(poolPda);
+
+// Anchor camelCases `base_price_1e6` as `basePrice1E6` (capital E at the
+// digit-to-letter boundary) - `basePrice1e6` reads as undefined.
+const basePrice = Number(pool.basePrice1E6) / 1e6;
 ```
 
-Compare to NAV → spread:
+Compare to NAV → drift:
 
 ```typescript
-const spreadPct = ((pricePerLamport / lNavUI) - 1) * 100;
-console.log(`Pool vs NAV: ${spreadPct.toFixed(3)}%`);
+const driftPct = ((basePrice / lNavUI) - 1) * 100;
+console.log(`Book vs NAV: ${driftPct.toFixed(3)}%`);
 ```
 
-In steady state this is < pool fee tier (0.10% for index ETFs). Wider → arb opportunity.
+While the underlying market is open this stays inside the per-market reposition gate (20-40bps). During closed hours the oracle withholds pushes and the book floats - a larger gap then is expected, not an arb: the inner bins around base are deliberately empty (the spread), and the first fresh print re-anchors the book.
 
 ## Combining for a UX
 
@@ -134,7 +137,7 @@ async function getLivePrice(symbol: string) {
 }
 ```
 
-Render: `lNav` as the primary price, `riskState` as a chip if non-`normal`, `stale` as a warning if > 30s. For pool-trade users, also show pool active price.
+Render: `lNav` as the primary price, `riskState` as a chip if non-`normal`, `stale` as a warning if > 30s. For book traders, also show the book base price and its deviation from NAV.
 
 ## When to subscribe vs poll
 

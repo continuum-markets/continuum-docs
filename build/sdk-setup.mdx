@@ -13,7 +13,7 @@ You can interact with Continuum from any Solana-compatible client - TypeScript /
 | **`@coral-xyz/anchor`** | Anchor client library. The protocol is built on Anchor 0.32. |
 | **`@solana/web3.js`** | Lower-level RPC + transaction primitives. |
 | **`@solana/spl-token`** | ATA derivation, token instruction helpers. |
-| **`@meteora-ag/dlmm`** | Optional. For trading L/S directly on DLMM pools. |
+| (no AMM SDK needed) | Trading L/S uses the CLP program directly - `pool_swap` for instant, `commit_swap`/`settle_swap` for size. |
 | **Continuum IDLs** | JSON files describing each program's instructions and accounts. |
 
 ## Minimal project

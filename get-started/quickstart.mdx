@@ -40,7 +40,7 @@ This page walks you through it. No code, no CLI. If you want the programmatic fl
     - **XAU** - Gold spot
     - **VXX** - VIX short-term futures ETN
 
-    Each market shows live NAV (from the on-chain TWAP), pool depth on Meteora, OI utilization, and risk state. Click into one to see a TradingView-style chart with NAV overlay and the order book equivalent (DLMM bin distribution).
+    Each market shows live NAV (from the on-chain TWAP), each side's pool price and deviation vs NAV, instant book depth, and risk state. Click into one for a TradingView-style chart with NAV overlay, buy/sell prices per side, and the trade panel.
   </Step>
   <Step title="Mint a paired position">
     On any market page, the right side has a **Mint / Redeem** panel. Switch to **Mint**, enter an amount of cUSDC (try 100), and confirm.
@@ -72,7 +72,7 @@ This page walks you through it. No code, no CLI. If you want the programmatic fl
     - **Long-only QQQ**: from the market page, hit **Trade** and swap your QQQS for cUSDC. You're now holding QQQL + cUSDC, fully delta-positive.
     - **Short-only QQQ**: same idea, sell QQQL instead.
 
-    Trades happen on Meteora DLMM pools (the protocol is the LP). You can also trade directly on [Meteora's app](https://app.meteora.ag) - long and short tokens are standard SPL tokens.
+    Trades happen on Continuum's own per-side books (the protocol is the sole LP). Small trades fill instantly; above ~$5k the app auto-switches to a committed order that fills at the next oracle print at NAV ± 0.10% - any size, no slippage.
   </Step>
   <Step title="Redeem at NAV">
     When you want to exit, head back to **Mint / Redeem** and switch to **Redeem**. Continuum's redeem is **NAV-weighted, not quantity-paired** - you can burn long-only, short-only, or asymmetric pairs. Whatever you burn returns its NAV value in cUSDC, minus a 10 bps redeem fee.
@@ -99,10 +99,10 @@ This page walks you through it. No code, no CLI. If you want the programmatic fl
 You can see the protocol's market-making in real time. On any market detail page:
 
 - **NAV line** moves with Pyth observations (~15 s cadence).
-- **Pool active bin** moves with each swap.
-- **Bin distribution** shows the protocol's LP positions on Meteora.
+- **Book price** is re-pinned to NAV whenever drift exceeds the per-market gate (0.20-0.40%).
+- **Bin distribution** shows the book's standing asks and bids around NAV.
 
-When pool price diverges from NAV by more than the pool fee, you'll see the keeper close the gap within seconds via single-side mint+sell or buy+redeem. The protocol is the sole LP for the MVP, so all the bin liquidity you see is operator-funded.
+During US market hours the book hugs NAV; overnight and on weekends the oracle goes quiet and the book floats at its standing band - that's by design, and the first fresh print re-anchors it. All the liquidity you see is operator-funded; the protocol is the sole LP.
 
 ## Wallet metadata
 
@@ -115,7 +115,7 @@ If your wallet doesn't show the icons immediately, give it a refresh - some wall
 The app covers ~95% of what most users (and many builders) need:
 
 - One-off mints and redeems
-- Trading individual legs on Meteora
+- Trading individual legs (instant or committed)
 - Watching live NAV + risk state
 - Portfolio P&L
 - Donating to vault for fee waivers (advanced)

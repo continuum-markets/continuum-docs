@@ -14,7 +14,8 @@ Continuum's state is fully on-chain. This page covers the common reads you'll ne
 | Live observations, TWAP, confidence | `OracleConfig` PDA | `oracle` |
 | OI cap, current OI, inventory state | `Clp` PDA | `clp` |
 | Capital allocation, profit accumulation | `GlobalClp` + `Clp` | `clp` |
-| Pool active bin, depth, fees | `LbPair` + bin arrays | Meteora DLMM (external) |
+| Book base price, bins, depth | `Pool` PDA (per side) | `clp` |
+| Pending committed orders | `Order` PDAs | `clp` |
 | User token balance | User's ATA | SPL Token |
 
 ## Fetch a single market end-to-end
@@ -115,34 +116,33 @@ If you need a price-as-float (for display):
 const lNavUI = lNav.toNumber() / 10 ** 6; // 6 decimals for cUSDC
 ```
 
-## Pool price and depth (Meteora)
+## Book price and depth (native pools)
+
+The whole book is one account - a single fetch returns price and depth:
 
 ```typescript
-import DLMM from "@meteora-ag/dlmm";
-
-const dlmm = await DLMM.create(connection, longPoolAddr);
-const activeId = dlmm.lbPair.activeId;
-const pricePerLamport = dlmm.fromPricePerLamport(
-  dlmm.getPricePerLamport(activeId),
+const [poolPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPDA.toBuffer(), Buffer.from([0])], // 0 = long, 1 = short
+  clp.programId,
 );
+const pool = await clp.account.pool.fetch(poolPda);
 
-// Depth around active
-const bins = await dlmm.getBinsBetweenLowerAndUpperBound(
-  activeId - 50,
-  activeId + 50,
-);
-const totalY = bins.reduce((s, b) => s + Number(b.amountY), 0); // cUSDC
-const totalX = bins.reduce((s, b) => s + Number(b.amountX), 0); // L (or S)
+// Anchor camelCases base_price_1e6 as basePrice1E6 (capital E)
+const basePrice = Number(pool.basePrice1E6) / 1e6;
+
+// Depth: asks are synth per bin (above base), bids are cUSDC per bin (below)
+const askSynth = pool.asks.slice(0, pool.numBins).reduce((s, b) => s + Number(b), 0);
+const bidUsdc  = pool.bids.slice(0, pool.numBins).reduce((s, b) => s + Number(b), 0);
 ```
 
-You can compare `pricePerLamport` to `lNavUI` to compute spread:
+Compare `basePrice` to `lNavUI` for drift:
 
 ```typescript
-const spreadBps = (pricePerLamport / lNavUI - 1) * 10_000;
-console.log(`Spread: ${spreadBps.toFixed(1)} bps`);
+const driftBps = (basePrice / lNavUI - 1) * 10_000;
+console.log(`Book drift: ${driftBps.toFixed(1)} bps`);
 ```
 
-For full keeper-style arb spread including pool fees, slippage, and worst-case quoting, see the [reference keeper's `arb.rs`](https://github.com/continuum-markets/continuum/blob/main/keeper/src/arb.rs).
+While the underlying market is open this stays inside the per-market reposition gate (20-40bps); during closed hours the book floats by design.
 
 ## User position value
 
@@ -168,7 +168,7 @@ const valueAtNav = nL.mul(lNav).div(new BN(10).pow(new BN(6)))
 console.log("Position NAV value:", valueAtNav.toNumber() / 1e6, "cUSDC");
 ```
 
-For mark-to-market on the **pool** (which may differ from NAV transiently), substitute `pool_price` for NAV.
+For mark-to-market on the **book** (which may float from NAV during closed hours), substitute the book's base price for NAV.
 
 ## Risk and oracle freshness
 
@@ -201,7 +201,7 @@ provider.connection.removeAccountChangeListener(sub);
 
 The Market account is updated on every `update_risk_state`, every mint/redeem (supply changes), and via TWAP propagation. Frequency: a few updates per minute in normal conditions.
 
-For pool prices, subscribe to the `LbPair` account directly via Meteora's SDK or vanilla `onAccountChange`.
+For book prices, subscribe to the per-side `Pool` accounts with `onAccountChange` - one account per book, so it's cheap.
 
 ## Common pitfalls
 
@@ -211,7 +211,7 @@ For pool prices, subscribe to the `LbPair` account directly via Meteora's SDK or
 
 **Stale market data after mint/redeem.** Anchor's account-fetch returns the *current* state, but if you're displaying stale numbers from before the user's tx, refetch after `confirmed`. The Anchor provider's `sendAndConfirm` returns when the cluster is at `confirmed` - re-fetch then.
 
-**Pool address mismatch.** If you read `clp.meteora_long_pool` and find it equals the default pubkey (all zeros), pools are not configured for that market yet. Use the registry / `market-addresses.json` as the source of truth for pools that should exist.
+**Pool not initialized.** `clp.account.pool.fetchNullable(poolPda)` returns null if the book hasn't been bootstrapped for that (market, side) yet. Use the registry / `market-addresses.json` as the source of truth for pools that should exist.
 
 **Decimals.** Everything in account state is in **base units** (lamports for cUSDC, base units for L/S). Divide by `10^6` for display. Don't assume decimals from the symbol.
 

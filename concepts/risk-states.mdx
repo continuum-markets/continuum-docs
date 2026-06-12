@@ -1,95 +1,82 @@
 ---
 title: Risk states
-description: The state machine that gates mint sizing, quote conservatism, and emergency halts.
+description: The per-market risk regime, why devnet runs in ProxyMode, and the staleness chain that freezes mint/redeem off-hours.
 ---
 
-Continuum tracks two parallel state machines that affect what you, as a user or builder, can do at any given moment.
+Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#market-account) account, written by the keeper alongside each oracle push (`update_risk_state`). It gates mint pricing and availability - and works together with a hard TWAP-staleness gate that freezes mint/redeem when the underlying market is closed.
 
-## The two state machines
+<Note>
+  On devnet, every market runs in **`ProxyMode`** permanently. This is by design, not a degraded state: ProxyMode means "price off the keeper-relayed Hermes TWAP instead of an on-chain Pyth account" - and on devnet, Hermes is the sole oracle. `Normal` is the mainnet steady state, where the program reads Pyth directly.
+</Note>
 
-### Oracle health (`MarketState`)
+## The states
 
-Lives on the [`OracleConfig`](/programs/oracle) account.
+| State | Meaning | User mint | User redeem | Mint price |
+|---|---|---|---|---|
+| `Normal` | Pyth-direct steady state (mainnet) | ✅ | ✅ | NAV + 1× confidence markup |
+| `ProxyMode` | Pricing off keeper-relayed TWAP (devnet default) | ✅ | ✅ | NAV + 2× confidence markup |
+| `Stress` | Oracle unreliable - defensive | ❌ `MintNotAllowedInStress` | ✅ | n/a |
+| `Recovery` | Post-stress wind-down | ✅ (size-throttled) | ✅ | NAV + 1× confidence markup |
 
-| State | Meaning | Effect |
-|---|---|---|
-| `Active` | Oracle is operational. | All reads and updates work. |
-| `Paused` | Operator emergency-paused. | All reads return errors. |
+Redeem is never gated by risk state - only by TWAP freshness (below).
 
-### Market risk (`RiskState`)
+### Transition rules
 
-Lives on the [`Market`](/programs/mint-redeem#market-account) account, mirrored from oracle observations by the keeper via `update_risk_state`.
+The on-chain transition matrix prevents a compromised keeper from short-circuiting recovery: **`Stress` can only de-escalate via `Recovery`**, where the stress fee multiplier unwinds over ~1 hour. A direct `Stress` → `Normal` jump is rejected. `ProxyMode` and `Recovery` transition freely; `Normal` can be entered from any non-Stress state.
 
-| State | Trigger | User mint | User redeem | Mint price | Notes |
-|---|---|---|---|---|---|
-| `Normal` | Oracle fresh and within confidence | ✅ | ✅ | NAV (no markup) | Steady state. |
-| `ProxyMode` | Oracle stale beyond threshold but recoverable | ✅ (size-throttled) | ✅ | NAV + 2× confidence markup | Best-effort operation; quoting widens. |
-| `Stress` | Confidence too high, large recent move, or extended staleness | ❌ `MintNotAllowedInStress` | ✅ | n/a | Defensive: only exits allowed. |
-| `Recovery` | Post-stress, oracle recovering but not yet fully reliable | ✅ (size-throttled) | ✅ | NAV (no markup) | Wind-down state; sizes ramp back. |
+Each `update_risk_state` call also rejects TWAP moves over 25% (`MAX_TWAP_MOVE_BPS`) - one bad write is bounded, and the keeper adds its own 10% deviation envelope on mainnet before pushing at all.
 
-The keeper polls oracle staleness and confidence each cycle and calls `update_risk_state` to mirror the derived risk regime onto each market it operates.
+## The staleness chain (off-hours behavior)
 
-## What triggers transitions
+Risk states handle oracle *quality*; a separate chain handles oracle *absence* - most commonly when the underlying market closes for the night or weekend:
 
-The exact thresholds are configurable per oracle (via `configure_health_thresholds` / `configure_twap_windows`), but the defaults are roughly:
+```
+underlying closes
+  → Hermes publish_time > 120 s stale     keeper withholds the push
+  → on-chain TWAP > 300 s old             MAX_TWAP_AGE_SECS gate trips
+  → mint/redeem self-freezes              OraclePriceUnavailable
+  → books float at their standing band    off-hours price discovery
+```
 
-| Trigger | Threshold (default) | Resulting state |
-|---|---|---|
-| `last_oracle_update` age | > 30s | `ProxyMode` |
-| `last_oracle_update` age | > 120s | `Stress` |
-| `last_confidence / last_price` | > 1% (100 bps) | `ProxyMode` |
-| `last_confidence / last_price` | > 5% (500 bps) | `Stress` |
-| Single-update price move | > 20% | Update rejected (`PriceMovementTooLarge`) |
+This is program-enforced - no keeper action is required for the freeze, and no keeper action can bypass it. While frozen:
+
+- **Mint and redeem reject.** Nothing prices off a frozen NAV.
+- **The CLMM books keep trading** inside the last posted band. Off-hours price discovery happens here.
+- **Committed orders cannot settle** (no post-commit oracle print exists); `cancel_swap` refunds unconditionally after the 180 s TTL.
+- At reopen, the first fresh print re-anchors NAV; the keeper re-pins the books.
+
+If you only check one thing before submitting a mint or redeem, check `market.twap_updated_at`.
 
 ## What you should do in each state
 
-### `Normal`
+### `ProxyMode` (devnet default)
 
-Standard. Mint, redeem, trade as usual.
-
-### `ProxyMode`
-
-Mint still works but quotes are wider. Two options:
-
-- **Smaller size**: less impacted by markup (markup is a percentage of trade size, not a fixed amount).
-- **Wait it out**: ProxyMode usually clears within 30–120 seconds as the keeper catches up on observations.
-
-If you're a bot, consider pausing aggressive arb during ProxyMode - your edge calculations are noisier when confidence is wide.
+Operate normally. Quotes carry a 2× confidence markup on mint - usually a few bps. If you're a bot, note that NAV freshness is bounded by the keeper's ~15 s push cadence.
 
 ### `Stress`
 
-Mint is **blocked**. You'll get `MintNotAllowedInStress` (error code 6010 on mint-redeem). Redeem still works but at the last fresh NAV - useful if you want to exit without waiting for recovery.
+Mint is blocked (`MintNotAllowedInStress`). Redeem stays open at the last fresh NAV. If you're a UI builder, surface it:
 
-The mint block is intentional: in `Stress`, NAV reliability is too low to safely accept new collateral. New deposits can come back when the oracle recovers.
-
-If you're a UI builder, surface this clearly:
-
-> "QQQ is currently in Stress mode. Minting is paused; redeem remains open. New positions will resume when the oracle recovers."
+> "QQQ is currently in Stress mode. Minting is paused; redeem remains open."
 
 ### `Recovery`
 
-Wind-down. Mint resumes but with size throttling - small mints process normally, large mints can be rejected with `ExceedsStressMintCap`. The keeper's seeder also slows allocation to recovering markets.
+Mint resumes with size throttling (`ExceedsStressMintCap` on large mints) while the stress fee multiplier unwinds over ~1 hour.
 
-Recovery typically lasts a few minutes after stress clears.
-
-## How risk state interacts with NAV
-
-Quote conservatism (a markup applied to mint price) depends on both the risk state and the oracle confidence:
+## How risk state affects mint pricing
 
 ```
 mint_price = NAV × (1 + state_mult × confidence_bps / 10_000)
 ```
 
-| State | `state_mult` |
+| State | `state_mult` (default) |
 |---|---|
 | `Normal` | 1× |
 | `ProxyMode` | 2× |
 | `Stress` | n/a (blocked) |
 | `Recovery` | 1× |
 
-So a 1% confidence at `ProxyMode` adds 2% to the mint price (markup paid into the collateral vault on behalf of solvency). A 0.5% confidence at `Normal` adds 0.5% - barely noticeable.
-
-This markup is configurable via `mint_redeem::configure_worst_case_quoting`.
+Redeem prices are never marked up - otherwise users would be stranded when the oracle goes shaky. The multipliers are configurable via `configure_worst_case_quoting`.
 
 ## Reading risk state
 
@@ -98,53 +85,25 @@ const market = await mintRedeem.account.market.fetch(marketPDA);
 
 // market.riskState is an enum: { normal: {} } | { proxyMode: {} } | ...
 const riskState = Object.keys(market.riskState)[0];
+const twapAge = Date.now() / 1000 - market.twapUpdatedAt.toNumber();
+
 console.log("Risk state:", riskState);
-console.log("Updated at:", new Date(market.riskStateUpdatedAt.toNumber() * 1000));
+console.log("TWAP age (s):", twapAge.toFixed(0), twapAge > 300 ? "(frozen)" : "(fresh)");
 ```
 
-The risk state can lag behind oracle health by up to one keeper tick (~15 s). For a real-time picture also fetch the oracle:
-
-```typescript
-const oracle = await oracleProgram.account.oracleConfig.fetch(market.oracleAddress);
-const stale = Date.now() / 1000 - oracle.lastUpdateTime.toNumber() > 30;
-const confBps = oracle.lastConfidence.toNumber() / oracle.lastPrice.toNumber() * 10_000;
-console.log("Stale?", stale, "Confidence (bps):", confBps.toFixed(1));
-```
-
-## State during off-hours
-
-Outside US trading hours (≈20:00 – 04:00 ET for equities), Pyth's off-hours feeds publish but with thinner activity. Continuum behaviors:
-
-- `Normal` is still the most common state - Pyth still updates.
-- Brief `ProxyMode` flickers happen at session boundaries.
-- The keeper's arb edge is thinner because external flow is sparser. Pool prices may sit slightly off NAV for longer.
-
-Mints and redeems remain open at all hours.
+The risk state can lag oracle reality by up to one keeper tick (~15 s). The TWAP age check is the authoritative "will my transaction go through" signal.
 
 ## State during maintenance
 
-An operator can pause the oracle directly via `emergency_pause`. This is reserved for emergencies (oracle compromise, programmatic kill-switch). When paused, every read fails - `Stress` is downstream of this.
-
-For "we're upgrading, please wait", operators can also flip `market.is_active = false` via `update_market`. This is a softer halt that doesn't cascade through the oracle.
-
-## What the keeper sees in each state
-
-| State | Keeper arb behavior |
-|---|---|
-| `Normal` | Full single-side and paired arb. |
-| `ProxyMode` | Reduced single-side aggressiveness; paired arb still runs. The keeper does **not** sanity-check Hermes against on-chain TWAP on devnet (would deadlock). |
-| `Stress` | Arb suspended for that market. Keeper still rebalances DLMM positions if existing range overflows. |
-| `Recovery` | Single-side resumes first, paired arb second. Sizing ramps. |
-
-This is internal keeper behavior - your client doesn't see it directly, but it affects how fast pool prices reconverge to NAV.
+For a hard halt, operators flip `market.is_active = false` via `update_market` - all mint/redeem reject until re-enabled. The books and committed-order cancellation paths remain available (cancellation is unconditional by design).
 
 ## Read more
 
 <CardGroup cols={2}>
-  <Card title="Oracle program" icon="square-terminal" href="/programs/oracle">
-    Account layout, instructions, configuration knobs.
+  <Card title="Oracle" icon="tower-broadcast" href="/concepts/oracle">
+    Hermes, the push pipeline, and the staleness chain in full.
   </Card>
-  <Card title="Solvency invariants" icon="shield" href="/concepts/solvency">
+  <Card title="Solvency" icon="shield" href="/concepts/solvency">
     What the program enforces independently of risk state.
   </Card>
 </CardGroup>

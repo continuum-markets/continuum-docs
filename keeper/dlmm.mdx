@@ -1,137 +1,35 @@
 ---
-title: DLMM position management
-description: How the keeper opens, sizes, centers, and rebalances Meteora DLMM positions for the protocol.
+title: Book management
+description: How the keeper shapes, pins, refills, and trims the native CLMM books.
 ---
 
-The keeper owns each market's long and short positions on Meteora DLMM. Position operations go through CLP proxy instructions (`clp_open_meteora_position`, `clp_remove_meteora_liquidity`, etc.) so the **CLP PDA** - not the keeper wallet - owns the positions.
+<Note>
+  Meteora DLMM was retired in v2. Liquidity now lives in Continuum's own per-side CLMM pools, which removed the position churn, bin-array rent, and rebalance races of the external-AMM era. This page documents the native book lifecycle.
+</Note>
 
-## What the rebalancer does
+Each market has two books - one per synth side - living entirely inside a `Pool` account (up to 16 inline bins, no per-bin rent). The keeper's book manager keeps every book pinned to NAV with a shape derived from live volatility. Because the protocol is the sole LP and the keeper repositions before external arbitrage can profit, the reposition itself captures what an arber would otherwise take.
 
-Every 120s (`DLMM_INTERVAL_SECS`), for each market × side:
+## The reposition loop
 
-1. Read on-chain `active_id` and current position range from Meteora.
-2. Compute NAV `target_bin` from Hermes price.
-3. Compute vol-adaptive `bin_radius` from 15-min realized volatility.
-4. Compute fee-weighted centroid from per-bin fee accumulators.
-5. If existing range still covers active **and** NAV target → skip (no rebuild).
-6. Else: remove + close + open with new range.
+Every 30s, per (market, side):
 
-The skip check is critical - Meteora positions have fixed ranges, so "rebalancing" requires a full remove + close + open cycle costing ~0.05 SOL rent + several CU-heavy txs. The skip-rebuild optimization avoids this when the existing range is already adequate.
+1. **Feed the vol state.** One NAV sample per cycle goes into the spread engine - the same series the oracle pushes. At boot the state seeds from 60 days of Pyth Benchmarks history, so floors are warm from the first cycle even right after a deploy.
+2. **Check the drift gate.** The book only re-pins when `|NAV - base| >=` the per-market gate - QQQ/SPY/XAU 20bps, VXX 40bps. The gates were swept empirically: the optimum sits just below each market's toxic-arbitrage line (first funded bin plus the paired-arb fee hurdle). Tighter gates burn transactions repositioning a book nobody can exploit; looser gates donate depth.
+3. **Compute the shape.** Half-spread = the model-free stack (realized-q90 ratchet, slow auto-floor, oracle confidence, static floor - see [the keeper concept page](/concepts/keeper)). The inner `round(half_spread / step)` bins stay empty; remaining liquidity distributes geometrically outward. The **protective skew** then widens the trend-adverse side only - in an uptrend the asks move out (don't sell cheap into a rally) while the bids never tighten below the symmetric shape. The short book mirrors automatically: its own price series is `K / L`, so its skew signal flips sign.
+4. **Post it.** `set_pool_shape(base = NAV, asks, bids)` - sums are validated against the pool's vault balances on-chain.
 
-## Volatility-adaptive `bin_radius`
+During closed market hours the oracle withholds pushes, drift reads zero, and the book simply **floats** at its standing band - price discovery happens inside the posted bins, and the first fresh print re-anchors everything.
 
-The keeper maintains a 60-sample rolling price history per market (~15 min at 15s oracle cadence). Each rebalance computes annualized realized volatility from log returns and maps to a regime:
+## Inventory: refill, trim, bid cap
 
-| Annualized vol | Regime | `bin_radius` | Price range (binStep=10) |
-|---|---|---|---|
-| < 10% | Calm | 10 | ±1.0% |
-| < 25% | Normal | 20 | ±2.0% |
-| < 50% | Elevated | 30 | ±3.0% |
-| ≥ 50% | Stressed | 34 (max) | ±3.4% |
+`pool_swap` fills only from pre-funded bins, so flow reshapes inventory and the keeper closes the loop each cycle - in both directions:
 
-For higher binSteps, multiply: `range = bin_radius × bin_step / 1000`.
+- **Refill (drained asks).** One-directional buying converts ask synth into bid cUSDC. When a side's ask value falls below half its bid value, the keeper sweeps surplus bids to the CLP vault, mints fresh L+S pairs from it (`vault_mint_pairs` - delta-neutral by construction), and funds *both* sides' ask vaults in one pass. The reshape that follows is forced, so the new inventory enters the book immediately.
+- **Trim (bloated asks).** Ask depth beyond 1.5x the bid side's value is fake exit capacity and standing arb bait - it sweeps back to CLP custody (`pool_sweep_synth`), where it provisions committed orders instead.
+- **Bid cap.** Standing bid cUSDC is deliberately lean (~$5k per side, `CLMM_BID_TARGET_USD`): idle bids forgo lending carry, and large sells don't need them - they route through the [committed venue](/flows/trade), which the keeper provisions at settlement. Excess bids sweep to the CLP vault.
 
-When history is too short (first ~5 ticks after boot), the keeper falls back to `DLMM_BIN_RADIUS` env var (default 20).
+The result is a small, symmetric, self-healing book: deep enough for instant retail trades, too lean to be worth attacking, with effectively unlimited size served by the committed path.
 
-The thresholds are VIX-inspired heuristics. Per-asset percentile calibration is on the [roadmap](/markets/roadmap).
+## Why the books are lean (the economics)
 
-## Fee-weighted position centering
-
-For each rebalance, the keeper reads per-bin fee accumulators (`fee_amount_x_per_token_stored`, `fee_amount_y_per_token_stored`) across the existing position's range. It computes a weighted centroid:
-
-```
-centroid = Σ (fee_x + fee_y)_i × bin_id_i / Σ (fee_x + fee_y)_i
-```
-
-The next position is centered on the **50/50 blend** of this centroid and the naive `(active + NAV) / 2` midpoint. Bins that historically earned more fees bias the center toward them, capturing more future fee revenue for the same capital.
-
-The centroid is **clamped** to the `[active, NAV]` span so coverage is preserved. Fresh pools with no fee history (`total_weight == 0`) fall back to the naive midpoint.
-
-## Skip-rebuild optimization
-
-The rebalancer skips the full rebuild when:
-
-- **Active bin** hasn't overflowed the position range, **AND**
-- Existing range `[lower, upper]` still covers the required span `[min(active, target), max(active, target)]` with **3-bin slack**.
-
-Saves ~0.05 SOL of rent + several txs per skipped cycle. In steady state on a calm market, this avoids rebuilds previously triggered by ~1% price drifts that were within the position's range anyway.
-
-## Position shape
-
-CLP proxy uses Meteora's `add_liquidity_by_strategy2` with two shapes:
-
-| `amount_x`, `amount_y` | `strategy_type` | Shape |
-|---|---|---|
-| Both > 0 | `4` (CurveBalanced) | Bell curve, ~60-70% of capital in central bins |
-| Only X > 0 | `7` (CurveImBalanced) + `singleSidedX` flag | One-sided ask ladder |
-
-CurveBalanced is the default and captures ~40-60% more fees per dollar deployed than the previous SpotImBalanced (uniform) shape, because swap volume concentrates near `active_id`.
-
-Configurable via `DLMM_STRATEGY_TYPE`.
-
-## Two-sided seed
-
-On each fresh position, 50% of allocated capital is minted to L+S tokens (X side) and 50% stays as cUSDC (Y side). The open then passes both to Meteora, which places X above active and Y below.
-
-This means each side's pool gets:
-
-- **L pool**: L tokens above active (asks), cUSDC below active (bids).
-- **S pool**: S tokens above active (asks), cUSDC below active (bids).
-
-Symmetric depth supports both buy and sell flow.
-
-## Zombie position handling
-
-Occasionally Meteora's `remove_liquidity_by_range2` leaves a position with phantom `liq_share > 0` but all underlying bin arrays drained (`liq_supply == 0`). Meteora's `close_position2` then refuses to close (`NonEmptyPosition` error 6030).
-
-The rebalancer detects zombies via `is_position_zombie`, **skips the close step**, and opens a fresh position. The zombie account's ~0.05 SOL rent is sacrificed; all tokens have already been transferred out.
-
-The rare alternative - keeper's CLP-state pointer is lost while the Meteora account still exists - is handled by `find_positions_in_pool` which scans the pool for orphan CLP-owned positions. Operators can manually recover via `recover-orphaned-position.ts`.
-
-## Coverage gating
-
-Rebalance requires **either** fresh Hermes price **or** on-chain oracle freshness. If both are stale, the keeper refuses to trigger a rebuild - the NAV target would come from stale data.
-
-Overflow-only rebalances (active bin blown past position edge) are allowed without NAV freshness, since they're purely defensive.
-
-## RPC-failure guard
-
-`position_exists` returns `Err` on RPC rate-limit. The naive interpretation (`unwrap_or(false)`) caused a 61-position leak on an early devnet iteration - the keeper thought positions didn't exist and opened duplicates. Current behavior treats `Err` as "alive" to prevent orphans.
-
-## Liquidity seeder
-
-Every 600s (separate loop from rebalancer), the seeder allocates capital from `GlobalClp` to per-market vaults:
-
-- **Edge-weighted allocation.** Each market gets a weight blending its OI-cap share with its observed `(fee_rate + arb_rate) / (risk_weighted_q_deviation + drawdown)` edge. The blend ramps from OI-weight (new markets) to edge-weight over the first $10k of paired mint volume.
-- **Capital recall.** When upcoming withdrawals (within `RECALL_LEAD_TIME_SECS`) exceed the free global vault balance, worst-edge markets are unwound first.
-- **Two-sided seed** as described above.
-
-## Operator tunables
-
-| Env var | Default | Effect |
-|---|---|---|
-| `DLMM_INTERVAL_SECS` | `120` | Rebalance cadence |
-| `DLMM_BIN_RADIUS` | `20` | Fallback radius |
-| `DLMM_REBALANCE_ENABLED` | `true` | Master kill-switch |
-| `DLMM_STRATEGY_TYPE` | `4` | Position shape |
-| `LIQUIDITY_SEED_ENABLED` | `true` | Seeder loop |
-| `LIQUIDITY_SEED_FRACTION_BPS` | `6500` | Fraction of global vault per seed cycle |
-
-Increase `DLMM_INTERVAL_SECS` to reduce RPC load at the cost of slower rebalance reaction. Decrease `DLMM_BIN_RADIUS` (or the regime thresholds) to use less capital per market at the cost of narrower coverage.
-
-## What this means for users
-
-- **Pool depth tracks NAV.** When NAV moves significantly, the keeper rebalances to keep liquidity around the new active price. You don't have to time entries.
-- **Fee tier vs spread trade-off.** Index ETFs (0.10%) have tighter peg bands but lower LP fees per swap. Volatile equities (0.25%) have wider bands but higher fees per swap.
-- **Zombie position rent loss is the protocol's, not yours.** Users never pay for keeper operational costs.
-
-## See also
-
-<CardGroup cols={2}>
-  <Card title="Keeper overview" icon="robot" href="/keeper/overview">
-    The rest of the keeper's job: oracle, arb, seeder.
-  </Card>
-  <Card title="Arb paths" icon="route" href="/keeper/arb-paths">
-    The four arb cycles in detail.
-  </Card>
-</CardGroup>
+Backtests on five years of minute data settled the sizing policy: toxic loss scales linearly with deployed depth while organic revenue is capped by demand, so depth beyond demand is a pure subsidy to arbitrage. Deployed *synth* costs nothing to hold - the collateral backing it earns lending yield wherever the tokens sit - but deployed *bid cUSDC* forgoes that yield, which is why bids carry a hard cap and asks only a ratio. The instant book is a service priced at roughly breakeven; the protocol's economics live in fees and collateral yield.

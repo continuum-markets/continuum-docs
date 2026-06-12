@@ -19,7 +19,7 @@ A paired position has near-zero local delta - its value is bounded. To express d
 
 ## Can I lose more than my deposit?
 
-No. Continuum has no leverage and no liquidations. Mint cost equals NAV × paired count, paid in full upfront. Even if the protocol shut down tomorrow, holders of L+S can redeem at NAV against the existing collateral vault.
+No. Continuum has no leverage and no liquidations. Mint cost equals NAV × paired count, paid in full upfront. Even if the protocol shut down tomorrow, holders of L+S can redeem against the existing collateral vault — at full NAV while it's over-collateralized, or pro-rata for your fair share in the tail case where a large NAV move left it under 100%. You're never wiped out, and never behind a redemption queue.
 
 The only way to lose: you sell one leg and that leg appreciates while you no longer hold it. That's normal directional risk, not unique to Continuum.
 
@@ -27,10 +27,10 @@ The only way to lose: you sell one leg and that leg appreciates while you no lon
 
 Yes - two paths:
 
-1. **Mint paired, sell short leg**: `mint_paired(100 cUSDC)` → `0.104 QQQL + 49.95 QQQS` → swap QQQS to cUSDC on Meteora → end with `0.104 QQQL + ~49.5 cUSDC`. Long-only QQQ exposure with cash buffer.
-2. **Buy directly on Meteora**: skip the mint. Faster but pays pool fee + slippage instead of mint fee.
+1. **Mint paired, sell short leg**: `mint_paired(100 cUSDC)` → `0.104 QQQL + 49.95 QQQS` → sell the QQQS leg → end with `0.104 QQQL + ~49.5 cUSDC`. Long-only QQQ exposure with cash buffer.
+2. **Buy directly**: skip the mint - `pool_swap` on the book for instant size, or a committed order (NAV ± 10bps at the next oracle print) for anything larger.
 
-Path 1 is better for size; path 2 is better for small/urgent. → [Trade flow](/flows/trade).
+Path 2 is the default for most users; path 1 is useful when you also want the short leg or a fee waiver. → [Trade flow](/flows/trade).
 
 ## Why "paired" if I can sell one leg?
 
@@ -80,7 +80,7 @@ L_NAV = Market.user_twap_price (or initial_l_price if TWAP == 0)
 S_NAV = (initial_l_price × initial_s_price) / L_NAV
 ```
 
-This is on-chain protocol price. Pool price (Meteora active bin) may differ transiently but stays close due to keeper arb. → [NAV math](/concepts/nav).
+This is the on-chain protocol price. The book's base price stays within the per-market reposition gate (20-40bps) while markets are open and floats during closed hours. → [NAV math](/concepts/nav).
 
 ## What's the minimum mint?
 
@@ -92,7 +92,8 @@ This is on-chain protocol price. Pool price (Meteora active bin) may differ tran
 |---|---|---|
 | `mint_fee_bps` | On `mint_paired` | 10 (0.10%) |
 | `redeem_fee_bps` | On `redeem_paired` | 10 (0.10%) |
-| Pool fee | On Meteora swaps | 0.10–0.25% (per market) |
+| Book spread | On `pool_swap` | 15-40bps half-spread (per market, vol-scaled) |
+| Committed spread | On `commit_swap` fills | 10bps from NAV, any size |
 | Worst-case quoting markup | On mint in `ProxyMode` | 2× confidence (variable) |
 | Solana network fee | On every tx | ~0.000005 SOL |
 

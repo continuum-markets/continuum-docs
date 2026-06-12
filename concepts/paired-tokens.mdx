@@ -3,7 +3,7 @@ title: Paired L+S tokens
 description: Mint produces matched long and short tokens. Here's why, and how the two settle against the underlying.
 ---
 
-A Continuum position is a pair of SPL tokens: one long (`L`), one short (`S`). They are minted and redeemed at the protocol's NAV, but trade independently on Meteora DLMM pools.
+A Continuum position is a pair of SPL tokens: one long (`L`), one short (`S`). They are minted and redeemed at the protocol's NAV, but trade independently on the protocol's native per-side books and committed-order venue.
 
 ## What "paired" means
 
@@ -73,33 +73,29 @@ The paired position has **near-zero net delta**. It's essentially neutral - the 
 
 ## Selling a leg
 
-Both QQQL and QQQS are tradeable on Meteora DLMM:
+Each side has its own native book (`QQQL/cUSDC` and `QQQS/cUSDC`), plus the committed-order path for size:
 
-- `QQQL/cUSDC` pool - sell QQQL to express bearish view, buy QQQL to express bullish view.
-- `QQQS/cUSDC` pool - symmetric.
+- Sell QQQL (or buy QQQS) to express a bearish view; buy QQQL (or sell QQQS) for bullish.
+- Small amounts hit the book instantly; large amounts route as committed orders filling at the next oracle print at NAV ± 10bps.
 
 A common flow:
 
 ```
 1. mint_paired(100 cUSDC)              → 0.104 QQQL + 49.95 QQQS
-2. swap on Meteora: 49.95 QQQS → ~50 cUSDC
+2. sell the S leg: 49.95 QQQS → ~50 cUSDC
                                        → net: 0.104 QQQL + 50 cUSDC
                                        (long-only position, fully funded)
 ```
 
-You started with 100 cUSDC and now hold a long-only QQQ position worth ~100 cUSDC plus 50 cUSDC of dry powder. The 50 cUSDC came from selling the short leg into the keeper's market-making bid.
+You started with 100 cUSDC and now hold a long-only QQQ position worth ~100 cUSDC plus 50 cUSDC of dry powder. The 50 cUSDC came from selling the short leg into the protocol's standing bid.
 
 The reverse - sell QQQL, hold QQQS - gives you a short-only exposure.
 
-## What if NAV and pool price disagree?
+## What if NAV and book price disagree?
 
-The keeper exists to make this not happen, but in transient periods it can:
+In v2 they can't disagree by much, by construction: every venue prices off the same NAV. The instant oracle swap quotes NAV directly; committed orders fill at a price set *after* the commitment; and the books are re-pinned to NAV whenever drift exceeds the per-market gate. Any residual gap is bounded by `max(reposition gate, half-spread) + the paired-arb fee hurdle` - see [Peg maintenance](/keeper/arb-paths).
 
-- **Pool > NAV** (overpriced on pool): the keeper mints fee-free at NAV (single-sided), sells on the pool, pockets the difference. Pool price drops toward NAV.
-- **Pool < NAV** (underpriced on pool): the keeper buys on the pool, redeems fee-free at NAV (single-sided), pockets the difference. Pool price rises toward NAV.
-- **Combined spread** (both sides off in the same direction): paired arb mint+sell or buy+redeem.
-
-You can run the same arb. There's no protocol-layer fee discount for the keeper on paired arb - only on single-sided. See [Composability](/build/composability) for how to write an external arb bot.
+If a fast move does leave a book stale for one keeper cycle, an arber can lift the in-the-money bins - the loss is capped at those bins' deliberately lean depth, and the next cycle re-pins. Anyone can run that arb; the books charge real bin-ladder slippage, so near NAV there is rarely anything to take.
 
 ## Decimals and minimums
 

@@ -5,7 +5,7 @@ description: Continuum-specific terms in one place.
 
 ## A - F
 
-**Active bin** - Meteora DLMM's currently-live price bin. Trading happens at the active bin's price. Moves as swaps push the price up or down.
+**Ask trim** - Keeper inventory rule: ask-side synth beyond 1.5x the bid side's value sweeps back to CLP custody (`pool_sweep_synth`). Depth nobody can exit into is standing arb bait, not liquidity.
 
 **ATA** (Associated Token Account) - Solana's standard derivation for a wallet's token account: `getAssociatedTokenAddressSync(mint, owner)`. Always derived; not always created. Pre-create idempotently before instructions that expect them.
 
@@ -15,13 +15,17 @@ description: Continuum-specific terms in one place.
 
 **Authority** - A signer with rights over an account. Continuum has multiple: `market.authority` (admin), `market.keeper_authority` (operational), `oracle_config.admin_authority`, `oracle_config.keeper_authority`, `globalClp.authority`.
 
-**Bin step** - Meteora DLMM's bin granularity, in basis points. `binStep=10` means each bin is 0.10% wide. Affects pool fee tier (`fee = binStep × baseFactor / 1e6`).
+**Base price** - The `Pool` account's anchor price (`base_price_1e6`), pinned to NAV by the keeper. Ask bins ladder above it, bid bins below.
+
+**Bid cap** - Keeper inventory rule: standing bid cUSDC per side is capped (~$5k, `CLMM_BID_TARGET_USD`) because idle bids forgo lending carry; large sells route through committed orders instead.
+
+**Bin step** - The book's bin granularity, in basis points. Continuum pools use 2-zone geometry: a fine core step near NAV (15-40bps) and wide wing steps (250-600bps) beyond `core_bins`.
 
 **bps** (basis points) - 1 bps = 0.01%. Fees are quoted in bps: `mint_fee_bps = 10` means 0.10% fee.
 
 **cUSDC** - Continuum's devnet collateral mint (`B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`). On mainnet this is real USDC. We use "cUSDC" throughout these docs to avoid confusion.
 
-**CLP** (Capital and Liquidity Provider) - Continuum's on-chain treasury and DLMM proxy program. Holds protocol LP capital, owns Meteora positions. → [CLP concept](/concepts/clp).
+**CLP** (Capital and Liquidity Provider) - Continuum's on-chain treasury and trading program. Holds protocol capital, hosts the native books, committed orders, and the instant oracle swap. → [CLP concept](/concepts/clp).
 
 **CNTM** - Continuum's planned governance token. Not yet active.
 
@@ -29,11 +33,15 @@ description: Continuum-specific terms in one place.
 
 **Constant-product invariant** - `L_NAV × S_NAV = initial_l × initial_s`. The relationship that bounds combined pair value and replaces funding rates.
 
-**CPI** (Cross-Program Invocation) - Solana's mechanism for one program to call another. Continuum's CLP CPIs into mint-redeem and Meteora.
+**Committed order** - The large-trade venue: `commit_swap` escrows the input, the fill executes at the *first oracle print after the commitment* at NAV ± 10bps. No size cap - a price set after the commitment has no stale quote to arb. Unfilled orders refund unconditionally after the 180s TTL. → [Trade flow](/flows/trade).
+
+**CPI** (Cross-Program Invocation) - Solana's mechanism for one program to call another. Continuum's CLP CPIs into mint-redeem for vault-side pair mints and redeems.
 
 ## D - L
 
-**DLMM** (Dynamic Liquidity Market Maker) - Meteora's concentrated-liquidity AMM. The trading venue for Continuum L/S tokens.
+**Drift gate (reposition gate)** - The per-market threshold (QQQ/SPY/XAU 20bps, VXX 40bps) a book's drift from NAV must exceed before the keeper re-pins it. Swept empirically to sit just below each market's toxic-arbitrage line.
+
+**Dynamic buffer** - The per-market overcollateralization target the keeper posts on-chain (`set_buffer_target`): `B = δ²/2 + |q|·δ + margin`, floor 102%. Replaces the old static 102%.
 
 **Drawdown** - Per-market peak value vs current value. Tracked by CLP for hard-bound gating.
 
@@ -49,7 +57,9 @@ description: Continuum-specific terms in one place.
 
 **`is_long`** - Boolean argument to keeper-only single-side instructions. `true` → long side, `false` → short.
 
-**Keeper** - The off-chain Rust bot that runs oracle updates, arb, and DLMM rebalancing. → [Keeper overview](/keeper/overview).
+**Instant depth** - The book's standing bin liquidity - what a `pool_swap` can fill immediately. Deliberately lean; anything larger routes committed. 
+
+**Keeper** - The off-chain Rust bot that runs oracle updates, book management, committed-order settlement, inventory plumbing, and yield routing. → [Keeper overview](/keeper/overview).
 
 **`keeper_authority`** - The pubkey allowed to sign privileged single-side and CLP instructions for a given market. Stored on `Market`.
 
@@ -61,7 +71,7 @@ description: Continuum-specific terms in one place.
 
 ## M - R
 
-**Meteora** - The DEX hosting Continuum's L/cUSDC and S/cUSDC pools. Specifically Meteora DLMM.
+**Meteora DLMM** (legacy) - The external AMM that hosted L/S liquidity in v1. Retired in the v2 cutover to native per-side CLMM books; survives only as a legacy enum tag in the registry.
 
 **`mint_paired`** - User-facing instruction. Deposits cUSDC, returns matched L+S at NAV. → [Mint flow](/flows/mint).
 
@@ -81,7 +91,11 @@ description: Continuum-specific terms in one place.
 
 **Paired** - As in `mint_paired` / `redeem_paired`. The user-facing entry where L and S are minted/burned at NAV-weighted values, not equal quantities.
 
+**Native book / CLMM pool** - Continuum's own per-side concentrated-liquidity book: one `Pool` account per (market, side), bins inline (max 16, no per-bin rent), filled by `pool_swap`. The instant-trade venue.
+
 **PDA** (Program Derived Address) - Solana's deterministic-pubkey-from-seeds primitive. Continuum has many: `Market`, `Clp`, `OracleConfig`, etc. → [PDA derivations](/build/idls-and-pdas#pda-derivation-cheatsheet).
+
+**Protective skew** - The spread engine's trend response: the trend-adverse side widens with the drift z-score, the other side never tightens below the symmetric shape. Replaces the classic symmetric skew, which backtests falsified.
 
 **`ProxyMode`** - One of the four risk states. Oracle is stale or wide-confidence; mint is throttled with a 2× confidence markup. → [Risk states](/concepts/risk-states).
 
@@ -92,6 +106,8 @@ description: Continuum-specific terms in one place.
 **`redeem_paired`** - User-facing instruction. Burns L and S in independent quantities, returns cUSDC at NAV. → [Redeem flow](/flows/redeem).
 
 **`redeem_fee_bps`** - Per-market redeem fee. Default 10 (0.10%).
+
+**Realized ratchet** - The spread engine's fast term: a trailing empirical q90 of window moves, warm within ~8 windows. One of four terms in the model-free half-spread max().
 
 **Recovery** - Risk state during post-Stress wind-down. Mint resumes (size-throttled).
 
@@ -105,9 +121,9 @@ description: Continuum-specific terms in one place.
 
 **`S_NAV`** - Short-side NAV. Derived: `(initial_l × initial_s) / L_NAV`.
 
-**Skip-rebuild** - DLMM rebalancer optimization. Skips remove + close + open when the existing range still covers active and NAV target.
+**Slow auto-floor** - The spread engine's slow term: `floor_mult × σ_60d`, an unconditional-volatility floor that self-corrects mis-set listing floors within days. Seeded at boot from 60 days of Pyth Benchmarks history.
 
-**Slippage** - Difference between expected and actual swap output. The keeper sets `MAX_SLIPPAGE_BPS=50` per swap; half is deducted from arb profit screens.
+**Slippage** - Difference between expected and actual swap output. On the native books it is the real bin-ladder cost of walking depth; committed orders have none (the fill is at NAV ± 10bps regardless of size).
 
 **Solvency invariant** - A property the protocol enforces at all times. → [Solvency invariants](/concepts/solvency).
 
@@ -121,11 +137,13 @@ description: Continuum-specific terms in one place.
 
 **Vault** (collateral vault) - Per-market token account holding all backing cUSDC. Stored as `market.collateral_vault`.
 
-**Vol-adaptive radius** - DLMM rebalancer feature. Bin radius scales with realized volatility (calm 10, normal 20, elevated 30, stressed 34).
+**Two-zone geometry** - The book's bin layout: a fine core step near NAV for tight instant pricing, wide wing steps beyond `core_bins` so the book covers off-hours floats with few bins.
+
+**Venue split** - The v2 design that routes trades by size: native books for instant small trades, committed orders for anything large, the legacy instant oracle swap retained for small fills. Each venue prices off the same NAV.
 
 **Worst-case quoting** - Mint pricing markup applied in non-Normal risk states. `mint_price = NAV × (1 + state_mult × confidence_bps / 10000)`.
 
-**Zombie position** - A Meteora position with phantom `liq_share > 0` after `remove_liquidity` but with all bin arrays drained. Meteora's `close_position2` rejects with `NonEmptyPosition`. The keeper skips close and opens fresh.
+**Yield router** - The keeper task that deploys idle collateral to the best lending venue (Kamino / MarginFi / Save / Jupiter Lend) and switches when the winner changes. On devnet a yield emulator mirrors the live top APY with real cUSDC through the same harvest instruction.
 
 ## See also
 

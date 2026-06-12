@@ -9,7 +9,7 @@ Continuum's protocol layer is split across five Anchor programs. They are deploy
 |---|---|---|
 | [`mint-redeem`](/programs/mint-redeem) | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` | User-facing mint and redeem at NAV; keeper-only single-sided ixns. |
 | [`oracle`](/programs/oracle) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` | Pyth/Hermes price observations, TWAP, risk-state machine. |
-| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Capital and Liquidity Provider - vaults, Meteora DLMM proxy. |
+| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Capital and Liquidity Provider - vaults, native CLMM books, committed orders, instant swap. |
 | [`registry`](/programs/registry) | `REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap` | Market registry (symbol → market PDA + pools). |
 | [`faucet`](/programs/faucet) (devnet only) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` | Drip cUSDC for testing. |
 | `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` | CNTM staking, listings, parameter votes (future). |
@@ -19,8 +19,8 @@ Continuum's protocol layer is split across five Anchor programs. They are deploy
 ```
 mint-redeem ─── reads NAV from ──► oracle
 mint-redeem ─── checked by      ──► clp (OI cap, inventory)
-clp ─── proxies CPI to ──► Meteora DLMM (pool ops)
-clp ─── allocates to    ──► per-market vaults
+clp ─── hosts ──► native CLMM books + committed orders + instant swap
+clp ─── allocates to ──► per-market vaults
 registry ─── lists ──► market PDAs
 faucet ─── mints ──► cUSDC (devnet only)
 ```
@@ -63,6 +63,9 @@ Anchor v0.32 derives types from the IDL automatically. No separate type generati
 | oracle | `OracleFeed` | `[b"oracle_feed", oracle_config, pyth_oracle]` |
 | clp | `GlobalClp` | `[b"global_clp"]` |
 | clp | `Clp` | `[b"clp", market_id]` |
+| clp | `Pool` (one per side) | `[b"pool", market, side]` |
+| clp | `Order` (committed swap) | `[b"order", user, market, nonce_le8]` |
+| clp | escrow (per order) | `[b"escrow", order]` |
 | clp | `AdminWithdrawWindow` | `[b"admin_withdraw_window"]` |
 | registry | `RegistryState` | `[b"registry"]` |
 | registry | `MarketEntry` | `[b"market", symbol_padded_to_16]` |
@@ -75,8 +78,8 @@ Different operations require different signers:
 
 | Authority | What it controls |
 |---|---|
-| **Anyone** | `mint_paired`, `redeem_paired`, `redeem_paired_with_waiver`, `donate_to_vault`, `faucet::drip` |
-| **`market.keeper_authority`** | `keeper_mint_single`, `keeper_redeem_single`, `update_risk_state`, all `clp_*` Meteora-proxy ixns |
+| **Anyone** | `mint_paired`, `redeem_paired`, `redeem_paired_with_waiver`, `donate_to_vault`, `pool_swap`, `commit_swap`, `settle_swap` (permissionless crank), `cancel_swap` (own orders), `faucet::drip` |
+| **`market.keeper_authority`** | `keeper_mint_single`, `keeper_redeem_single`, `update_risk_state`, `harvest_collateral_yield`, `set_buffer_target` |
 | **`market.authority`** (admin) | `update_market`, `update_keeper_authority`, `update_market_oracle`, `configure_*` |
 | **`globalClp.authority`** (admin) | `admin_fund`, `admin_withdraw`, `initialize_clp` (per-market), `update_oi_cap` |
 | **`oracle.admin_authority`** | `update_oracle_config`, `configure_health_thresholds`, `force_price` (devnet), `emergency_pause` |
@@ -107,11 +110,13 @@ Programs:
 | Read NAV / risk state | `mint-redeem` (Market account) | account fetch only |
 | Read fine-grained oracle data | `oracle` (OracleConfig) | account fetch only |
 | Read OI cap / depth | `clp` (Clp account) | account fetch only |
+| Trade instantly against a book | `clp` | `pool_swap` |
+| Trade any size at next oracle print | `clp` | `commit_swap` → `settle_swap` |
 | Get devnet cUSDC | `faucet` | `drip` |
 | Operator: list a market | `mint-redeem` + `clp` | `initialize_market` then `initialize_clp` |
 | Operator: fund treasury | `clp` | `admin_fund` |
 
-For trading L/S directly (not at NAV), use Meteora DLMM SDK - see [Trade](/flows/trade).
+For trading L/S, the venues are native: the per-side CLMM books for instant size, committed orders for anything larger - see [Trade](/flows/trade).
 
 ## See also
 
@@ -123,7 +128,7 @@ For trading L/S directly (not at NAV), use Meteora DLMM SDK - see [Trade](/flows
     Price observations, TWAP, risk states.
   </Card>
   <Card title="clp" icon="square-terminal" href="/programs/clp">
-    Capital vaults, DLMM proxy, OI cap.
+    Capital vaults, native books, committed orders, OI cap.
   </Card>
   <Card title="SDK setup" icon="terminal" href="/build/sdk-setup">
     Bootstrapping a TypeScript project against these programs.

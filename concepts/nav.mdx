@@ -144,15 +144,16 @@ If `last_oracle_update` is past the staleness threshold, the oracle's `OracleHea
 
 ## NAV vs pool price
 
-NAV is what the protocol mints/redeems at. **Pool price** is what Meteora DLMM trades at - these are not always equal. The keeper's arb loop closes the gap.
+NAV is what the protocol mints/redeems at. **Book price** is what the native per-side CLMM book trades at between repositions - the two are kept close by structure, not by arbitrage. The keeper re-pins each book's base to NAV whenever drift exceeds the per-market gate (20-40bps), and the standing half-spread means the book never quotes inside NAV ± spread anyway.
 
-In steady state, `pool_price ≈ NAV ± pool_fee/2`. Outside steady state (after a fast move, oracle staleness, RPC outage), the gap widens until the keeper closes it. A user choosing between mint-redeem and pool trade picks based on size and urgency:
+In steady state, `book_price ≈ NAV ± half_spread`. During closed market hours the oracle withholds pushes and the books float - the gap can widen, and the first fresh print re-anchors everything. A user choosing a venue picks by size and urgency:
 
-- **Small size, urgent**: trade on the pool (immediate, ~0.10% bin step fee).
-- **Large size, non-urgent**: mint or redeem at NAV (no slippage; pays mint/redeem fee).
+- **Small size, urgent**: hit the book (`pool_swap`) - instant, pays the bin ladder's real spread.
+- **Large size**: commit an order - fills at the *next* oracle print at NAV ± 10bps, any size.
+- **Want the pair, not a direction**: mint or redeem at NAV (pays the mint/redeem fee, no spread).
 
-→ [Trading on Meteora](/flows/trade)
+→ [Trading venues](/flows/trade)
 
 ## NAV in TradingView and analytics
 
-Continuum's frontend overlays NAV on a TradingView chart. The long-side pool price is shown directly; the short-side is **derived from the long side via the constant-product invariant** for visual coherence (otherwise two charts that should be inverse appear unrelated). When you read S-pool data programmatically, you get the actual pool's active bin price.
+Continuum's frontend overlays NAV on a TradingView chart. The long-side book price is shown directly; the short-side is **derived from the long side via the constant-product invariant** for visual coherence (otherwise two charts that should be inverse appear unrelated). When you read the S book programmatically, you get its actual base price.

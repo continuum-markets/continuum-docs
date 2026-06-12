@@ -1,15 +1,30 @@
 ---
 title: clp
-description: Capital and Liquidity Provider - the protocol's vaults and Meteora DLMM proxy.
+description: Capital and Liquidity Provider - the protocol's vaults, native CLMM pools, and the v2 swap venues.
 ---
 
-The CLP program holds protocol LP capital and is the owner of all Meteora DLMM positions. Per-market `Clp` PDAs hold inventory budgets, OI cap, and Meteora pointers. A single `GlobalClp` PDA tracks total deposits and routes capital to per-market vaults.
+The CLP program is Continuum's treasury and market maker. It holds protocol LP capital, runs the v2 trading venues - native concentrated-liquidity pools for instant swaps and a commit-then-settle path for size - and mints/redeems its own L+S inventory via CPI into mint-redeem. Per-market `Clp` PDAs hold inventory budgets, the OI cap, and swap-guard state. A single `GlobalClp` PDA tracks total deposits and routes capital to per-market vaults.
 
 ```
 Devnet ID: 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES
 ```
 
-There are no user-facing instructions on this program. Everything is gated by admin or keeper authority.
+User-facing instructions: `pool_swap`, `clp_swap`, `commit_swap`, `settle_swap` (permissionless crank), and `cancel_swap`. Everything else is gated by admin or keeper authority.
+
+<Note>
+  **Meteora retirement.** v1 routed liquidity through Meteora DLMM positions owned by the CLP PDA. The v2 cutover replaced that with the native pools documented below - liquidity lives inline in the `Pool` account (no per-bin rent) and repositioning is a single transaction. The Meteora proxy instructions (`clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_close_meteora_position`, `clp_claim_lp_fees`, `clp_init_bin_array`, `configure_meteora_pools`, `clp_set_meteora_position`, `clear_meteora_positions`, `vault_record_liquidity_recall`) remain on the program only to unwind legacy positions and are not documented further here.
+</Note>
+
+## The two swap venues
+
+| Venue | Instruction | Price | Best for |
+|---|---|---|---|
+| **Pool book** (instant) | `pool_swap` | Walks the bin ladder around NAV - real slippage | Small/urgent trades |
+| **Committed orders** | `commit_swap` → `settle_swap` | NAV ± 10 bps at the *next* oracle push | Any size |
+
+The pool book is deliberately lean - posted depth is a written option against latency arbitrage, and idle bid cUSDC forgoes carry, so the keeper sizes it to organic demand, not to TVL. Committed orders carry the size: because the fill price is set strictly *after* the commitment, latency arbitrage is structurally impossible and no depth needs to be posted in advance.
+
+`clp_swap` (the oracle-pegged swap at NAV ± spread from CLP inventory) predates the pool book and remains live as a fallback during the migration soak.
 
 ## Accounts
 
@@ -23,14 +38,14 @@ One per cluster.
 
 | Field | Type | Purpose |
 |---|---|---|
-| `total_deposits` | u64 | Cumulative `admin_fund` (informational) |
-| `last_admin_fund_at` | i64 | Last admin deposit unix-ts |
+| `total_deposits` | u64 | Cumulative admin-funded principal (net of `admin_withdraw`) |
+| `last_admin_fund_at` | u64 | Last `admin_fund` unix-ts (drives the withdraw cooldown) |
 | `total_fees_accumulated` | u64 | Lifetime protocol fees |
-| `market_allocations` | array of `MarketAllocation` | Per-market USDC outstanding |
+| `market_allocations` | array of `MarketAllocation` | Per-market cUSDC outstanding |
 | `protocol_buffer` | `ProtocolBuffer` | Yield, losses, current balance, target size, above-target flag |
 | `liquidity_seed_threshold` | u64 | Below this, the seeder skips |
 | `authority` | Pubkey | Admin signer |
-| `admin_wallet` | Pubkey | 24h-cooldown-gated mainnet admin |
+| `admin_wallet` | Pubkey | Receives the TVL-tiered dev tax |
 
 ### `Clp` PDA
 
@@ -43,23 +58,85 @@ One per market.
 | Field | Type | Purpose |
 |---|---|---|
 | `market_id` | Pubkey | Bound market PDA |
-| `oi_cap` | u64 | Hard ceiling on `total_l_supply` |
-| `current_oi` | u64 | Mirror of `market.total_l_supply` |
+| `oi_cap` / `current_oi` | u64 | Hard ceiling on `total_l_supply` and its mirror |
 | `inventory_budget` | `InventoryBudget` | Soft/hard q-bps + drawdown bounds |
 | `inventory_state` | `InventoryState` | Current q-bps, breach flags, peak value |
-| `yield_strategy` | `YieldStrategyConfig` | Per-state deployment percentages |
+| `yield_strategy` / `yield_deployments` / `total_deployed` | various | Yield scaffolding (off by default) |
 | `oracle_config` | Pubkey | Bound oracle PDA |
-| `deployment_count` | u32 | Number of yield deployments |
-| `yield_deployments` | array | Per-protocol `YieldDeployment` |
-| `total_deployed` | u64 | Currently deployed cUSDC |
-| `total_fees_collected` | u64 | Lifetime fees from Meteora |
-| `vault_l_deployed` / `vault_s_deployed` | u64 | Synth deployed to Meteora |
+| `vault_l_deployed` / `vault_s_deployed` | u64 | L/S outstanding from CLP-side minting |
 | `total_vault_pairs_minted` | u64 | Lifetime pair-mint volume |
-| `total_meteora_fees_earned` | u64 | Lifetime Meteora fees |
-| `meteora_long_pool` / `meteora_short_pool` | Pubkey | Configured pool addresses |
-| `meteora_long_position` / `meteora_short_position` | Pubkey | Current position pubkeys |
-| `allocated_from_global` | u64 | Per-market USDC allocated from global vault |
-| `authority` | Pubkey | Admin signer |
+| `allocated_from_global` | u64 | cUSDC allocated from the global vault |
+| `swap_guards` | `SwapGuardsState` | v2 swap circuit-breaker config (below) |
+| `swap_window_start` / `swap_window_used` | i64 / u64 | Rolling notional-cap window state |
+| `swap_prev_price` | u64 | Last NAV accepted by a swap (deviation anchor) |
+| `meteora_*` | Pubkey | Legacy Meteora pool/position pointers |
+| `authority` | Pubkey | Keeper/admin signer |
+
+### `SwapGuardsState`
+
+Persisted on `Clp`; configured via `configure_swap`. The all-zero default keeps swaps off until configured.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `enabled` | bool | Master on/off for the native swap path |
+| `frozen` | bool | Hard kill switch |
+| `spread_bps` | u16 | LP edge applied to NAV (30 bps today on the instant path) |
+| `max_staleness_secs` | i64 | Reject if NAV/TWAP older than this |
+| `max_confidence_bps` | u16 | Reject if oracle confidence exceeds this (bps of price) |
+| `max_deviation_bps` | u16 | Reject if NAV moved more than this vs the last accepted price |
+| `window_cap_usd` | u64 | Rolling-window notional cap (cUSDC, 6-dec); 0 = uncapped |
+| `window_secs` | i64 | Rolling-window length |
+| `collateral_floor_bps` | u16 | Minimum market collateralization that must hold after a swap |
+
+### `Pool` PDA
+
+```
+seeds = [b"pool", market_id, [side]]    // side: 0 = long, 1 = short
+```
+
+One per (market, side) - a native concentrated-liquidity book for one synth side vs cUSDC. The entire book lives inline in the account (max 16 bins per side, `POOL_MAX_BINS`), so there is no per-bin rent. Two pool-owned token accounts hold the actual reserves: a synth vault (asks) and a cUSDC vault (bids).
+
+| Field | Type | Purpose |
+|---|---|---|
+| `authority` | Pubkey | Keeper signer for `set_pool_shape` / `configure_pool_geom` |
+| `market` / `side` | Pubkey / u8 | Binding |
+| `synth_mint` / `usdc_mint` | Pubkey | Pair mints |
+| `base_price_1e6` | u64 | Active price ≈ side NAV, set by the keeper |
+| `step_bps` | u32 | Core bin step (`r = 1 + step_bps/1e4`) |
+| `num_bins` | u8 | Bins per side (≤ 16) |
+| `asks` | `[u64; 16]` | Synth reserve per ask bin (above NAV) |
+| `bids` | `[u64; 16]` | cUSDC reserve per bid bin (below NAV) |
+| `enabled` / `frozen` | bool | Trading gates |
+| `shape_updated_at` | i64 | Last reposition unix-ts |
+| `wing_step_bps` | u32 | Wing step for the 2-zone geometry (0 = uniform ladder) |
+| `core_bins` | u8 | Number of fine core bins before the wings start |
+
+**Bin geometry.** Ask bin `i` sits at `base · r^(i+1)`, bid bin `i` at `base · r^-(i+1)`. The active price itself is the empty mid, so the minimum round trip costs ~2 steps. With 2-zone geometry the first `core_bins` steps use `step_bps` (fine - precise pricing near NAV) and the rest use `wing_step_bps` (wide - the same 16 bins span the full float range).
+
+### `Order` PDA (committed orders)
+
+```
+order:  seeds = [b"order", user, market, nonce_le_u64]
+escrow: seeds = [b"escrow", order]      // token account owned by the order PDA
+```
+
+A commit-then-settle order: the user escrowed `amount_in` at `created_at`, and the fill executes at the first oracle push strictly after that.
+
+| Field | Offset | Type | Purpose |
+|---|---|---|---|
+| `user` | 8 | Pubkey | Order owner (memcmp filter offset) |
+| `market` | 40 | Pubkey | Bound market (memcmp filter offset) |
+| `side` | 72 | u8 | 0 = long, 1 = short |
+| `direction` | 73 | u8 | 0 = buy synth, 1 = sell synth |
+| `status` | 74 | u8 | 0 = pending - the only persisted state |
+| `bump` / `escrow_bump` | | u8 | PDA bumps |
+| `amount_in` | | u64 | Escrowed atoms (cUSDC for buys, synth for sells) |
+| `min_out` | | u64 | Slippage floor - settle *refunds* (not reverts) on a miss |
+| `created_at` | | i64 | Commit time - settle requires `twap_updated_at > created_at` |
+| `expires_at` | | i64 | `created_at + 180`; settle owns ≤, cancel owns > |
+| `nonce` | | u64 | Client-supplied PDA seed component |
+
+The byte offsets are load-bearing: the keeper discovers pending orders with `getProgramAccounts` memcmp filters at `user@8`, `market@40`, `status@74`. Every terminal path (settle, refund, cancel) closes both the order and the escrow, returning all rent to the user - which also makes concurrent settle attempts idempotent (the loser fails at account load).
 
 ### `AdminWithdrawWindow` PDA
 
@@ -67,171 +144,187 @@ One per market.
 seeds = [b"admin_withdraw_window"]
 ```
 
-Tracks 24-hour rolling cap on `admin_withdraw`.
-
-| Field | Type | Purpose |
-|---|---|---|
-| `window_start_at` | i64 | Window start unix-ts |
-| `cumulative_in_window` | u64 | Total withdrawn in current window |
-
-The cap is currently $100K/24h.
+Rolling 24h cap state for `admin_withdraw`: `window_start_at`, `cumulative_in_window`.
 
 ## Instructions
 
-### Initialization (admin)
+### Swaps (permissionless)
 
-#### `initialize_global_clp(liquidity_seed_threshold)`
+#### `pool_swap(direction: u8, amount_in: u64, min_out: u64)`
 
-One-shot global state init. Creates `GlobalClp` and `global_clp_vault` (cUSDC token account).
+Swap against a pool's bin book. `direction`: 0 = buy synth (pay cUSDC), 1 = sell synth (receive cUSDC). The handler walks the bins - buys consume ask bins upward from `base·r`, sells consume bid bins downward from `base/r` - decrementing reserves in place so the stored book always matches the vault balances. Partial fills round in the pool's favor. Rejects with `SwapDisabled` if the pool is disabled or frozen, `SlippageExceeded` if output < `min_out`, and `InsufficientFunds` on an empty book.
 
-#### `initialize_clp(...)`
+Accounts: `user` (signer), `user_usdc`, `user_synth`, `pool`, `synth_vault`, `usdc_vault`, token program. The pool PDA signs the outbound transfer.
 
-Per-market init. Creates the `Clp` PDA and per-market `clp_vault` token account. Sets the bound market and oracle.
+#### `clp_swap(side: u8, direction: u8, amount_in: u64, min_out: u64)`
 
-### Capital flow
+The oracle-pegged instant swap: trade cUSDC ↔ one synth side at NAV ± `spread_bps`, filled from CLP inventory. Delta-neutral by construction - the tokens being moved are already-outstanding, fully-backed supply, so total supply and collateral are unchanged; only ownership moves. This path never mints; the keeper replenishes inventory separately via `vault_mint_pairs`.
 
-#### `admin_fund` (admin)
+Every call runs the full guard battery from `SwapGuardsState`: enabled/frozen, NAV staleness, oracle confidence, deviation vs the last accepted price, the rolling-window notional cap, and the market-level collateral floor.
 
-Deposit cUSDC from admin wallet → `global_clp_vault`. Advances `total_deposits`.
+#### `commit_swap(side: u8, direction: u8, amount_in: u64, min_out: u64, nonce: u64)`
 
-#### `admin_withdraw` (admin)
+Open a committed order: escrow `amount_in` (cUSDC for buys, synth for sells) into the order-owned escrow account. The payout ATA must exist at commit time so settlement can never strand on a missing account. Fails fast if the market is inactive or swaps are disabled/frozen (settle re-checks authoritatively). Emits `OrderCommitted`.
 
-Withdraw idle cUSDC from `global_clp_vault` → admin wallet. Subject to the `AdminWithdrawWindow` 24h cap.
+Constants: `COMMIT_TTL_SECS = 180`, `COMMIT_SPREAD_BPS = 10`. The committed spread is thinner than the instant path's because a fill priced strictly after the commitment carries no adverse selection - there is no stale quote to select against.
 
-#### `allocate_to_market(amount: u64)` (keeper)
+#### `settle_swap()` (permissionless crank)
 
-Move cUSDC from `global_clp_vault` to per-market `clp_vault`. Advances `Clp.allocated_from_global` and `GlobalClp.market_allocations[market]`.
+Fill a pending order at NAV(now) ± 10 bps. Anyone may crank it; the keeper does in practice. Valid only when:
 
-#### `return_to_global` (keeper)
+- `now ≤ expires_at` (else `OrderExpired`),
+- `market.twap_updated_at > order.created_at` - the freshness rule that makes latency arbitrage impossible (else `NoFreshOraclePush`),
+- the oracle health guards pass, and the market collateral floor holds.
 
-Reverse - move idle per-market cUSDC back to global. Used after position closure or when a market's edge drops.
+Outcome semantics:
 
-#### `deposit_profit(amount: u64)` (keeper)
+| Condition | Result |
+|---|---|
+| Quote ≥ `min_out` | Fill - escrow to CLP, payout to user, accounts close, `OrderSettled` |
+| Quote < `min_out` | **Full refund** (terminal, accounts close, `OrderRefunded`) - a price that ran away must not leave the order revert-looping until expiry |
+| CLP inventory short | Revert - order stays pending; the keeper provisions inventory and retries |
 
-Route arb surplus from keeper wallet into `global_clp_vault`. Advances `GlobalClp.total_fees_accumulated`.
+Committed fills advance the deviation anchor (`swap_prev_price`) but do **not** consume the rolling window cap - the cap bounds stale-price extraction, which a committed fill carries none of.
 
-### Mint/redeem proxy (keeper)
+<Warning>
+  Mainnet prerequisite (flagged in the code): settlement currently reads the keeper-relayed `user_twap_price`. Before any mainnet deploy it must read Pyth directly and enforce `publish_time > order.created_at`.
+</Warning>
 
-The CLP can mint/redeem paired tokens on its own behalf, used by the keeper to seed Meteora positions.
+#### `cancel_swap()` (order owner)
 
-#### `vault_mint_pairs(amount: u64)`
+Refund an expired order. Allowed strictly after `expires_at` (settle owns ≤, cancel owns > - no gap, no overlap; else `OrderNotExpired`). Deliberately checks nothing else - no frozen/enabled/oracle/active gates: escrowed funds are always recoverable after the TTL regardless of protocol state. Returns the escrow and all rent to the user, emits `OrderCancelled`.
 
-CPI into `mint_redeem::mint_paired` using per-market vault cUSDC. The minted L+S land in the CLP PDA's L and S ATAs.
+### Native pool management (admin / keeper)
+
+#### `init_pool(side: u8, step_bps: u32, num_bins: u8)` (admin)
+
+Create the per-(market, side) `Pool` PDA. `step_bps` ∈ (0, 1000], `num_bins` ∈ [1, 16]. The pool starts disabled with an empty book; the first `set_pool_shape` enables it.
+
+#### `set_pool_shape(base_price_1e6: u64, asks: Vec<u64>, bids: Vec<u64>)` (keeper)
+
+The reposition: set the active price (≈ NAV) and the per-bin reserves in one call. Each vector must be exactly `num_bins` long and sum to no more than the corresponding vault balance. This is also how the book recaptures LVR - repricing to NAV instead of being walked there. The keeper shapes the book with a geometric decay per side, typically skewed (protective skew: thin/steep asks, deeper bids for an up-drifting asset).
+
+#### `configure_pool_geom(wing_step_bps: u32, core_bins: u8)` (keeper)
+
+Configure the 2-zone bin geometry: fine `core_bins` near NAV at the pool's `step_bps`, then `wing_step_bps` for the outer wings. Validated: wing ≥ core step and `core_bins ≤ num_bins`. `wing_step_bps = 0` resets to the uniform ladder.
+
+#### `realloc_pool()` (pool authority)
+
+Grow a pre-2-zone `Pool` account to the current layout. Raw realloc with zero-fill - new fields land as 0, which `bin_geom()` reads as the uniform ladder, so legacy pools keep behaving until configured.
+
+#### `pool_sweep_usdc(amount: u64)` / `pool_sweep_synth(amount: u64)` (keeper)
+
+Sweep accumulated cUSDC out of a pool's bid vault back to the per-market CLP vault, or trim excess synth from the ask vault back to CLP custody. One-directional buy flow converts ask inventory into cUSDC that piles up in the pool; the sweep recycles it through `vault_mint_pairs` into fresh L+S (the elastic refill). The synth sweep exists because ask depth far beyond the bid side's value is pure arb bait - trimmed synth serves committed-order provisioning instead.
+
+#### `clp_fund_pool_synth(amount: u64)` (keeper)
+
+Move synth from the CLP's L/S ATA into a pool's ask vault - the refill leg after `vault_mint_pairs`. The inventory was already counted at mint time, so no counters change; this just stages tokens for the next `set_pool_shape`.
+
+### Mint/redeem inventory (keeper)
+
+The CLP mints and redeems on its own behalf via CPI into mint-redeem, with the CLP PDA acting as the "user".
+
+#### `vault_mint_pairs(usdc_amount: u64)`
+
+CPI into `mint_redeem::mint_paired` using per-market vault cUSDC. Minted L+S land in the CLP PDA's ATAs; `vault_l_deployed` / `vault_s_deployed` advance by the actual deltas.
 
 #### `vault_redeem_pairs(l_amount: u64, s_amount: u64)`
 
-CPI into `mint_redeem::redeem_paired` using L and S held in CLP PDA's ATAs. cUSDC returns to per-market vault.
+Reverse: burn L+S held by the CLP PDA, cUSDC returns to the per-market vault.
 
-### Meteora DLMM proxy (keeper)
+#### `vault_redeem_single(is_long: bool, token_amount: u64)`
 
-All position operations are owned by the CLP PDA. The CLP signs Meteora CPIs.
+Redeem one side at NAV via `mint_redeem::redeem_single_for_vault`. Used by the pool depth balancer to convert one side's excess into cUSDC for re-pairing. The inner instruction enforces a post-redeem collateralization floor of 100%, so an underwater vault refuses the operation.
 
-#### `clp_init_bin_array(index: i32)`
+#### `clp_burn_excess(is_long: bool, amount: u64)` (admin)
 
-Initialize a bin array PDA at a given index, if missing. Required before opening a position whose range includes that index.
+Burn asymmetric L or S residue held by the CLP without any collateral payout (CPI into `permissionless_burn`). Recovery/cleanup path.
 
-#### `clp_open_meteora_position(side, amount_x, amount_y, active_id, target_bin, bin_radius)`
+### Capital flow
 
-Create + fund a Meteora position. Side is `0 = long pool, 1 = short pool`.
+#### `admin_fund(amount: u64)` (admin)
 
-#### `clp_topup_meteora_position(side, amount_x, amount_y, active_id, lower_bin, upper_bin)`
+Deposit cUSDC from the admin wallet into `global_clp_vault`. Advances `total_deposits` and stamps `last_admin_fund_at`.
 
-Add liquidity to an existing position without close + reopen. Used by the seeder when the position's current range is still valid.
+#### `admin_withdraw(amount: u64)` (admin)
 
-#### `clp_remove_meteora_liquidity(side, lower_bin, upper_bin)`
+Withdraw idle cUSDC from the global vault. Two protections against a compromised admin key: a rolling 24h cap of 10% of cumulative funded principal, and a 1h settlement cooldown after any `admin_fund` (so the cap denominator can't be flash-pumped). Capital already allocated to markets must first come back via `return_to_global`.
 
-Drain tokens from a position back to CLP PDA's L+cUSDC (or S+cUSDC) ATAs.
+#### `allocate_to_market(amount: u64)` / `return_to_global(amount: u64)` (keeper)
 
-#### `clp_close_meteora_position(side, lower_bin, upper_bin)`
+Move cUSDC between `global_clp_vault` and a per-market `clp_vault`, updating `allocated_from_global` and the global per-market allocation counters.
 
-Close + reclaim position rent. Should be preceded by `clp_remove_meteora_liquidity`.
+#### `deposit_profit(amount: u64)` (keeper)
 
-#### `clp_set_meteora_position(side, position_pk)` (admin)
+Route arb/spread profit from the keeper wallet into the global vault, minus a TVL-tiered dev tax to `admin_wallet`: 15% below $5M TVL, 10% to $25M, 5% above.
 
-Recover an orphaned CLP-owned position by writing its pubkey into CLP state. Used during post-zombie cleanup.
+#### `collect_fees(amount: u64)` (keeper)
 
-#### `clear_meteora_positions` (admin)
-
-Reset stored position pubkeys to default. Used during pool migration.
-
-#### `configure_meteora_pools(long_pool, short_pool)` (admin)
-
-Wire pool addresses into CLP state.
+Transfer trading fees into the per-market vault; advances `total_fees_collected`.
 
 ### Configuration (admin)
 
-#### `update_oi_cap(new_cap)`
-
-Adjust the per-market OI cap.
-
-#### `configure_inventory_budget(...)`
-
-Soft and hard q-imbalance + drawdown bounds.
-
-#### `configure_yield_strategy(...)`
-
-Per-state deployment percentages (yield is off by default).
-
-#### `configure_liquidity_seeder(threshold)`
-
-Below `threshold`, the seeder skips. Default threshold is $1k.
-
-### Yield (scaffolded, off)
-
-#### `record_deployment` / `record_withdrawal` / `record_harvest`
-
-Track yield-protocol deployments. Off by default; `YIELD_ENABLED=false`.
-
-#### `add_yield_to_buffer` / `absorb_loss`
-
-Maintenance ops on `protocol_buffer`. The buffer absorbs losses (e.g., yield-protocol slippage) before they hit user collateral.
+- `configure_swap(enabled, frozen, spread_bps, max_staleness_secs, max_confidence_bps, max_deviation_bps, window_cap_usd, window_secs, collateral_floor_bps)` - all args optional; `None` leaves a field unchanged. `frozen = true` is the hard kill switch.
+- `update_oi_cap(new_cap)` - per-market OI ceiling.
+- `configure_inventory_budget(...)` - soft and hard q-imbalance + drawdown bounds.
+- `configure_yield_strategy(...)` - per-state deployment percentages (yield is off by default).
+- `configure_liquidity_seeder(threshold)` - below `threshold` the seeder skips. Default $1k.
+- `realloc_clp()` - grow a pre-upgrade `Clp` account to the current layout.
 
 ### Inventory ops
 
-#### `update_inventory`
+- `update_inventory(volatile_value, stable_value)` (keeper) - recompute `current_q_bps`, drawdown, and breach flags.
+- `update_oi(new_oi)` (keeper) - mirror `market.total_l_supply` into `clp.current_oi`; rejects past `oi_cap`.
+- `check_inventory_restrictions()` / `get_yield_status()` - read-only helpers, CPI-callable.
 
-Recompute `inventory_state.current_q_bps` and `peak_value` from on-chain Market state.
+### Yield (scaffolded, off)
 
-#### `update_oi`
+`record_deployment` / `record_withdrawal` / `record_harvest` track deployments to lending venues; `add_yield_to_buffer` / `absorb_loss` maintain the global protocol buffer, which absorbs losses before they hit user collateral. All off by default.
 
-Mirror `market.total_l_supply` into `clp.current_oi`. Called atomically inside mint-redeem CPI.
+## Engineering note: Boxed accounts and the 4KB stack
 
-### Read-only helpers
-
-#### `check_inventory_restrictions`
-
-Returns whether the market is at hard bound - programs can call this via CPI to gate operations.
-
-#### `get_yield_status`
-
-Returns deployment + harvest state for monitoring.
+The SVM caps each stack frame at 4096 bytes. Instructions with many deserialized `TokenAccount`/`Mint` payloads (`commit_swap`, `settle_swap`, `vault_mint_pairs`, ...) heap-`Box` their accounts, and the mint-redeem CPIs are hand-rolled `invoke_signed` calls instead of generated `CpiContext`s - a large CPI context on the outer frame pushes it past the limit, which surfaces as a runtime access violation rather than a compile error. If you fork or extend the program, keep new account structs boxed.
 
 ## Errors
 
 | Code | Name | Cause |
 |---|---|---|
 | 6000 | `Unauthorized` | Signer mismatch |
-| 6001 | `WithdrawalLocked` | Lockup not yet expired |
-| 6002 | `InvalidAmount` | Zero or negative |
-| 6003 | `InsufficientShares` | LP-share path (legacy) |
-| 6004 | `InsufficientFunds` | Vault can't cover request |
-| 6005 | `InsufficientLiquidFunds` | Funds deployed; recall first |
-| 6006 | `OICapExceeded` | New OI > cap |
-| 6007 | `MathOverflow` | Should be unreachable |
-| 6008 | `InsufficientBuffer` | Buffer can't absorb loss |
-| 6009 | `HardBoundBreach` | q or drawdown past hard bound |
-| 6010 | `YieldStrategyDisabled` | Yield off |
-| 6011 | `ExceedsMaxDeployment` | Exceeds per-state deployment cap |
-| 6012 | `MaxDeploymentsExceeded` | Deployment array full |
-| 6013 | `DeploymentNotFound` | Unknown protocol |
-| 6014 | `InsufficientDeployment` | Recall > deployed |
-| 6015 | `DeploymentTooHigh` | % > config |
-| 6016 | `OracleReadError` | Bound oracle unreadable |
-| 6017 | `InvalidPool` | Pool pubkey mismatch |
-| 6018 | `PoolNotConfigured` | Pool not yet wired |
-| 6019 | `AdminWithdrawCapExceeded` | 24h $100K cap hit |
-| 6020 | `InvalidPosition` | Position pubkey mismatch |
-| 6021 | `InvalidAccountData` | Account data too small |
+| 6001 | `WithdrawalLocked` | Legacy lockup path |
+| 6002 | `InvalidAmount` | Zero or out-of-range argument |
+| 6003 | `SwapDisabled` | Swap path or pool not enabled |
+| 6004 | `SwapFrozen` | Circuit breaker engaged |
+| 6005 | `InvalidSide` | Side/direction not 0 or 1 |
+| 6006 | `SwapAccountMismatch` | Token account mint/owner doesn't match the market binding |
+| 6007 | `MarketInactive` | `market.is_active = false` |
+| 6008 | `SlippageExceeded` | Output below `min_out` (instant paths) |
+| 6009 | `OrderExpired` | Settle attempted after the TTL - use `cancel_swap` to refund |
+| 6010 | `OrderNotExpired` | Cancel attempted before the TTL - wait for settlement or expiry |
+| 6011 | `NoFreshOraclePush` | No oracle push strictly newer than the commit yet |
+| 6012 | `OracleStale` | NAV/TWAP older than `max_staleness_secs` |
+| 6013 | `OracleConfidenceTooWide` | Confidence above `max_confidence_bps` |
+| 6014 | `OracleDeviationTooLarge` | NAV moved more than `max_deviation_bps` vs last accepted |
+| 6015 | `WindowCapExceeded` | Rolling notional cap hit (instant path only) |
+| 6016 | `CollateralFloorBreach` | Market under `collateral_floor_bps` |
+| 6017 | `InsufficientShares` | LP-share path (legacy) |
+| 6018 | `InsufficientFunds` | Vault/inventory can't cover the request |
+| 6019 | `InsufficientLiquidFunds` | Funds deployed; recall first |
+| 6020 | `OICapExceeded` | New OI > cap |
+| 6021 | `MathOverflow` | Should be unreachable |
+| 6022 | `InsufficientBuffer` | Buffer can't absorb loss |
+| 6023 | `HardBoundBreach` | q or drawdown past hard bound |
+| 6024 | `YieldStrategyDisabled` | Yield off |
+| 6025 | `ExceedsMaxDeployment` | Exceeds per-state deployment cap |
+| 6026 | `MaxDeploymentsExceeded` | Deployment array full |
+| 6027 | `DeploymentNotFound` | Unknown protocol |
+| 6028 | `InsufficientDeployment` | Recall > deployed |
+| 6029 | `DeploymentTooHigh` | % > config |
+| 6030 | `OracleReadError` | Bound oracle unreadable |
+| 6031 | `InvalidPool` | Pool pubkey mismatch (legacy Meteora paths) |
+| 6032 | `PoolNotConfigured` | Pool not yet wired (legacy Meteora paths) |
+| 6033 | `AdminWithdrawCapExceeded` | 24h cap or fund cooldown hit |
+| 6034 | `InvalidPosition` | Position/PDA pubkey mismatch |
+| 6035 | `InvalidAccountData` | Account data too small |
 
 → [Full error catalog](/reference/errors)
 
@@ -244,24 +337,28 @@ import clpIdl from "./clp.json";
 
 const clp = new Program(clpIdl, provider);
 
-const [globalClpPDA] = PublicKey.findProgramAddressSync(
-  [Buffer.from("global_clp")],
-  clp.programId,
-);
 const [clpPDA] = PublicKey.findProgramAddressSync(
   [Buffer.from("clp"), marketPDA.toBuffer()],
   clp.programId,
 );
+const [longPoolPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPDA.toBuffer(), Buffer.from([0])], // 0 = long side
+  clp.programId,
+);
 
-const [global, perMarket] = await Promise.all([
-  clp.account.globalClp.fetch(globalClpPDA),
+const [perMarket, pool] = await Promise.all([
   clp.account.clp.fetch(clpPDA),
+  clp.account.pool.fetch(longPoolPDA),
 ]);
 
-console.log("Total fees:", global.totalFeesAccumulated.toString());
+// Note the camelCase quirk: Anchor renders base_price_1e6 as basePrice1E6 (capital E).
+console.log("Active price:", pool.basePrice1E6.toString());
+console.log("Asks:", pool.asks.map((a: BN) => a.toString()));
 console.log("OI cap:", perMarket.oiCap.toString(), "current:", perMarket.currentOi.toString());
-console.log("L deployed:", perMarket.vaultLDeployed.toString());
+console.log("Swap spread (bps):", perMarket.swapGuards.spreadBps);
 ```
+
+→ [Committed-order and pool_swap examples](/build/example-mint-redeem#swapping-on-the-clp)
 
 ## See also
 
@@ -270,6 +367,6 @@ console.log("L deployed:", perMarket.vaultLDeployed.toString());
     Why CLP exists, the capital flow, the inventory bounds.
   </Card>
   <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
-    OI utilization, vault balances, position addresses.
+    OI utilization, vault balances, pool books.
   </Card>
 </CardGroup>

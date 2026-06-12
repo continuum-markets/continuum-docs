@@ -3,7 +3,7 @@ title: Mint paired tokens
 description: Deposit cUSDC, receive matched long and short tokens at NAV.
 ---
 
-`mint_paired(collateral_amount)` is the canonical user-facing entry. It deposits cUSDC, mints L and S to the user's ATAs, and sends fees to the configured fee recipient.
+`mint_paired(collateral_amount)` is the canonical user-facing entry. It deposits cUSDC and mints L and S to the user's ATAs.
 
 ## Math
 
@@ -18,6 +18,19 @@ S_NAV       = (initial_l × initial_s) / L_NAV
 ```
 
 In `Normal` risk state with no confidence markup, `qty_L × L_NAV + qty_S × S_NAV = collateral_amount - fee`. Trivially.
+
+## Fees
+
+The base fee is **10bps** (`mint_fee_bps`). Two things about it are easy to miss:
+
+- **90% of the fee stays in the collateral vault.** Only the dev tax (`dev_tax_pct = 10%` of the fee) goes to the fee recipient. The retained portion is real backing - it accrues directly to the market's collateralization ratio.
+- **On high-vol markets the fee is vol-informed.** The keeper posts `fee = max(10, fee_mult × q90)` bps, capped at 100, where q90 is the trailing realized spread of the market's oracle moves. The fee is the hurdle for paired round-trip extraction - scaling it with realized vol is what keeps high-vol listings solvent (see [Solvency](/concepts/solvency)). Calm broad indices stay at the static 10bps.
+
+Risk-state discounts and [fee waivers](#optional-mint_paired_with_waiver) apply on top.
+
+## Oracle staleness gate
+
+Mint requires a TWAP that is fresher than **300 seconds** (`MAX_TWAP_AGE_SECS`) when the market is not in `Normal` risk state - which is always the case on devnet (ProxyMode). When the underlying market closes (nights, weekends), the keeper deliberately **withholds** oracle pushes; the TWAP ages past the gate and mint/redeem freezes itself with `TwapNotAvailable` until the market reopens. This is intentional: minting at a stale Friday close into a Monday gap would be free money against the vault. The pool books keep floating off-hours - see [Trade](/flows/trade).
 
 ## Accounts required
 
@@ -122,6 +135,7 @@ This exists to keep the post-fee residual computable without precision issues - 
 | `BelowMinimum` | Less than 10 cUSDC |
 | `InsufficientCollateral` | User's cUSDC ATA balance < `collateral_amount` |
 | `OraclePriceUnavailable` | Oracle account stale or paused |
+| `TwapNotAvailable` | TWAP older than 300s - typically the underlying market is closed and the keeper is withholding pushes |
 | `MintNotAllowedInStress` | Risk state is `Stress` |
 | `ExceedsStressMintCap` | Risk state is `ProxyMode` / `Recovery` and amount exceeds the throttled cap |
 | `OICapExceeded` | `total_l_supply + l_to_mint > oi_cap` |
@@ -142,7 +156,7 @@ This exists to keep the post-fee residual computable without precision issues - 
 
 ## Optional: `mint_paired_with_waiver`
 
-A variant that consumes a fee-waiver against the user's `FeeWaiver` PDA, if active. Saves the mint fee but only works when the user has previously called `donate_to_vault` to acquire a waiver and the market vault is over-collateralized (>102%).
+A variant that consumes a fee-waiver against the user's `FeeWaiver` PDA, if active. Saves the mint fee but only works when the user has previously called `donate_to_vault` to acquire a waiver and the market vault is at or above its dynamic buffer target (keeper-posted per market, floored at 102%).
 
 This is an advanced flow used by power users. Most integrations stick with `mint_paired`.
 
@@ -151,18 +165,20 @@ This is an advanced flow used by power users. Most integrations stick with `mint
 After a successful mint:
 
 ```
+dev_tax = fee × dev_tax_pct / 100        // 10% of the fee
+
 User cUSDC ATA: -collateral_amount
-Vault cUSDC:    +(collateral_amount - fee)
-Dev cUSDC ATA:  +fee
+Vault cUSDC:    +(collateral_amount - dev_tax)   // retained fee stays as backing
+Dev cUSDC ATA:  +dev_tax
 User L ATA:     +qty_L
 User S ATA:     +qty_S
 
 market.total_l_supply: += qty_L
 market.total_s_supply: += qty_S
-market.total_collateral: += (collateral_amount - fee)
+market.total_collateral: += (collateral_amount - dev_tax)
 ```
 
-The L and S tokens are **SPL tokens**. They are transferable, depositable into Meteora pools, usable in CPI by other programs. There's no special locking, lockup, or hold period.
+The L and S tokens are **SPL tokens**. They are transferable, tradeable on the [native venues](/flows/trade), usable in CPI by other programs. There's no special locking, lockup, or hold period.
 
 ## See also
 

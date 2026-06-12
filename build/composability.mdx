@@ -14,7 +14,7 @@ User clicks "Buy QQQ Long"
    │
    ▼
 1. mint_paired(amount)             → 0.104 QQQL + 49.95 QQQS
-2. swap on Meteora (QQQS → cUSDC)  → 0.104 QQQL + ~49.5 cUSDC
+2. sell QQQS (pool_swap, or commit for size) → 0.104 QQQL + ~49.5 cUSDC
 3. user wallet ends with long-only QQQ exposure
 ```
 
@@ -25,40 +25,37 @@ User clicks "Buy QQQ Short"
    │
    ▼
 1. mint_paired(amount)             → 0.104 QQQL + 49.95 QQQS
-2. swap on Meteora (QQQL → cUSDC)  → 49.95 QQQS + ~49.5 cUSDC
+2. sell QQQL (pool_swap, or commit for size) → 49.95 QQQS + ~49.5 cUSDC
 3. user wallet ends with short-only QQQ exposure
 ```
 
-Implementation: a TypeScript helper that builds both ixns in one transaction. Or, for atomicity, a small on-chain program that wraps the two ixns in a single instruction (CPI to mint-redeem + CPI to Meteora's swap).
+Implementation: a TypeScript helper that builds both ixns in one transaction (mint + `pool_swap` are atomic in one tx for book-sized amounts). For larger size, mint then `commit_swap` the unwanted leg - it fills at the next oracle print at NAV ± 10bps.
 
 **UX win**: users don't think about pair mechanics. They think "long" or "short".
 
 ## 2. Arb bot
 
-The keeper does this internally for the protocol's benefit. You can do it for your own profit.
+In v2 the venues self-peg (every venue prices off the same NAV), so the v1-style "race the pool back to NAV" bot is mostly gone. What remains:
 
 ```
 loop:
-    for market in markets:
-        nav = read on-chain NAV
-        pool_price = read DLMM active bin
-        spread_bps = (pool_price / nav - 1) × 10_000
+    for (market, side) in books:
+        nav  = read on-chain NAV
+        base = read Pool.base_price_1e6
+        drift_bps = (base / nav - 1) × 10_000
 
-        if abs(spread_bps) > pool_fee_bps + slip:
-            execute paired arb (no privilege required):
-                if pool_price > nav:
-                    mint_paired(N) → sell both legs
-                else:
-                    buy both legs → redeem_paired
+        if a fast move left in-the-money bins ahead of the keeper's re-pin:
+            lift them with pool_swap (no privilege required), close the
+            position via the paired round trip (mint/redeem at NAV)
 ```
 
-Differences vs the keeper:
+What to know before building one:
 
-- You **can't** use `keeper_mint_single` / `keeper_redeem_single`. Those require keeper authority.
-- You compete with the keeper on paired arb. The keeper has lower latency (it's the canonical operator).
-- Profitable opportunities for you: when the keeper is idle, slow, or operating on a different market. Devnet often has gaps; mainnet will be tighter.
+- The profit window is one keeper cycle (~30s) and the take is capped at the deliberately lean depth of the in-the-money bins - this is the protocol's worst case *by design*, not a leak.
+- Closing one-sided exposure risklessly requires the paired round trip, whose hurdle is the mint/redeem fee plus both spreads. Near NAV it rarely clears.
+- Committed-order settlement (`settle_swap`) is permissionless - cranking other users' pending orders is a public good with no profit, but it means your bot never depends on the keeper's liveness.
 
-**Design tip**: monitor the keeper's deposit_profit cadence. If you see the keeper hasn't profited in N minutes, the spreads are too tight or it's offline - your edge is in the second case.
+**Design tip**: the honest expected value here is small. The interesting bot on v2 is a settlement watchdog (crank stuck orders, alert on TTL expiries), not an arb engine.
 
 ## 3. Structured products
 
@@ -137,7 +134,7 @@ Continuum has no leverage. But you can synthetically leverage:
 
 ```
 1. Mint paired QQQ                 → 0.104 QQQL + 49.95 QQQS
-2. Sell QQQS to a market (Meteora) → 0.104 QQQL + cash
+2. Sell QQQS (book or committed)   → 0.104 QQQL + cash
 3. Borrow against QQQL on Kamino   → cash to mint more
 4. Mint paired QQQ again           → repeat
 ```
@@ -162,8 +159,8 @@ Aggregate Continuum's mint/redeem with other DEX swap paths.
 
 For example, a user wanting to short QQQ has three paths:
 
-1. Mint paired Continuum, sell long leg on Meteora.
-2. Buy QQQS directly on Meteora (no mint).
+1. Mint paired Continuum, sell the long leg on the book.
+2. Buy QQQS directly on the book or via a committed order (no mint).
 3. Borrow USDC on Kamino, buy QQQS, hold.
 
 A router contract can compare quotes across these paths and pick the best one. Continuum benefits because the router will use mint-redeem when it wins on price.
@@ -203,8 +200,7 @@ A historical index of pool depth, NAV, and arb spread is a marketable dataset fo
 ## Patterns we like
 
 - **Use NAV as the price-of-record.** It's on-chain, signed, and tamper-evident. Don't roll your own price.
-- **Use Meteora pool prices for execution.** Don't try to bypass Meteora; the keeper has already optimized that path.
-- **Use mint-redeem for size.** > 1% of pool depth → mint-redeem is cheaper. < 0.1% → pool swap is faster.
+- **Route by size.** Small instant trades → `pool_swap`. Anything that would walk the book → `commit_swap` (NAV ± 10bps at the next print, no size cap). Want the pair itself → mint/redeem.
 - **Watch the risk state.** Don't queue mints during `Stress`; surface to the user.
 - **Don't build keeper dependencies.** Your integration shouldn't break if the keeper is down for 5 minutes. Use NAV; redeem still works.
 

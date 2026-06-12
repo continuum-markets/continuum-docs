@@ -1,185 +1,244 @@
 ---
-title: Trade on Meteora DLMM
-description: Buy or sell L/S tokens directly on the protocol's pools without going through mint-redeem.
+title: Trade
+description: Three venues - instant book trades, committed large orders, and the legacy instant oracle swap.
 ---
 
-Continuum's L and S tokens trade on **Meteora DLMM** pools, with the protocol as the sole LP for the MVP. You can swap L↔cUSDC or S↔cUSDC at the pool's active bin price plus a small fee.
+Continuum v2 trades L and S tokens against **native protocol venues** - no external AMM. There are three, split by design:
 
-When pool price ≈ NAV, mint and trade are economically similar. When pool price diverges, one is materially better than the other - and the keeper's arb closes that gap.
+| Venue | Instruction | Price | Size | Latency |
+|---|---|---|---|---|
+| **Book trade** | `pool_swap` | Walks the book's bins - real slippage | Standing depth (lean by design) | Instant |
+| **Committed order** | `commit_swap` → `settle_swap` | NAV ± 0.10% at the **next oracle print** | No cap | ~12-25s |
+| **Instant oracle swap** | `clp_swap` | NAV ± configured spread (0.30%) | Rolling window cap | Instant |
 
-## When to trade on the pool vs mint/redeem
+The split is the point: instant venues carry adverse-selection risk, so their depth and spread are sized for small trades. Large orders take the committed path, where the fill price is set *after* the commitment - latency arbitrage is impossible by construction, so size needs no cap and the spread is the thinnest of the three.
 
-| Goal | Best path | Why |
-|---|---|---|
-| Open a paired position at NAV | `mint_paired` | No slippage; pays mint fee (~0.10%). |
-| Open a long-only position | `mint_paired` + sell S leg on Meteora | Or buy QQQL directly on Meteora - the second is one tx, but pays pool fee + slippage. |
-| Open a short-only position | Mirror of above with QQQS. | Same trade-off. |
-| Close at NAV | `redeem_paired` | No slippage; pays redeem fee (~0.10%). |
-| Close fast (small size) | Sell on Meteora | One tx, immediate. |
-| Take a long-only directional bet | Buy QQQL on Meteora | Avoids minting an offsetting short you'd just sell. |
-| Arbitrage pool vs NAV | Combine both | See [Composability](/build/composability). |
+The frontend routes for you: book trade for instant fills, auto-switching to committed mode above $5k notional (overridable). This page covers all three for builders.
 
-## How the pools are configured
+<Note>
+  Mint/redeem at NAV remains the canonical way to open or close a *paired* position - see [Mint](/flows/mint) and [Redeem](/flows/redeem). The venues here are for directional entries and exits.
+</Note>
 
-Each market has two Meteora DLMM pools:
+## Venue 1: instant book trade (`pool_swap`)
+
+Each market has one native CLMM pool **per side** - `(QQQ, long)` and `(QQQ, short)` are separate pools. The whole book lives inline in the `Pool` account (up to 16 bins, no per-bin rent): `asks` are synth reserves above the base price, `bids` are cUSDC reserves below it. The keeper re-pins `base_price` to NAV whenever drift exceeds a per-market gate (see [Book management](/keeper/dlmm)).
+
+Bin geometry is 2-zone: fine core steps near NAV (e.g. QQQ 20bps × 3 core bins), then wide wings (300bps steps) that keep quoting through off-hours drift. A swap walks the bins in order - **the output reflects real slippage**, enforced by your `min_out`.
 
 ```
-QQQL/cUSDC  - long-side pool
-QQQS/cUSDC  - short-side pool
+direction: 0 = buy synth (pay cUSDC), 1 = sell synth (receive cUSDC)
 ```
 
-Pool fee tier per market depends on asset volatility:
+### Accounts
 
-| Asset class | binStep | Base fee | Position range |
-|---|---|---|---|
-| Index ETF (QQQ, SPY) | 10 | 0.10% | ±3.4% (radius=34) |
-| Liquid equity (NVDA, AAPL) | 20 | 0.20% | ±6.8% |
-| Volatile equity (TSLA, GME) | 25 | 0.25% | ±8.6% |
+| Account | Notes |
+|---|---|
+| `user` (signer) | Trader |
+| `user_usdc` | User's cUSDC ATA |
+| `user_synth` | User's L or S ATA (matching the pool's side) |
+| `pool` | Pool PDA: seeds `[b"pool", market_pda, [side]]`, clp program. `side` 0 = long, 1 = short |
+| `synth_vault` | Pool's synth ATA (owner = pool PDA) |
+| `usdc_vault` | Pool's cUSDC ATA (owner = pool PDA) |
+| `token_program` | SPL Token |
 
-Lower fees = tighter NAV peg band. Index ETFs run at 0.10% because external arb is more aggressive there; volatile equities pay higher fees to compensate LPs for wider expected divergence.
-
-→ [Live markets](/markets/live) lists exact pool addresses.
-
-## Swap on Meteora - TypeScript
-
-The recommended path is the official `@meteora-ag/dlmm` SDK:
+### TypeScript
 
 ```typescript
-import DLMM from "@meteora-ag/dlmm";
-import { Connection, PublicKey } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import clpIdl from "./clp.json";
 
-const connection = new Connection("https://api.devnet.solana.com");
-const longPool = new PublicKey("3MN5oS1xvDNZBaGxJX5TurQEiww4bGyYqcnjSF2cxf6a"); // QQQL/cUSDC
-const dlmm = await DLMM.create(connection, longPool);
+const clp = new Program(clpIdl, provider);
+const side = 0; // long
 
-// Get a swap quote
-const swapForY = false; // false: cUSDC → QQQL (Y → X). true: QQQL → cUSDC.
-const inAmount = new BN(10_000_000); // 10 cUSDC if buying long
-const swapQuote = await dlmm.swapQuote(inAmount, swapForY, new BN(50)); // 0.5% slippage tolerance
-
-console.log("Out amount:", swapQuote.outAmount.toString());
-console.log("Min out:", swapQuote.minOutAmount.toString());
-console.log("Active bin:", swapQuote.binArraysPubkey);
-
-// Build and send the swap tx
-const swapTx = await dlmm.swap({
-  inToken: dlmm.tokenY.publicKey, // cUSDC
-  outToken: dlmm.tokenX.publicKey, // QQQL
-  inAmount,
-  minOutAmount: swapQuote.minOutAmount,
-  lbPair: longPool,
-  user: wallet.publicKey,
-  binArraysPubkey: swapQuote.binArraysPubkey,
-});
-
-const sig = await provider.sendAndConfirm(swapTx);
-```
-
-(`@meteora-ag/dlmm` handles all the bin-array / event-authority / token-vault accounts for you.)
-
-## Active bin and pool price
-
-A DLMM pool's instantaneous price is determined by its **active bin**:
-
-```
-price_per_X = (1 + bin_step / 10_000) ^ (active_id - bin_step_offset)
-            ≈ 1.001 ^ (active_id - constant)   (for binStep=10)
-```
-
-In practice you don't compute this manually - the SDK exposes `dlmm.lbPair.activeId` and helpers like `dlmm.fromPricePerLamport(price)`.
-
-For monitoring pool price relative to NAV:
-
-```typescript
-const dlmm = await DLMM.create(connection, longPool);
-const lbPairState = dlmm.lbPair;
-const activeId = lbPairState.activeId;
-const poolPriceX = dlmm.getPricePerLamport(activeId);
-
-// Compare to NAV
-const market = await mintRedeem.account.market.fetch(marketPDA);
-const navL = market.userTwapPrice.gtn(0)
-  ? market.userTwapPrice.toNumber() / 1e6
-  : market.initialLPrice.toNumber() / 1e6;
-
-console.log("Pool price:", poolPriceX, "NAV:", navL);
-console.log("Spread:", ((poolPriceX / navL) - 1) * 100, "%");
-```
-
-Spread > pool fee → arb opportunity.
-
-## Liquidity depth
-
-The Meteora SDK exposes per-bin reserves. For a quick depth read:
-
-```typescript
-const bins = await dlmm.getBinsBetweenLowerAndUpperBound(
-  activeId - 50,
-  activeId + 50,
+const [poolPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPDA.toBuffer(), Buffer.from([side])],
+  clp.programId,
 );
-const depthY = bins.reduce((sum, b) => sum + Number(b.amountY), 0);
-const depthX = bins.reduce((sum, b) => sum + Number(b.amountX), 0);
+const pool = await clp.account.pool.fetch(poolPDA);
+
+await clp.methods
+  .poolSwap(0 /* buy synth */, new BN(100_000_000) /* 100 cUSDC */, minOut)
+  .accounts({
+    user: wallet.publicKey,
+    userUsdc: getAssociatedTokenAddressSync(pool.usdcMint, wallet.publicKey),
+    userSynth: getAssociatedTokenAddressSync(pool.synthMint, wallet.publicKey),
+    pool: poolPDA,
+    synthVault: getAssociatedTokenAddressSync(pool.synthMint, poolPDA, true),
+    usdcVault: getAssociatedTokenAddressSync(pool.usdcMint, poolPDA, true),
+    tokenProgram: TOKEN_PROGRAM_ID,
+  })
+  .rpc();
 ```
 
-The protocol's CLP positions deploy with vol-adaptive radius (10–34 bins per side), so depth in the central bins is meaningful but tapers off at the edges.
+To quote before swapping, read the `Pool` account and walk the bins yourself: bin `k` is priced at `base_price · r^±k` where `r = 1 + step_bps/10_000` (core zone) switching to `wing_step_bps` beyond `core_bins`. See [Reading state](/flows/read-state#native-pool-book) for a depth read.
 
-## Selling a leg post-mint
+**Standing depth is deliberately lean** (~$5k bids / ≤$7.5k asks per side) - depth is sized to demand, not TVL, because toxic loss scales with deployed depth. If your size would eat through the book, use a committed order instead - that is what it exists for.
 
-Most-common flow - open paired then sell to express direction:
+## Venue 2: committed order (`commit_swap` → `settle_swap`)
+
+The large-order path. You escrow the input into an order PDA; the fill executes at the **first oracle print strictly after your commit**, at NAV ± 0.10% (`COMMIT_SPREAD_BPS = 10`). Because the fill price is set after you committed, you cannot pick the protocol off with a stale quote - and the protocol cannot be picked off either, which is why:
+
+- **No size cap, no window cap.** Bounds are oracle health, the collateral floor, and keeper-provisioned inventory.
+- **The thinnest spread of the three venues** - a price set after the commitment carries zero adverse selection.
+
+The lifecycle:
+
+<Steps>
+  <Step title="Commit">
+    `commit_swap(side, direction, amount_in, min_out, nonce)` escrows your input (cUSDC for buys, synth for sells) into an escrow token account owned by the order PDA. The payout ATA must already exist - checked at commit so settlement can never strand on a missing account.
+  </Step>
+  <Step title="Settle (permissionless)">
+    `settle_swap` fills at NAV(now) ± 10bps - valid only when the market's TWAP timestamp is strictly newer than your commit and the oracle is healthy. The keeper cranks this (typical end-to-end **12-25s**, bounded by the ~15s oracle push cadence), but anyone may settle. If the quoted output misses your `min_out`, the order is **fully refunded** - terminal, not a revert loop.
+  </Step>
+  <Step title="Cancel (after TTL)">
+    If unsettled after 180 seconds (`COMMIT_TTL_SECS`), `cancel_swap` refunds unconditionally. It checks **nothing else** - no oracle, keeper, freeze, or market-active state. Escrowed funds are always recoverable after the TTL, regardless of protocol state.
+  </Step>
+</Steps>
+
+Every terminal path (settle, refund, cancel) closes the order account and escrow - rent returns to you.
+
+### Order account
+
+PDA seeds `[b"order", user, market, nonce_le_bytes]`, clp program. `nonce` is client-supplied; use a timestamp or counter to allow concurrent orders.
+
+```rust
+pub struct Order {
+    pub user: Pubkey,      // offset 8 (after discriminator)
+    pub market: Pubkey,    // offset 40
+    pub side: u8,          // 0 = long, 1 = short
+    pub direction: u8,     // 0 = buy synth, 1 = sell synth
+    pub status: u8,        // offset 74; 0 = pending (the only persisted state)
+    pub bump: u8,
+    pub escrow_bump: u8,
+    pub amount_in: u64,
+    pub min_out: u64,      // miss → automatic full refund
+    pub created_at: i64,   // settle requires twap_updated_at > this
+    pub expires_at: i64,   // created_at + 180; settle owns ≤, cancel owns >
+    pub nonce: u64,
+}
+```
+
+### Accounts: `commit_swap`
+
+| Account | Notes |
+|---|---|
+| `user` (signer, mut) | Pays rent for order + escrow (refunded on any terminal path) |
+| `market` | Market PDA (mint-redeem program) - binds side mints |
+| `clp` | Per-market CLP PDA: seeds `[b"clp", market_pda]` |
+| `order` (init) | Order PDA as above |
+| `in_mint` | Mint of the escrowed leg (cUSDC for buys, synth for sells) |
+| `escrow` (init) | Token account, seeds `[b"escrow", order_pda]`, authority = order PDA |
+| `user_in` | Your source token account |
+| `user_out` | Your payout token account - **must exist now** |
+| `clp_vault` | CLP's cUSDC vault (read-only mint anchor) |
+| `token_program`, `system_program` | |
+
+### Accounts: `settle_swap`
+
+Permissionless - the cranker signs and pays the tx fee, nothing more.
+
+| Account | Notes |
+|---|---|
+| `cranker` (signer) | Anyone |
+| `user` (mut) | `order.user` - receives rent on close |
+| `order` (mut, close = user) | |
+| `escrow` (mut) | |
+| `clp` (mut) | |
+| `clp_vault`, `clp_synth` (mut) | CLP inventory legs |
+| `market` | NAV source |
+| `user_out`, `user_in` (mut) | Payout / refund targets |
+| `token_program` | |
+
+### Accounts: `cancel_swap`
+
+| Account | Notes |
+|---|---|
+| `user` (signer, mut) | The order's owner |
+| `order` (mut, close = user) | |
+| `escrow` (mut) | |
+| `user_in` (mut) | Refund destination |
+| `token_program` | |
+
+### TypeScript
 
 ```typescript
-// 1. Mint paired
-await program.methods.mintPaired(new BN(100_000_000)).accounts({...}).rpc();
-// You now have ~0.104 QQQL + ~49.95 QQQS.
+const nonce = new BN(Date.now());
+const [orderPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("order"), wallet.publicKey.toBuffer(), marketPDA.toBuffer(),
+   nonce.toArrayLike(Buffer, "le", 8)],
+  clp.programId,
+);
+const [escrowPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("escrow"), orderPDA.toBuffer()],
+  clp.programId,
+);
 
-// 2. Sell the short leg on Meteora
-const dlmm = await DLMM.create(connection, shortPoolAddr);
-const swapTx = await dlmm.swap({
-  inToken: dlmm.tokenX.publicKey,  // QQQS
-  outToken: dlmm.tokenY.publicKey, // cUSDC
-  inAmount: new BN(49_950_000),
-  minOutAmount: new BN(49_500_000), // 1% slippage
-  // ...
-});
-await provider.sendAndConfirm(swapTx);
-// Now: 0.104 QQQL + ~49.50 cUSDC = long-only QQQ exposure with cash buffer
+// Sell 200 QQQL at next print, floor at $95k out
+await clp.methods
+  .commitSwap(0 /* long */, 1 /* sell */, new BN(200_000_000), new BN(95_000_000_000), nonce)
+  .accounts({
+    user: wallet.publicKey,
+    market: marketPDA,
+    clp: clpPDA,
+    order: orderPDA,
+    inMint: market.longMint,
+    escrow: escrowPDA,
+    userIn: userLongAta,
+    userOut: userUsdcAta, // must exist
+    clpVault: clpVault,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+  })
+  .rpc();
+
+// Then either: wait for the keeper's settle (watch your userOut balance or the
+// OrderSettled event), or after 180s reclaim with cancelSwap.
 ```
 
-The reverse - sell QQQL, hold QQQS - gives short-only exposure.
+Events: `OrderCommitted`, `OrderSettled` (carries `out`, `nav`, `base_price`), `OrderRefunded` (min_out miss), `OrderCancelled`.
 
-## Closing a leg via the pool
+<Warning>
+  **Mainnet prerequisite.** Settlement currently prices off the keeper-relayed TWAP (`market.user_twap_price`). Before any mainnet deploy, `settle_swap` must read Pyth directly and enforce `publish_time > order.created_at` at that single code point.
+</Warning>
 
-Symmetric to opening - sell the leg you hold to receive cUSDC:
+## Venue 3: instant oracle swap (`clp_swap`)
 
-```typescript
-// You hold 0.104 QQQL. You want to close.
-const dlmm = await DLMM.create(connection, longPoolAddr);
-const swapTx = await dlmm.swap({
-  inToken: dlmm.tokenX.publicKey,  // QQQL
-  outToken: dlmm.tokenY.publicKey, // cUSDC
-  inAmount: new BN(104_000),
-  // ...
-});
-```
+The original v2 path, retained for small instant trades: a fill at NAV ± a configured spread (30bps) from pre-stocked CLP inventory. No book, no slippage - but guarded hard, because an instant at-oracle fill is exactly what a latency arbitrageur wants:
 
-vs `redeem_paired(new BN(104_000), 0)` which gives you `0.104 × L_NAV` cUSDC at NAV.
+- **Oracle health breakers** - staleness (60s), confidence width, 25% deviation from the last accepted price.
+- **Rolling notional window cap** - bounds stale-price extraction per window. Committed orders bypass this and do not consume it.
+- **Collateral floor** - rejects fills that would quote into an under-collateralized market.
 
-If `pool_price ≈ NAV`, both yield the same modulo fees. If pool price > NAV, sell on pool. If pool price < NAV, redeem.
+Accounts: `user`, `user_usdc`, `user_synth`, `clp` (PDA `[b"clp", market_pda]`), `clp_vault`, `clp_synth`, `market`, `token_program`. Args: `(side, direction, amount_in, min_out)` - same convention as the committed path.
 
-## What about LP'ing the pools?
+Inventory trades move already-outstanding, fully-backed tokens - supply and collateral are unchanged, only ownership moves.
 
-Currently **no**. The protocol is the sole LP for MVP. User LP shares (`GlobalLPAccount`) were removed pre-launch; the mechanics for restoring them exist in git history but are not active.
+## Choosing a venue
 
-This is on the roadmap. When activated, it will work via the CLP program's `vault_mint_pairs` + `clp_open_meteora_position` flow - abstracted behind a user-facing `deposit` / `withdraw` API.
+| You want | Use |
+|---|---|
+| Small instant fill at the tightest live quote | Book trade (`pool_swap`) |
+| Size, at the fairest possible price | Committed order |
+| A guaranteed-rate small fill regardless of book shape | `clp_swap` |
+| Open/close a paired position at NAV | [`mint_paired`](/flows/mint) / [`redeem_paired`](/flows/redeem) |
+
+A useful mental model: the book quotes a *live* price and charges you slippage for immediacy; the committed venue quotes a *future* price and charges you ~15 seconds of patience instead.
 
 ## See also
 
 <CardGroup cols={2}>
   <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
-    Pool price, NAV, depth, risk - programmatically.
+    Pool books, NAV, pending orders - programmatically.
   </Card>
-  <Card title="External arb bot" icon="robot" href="/build/composability">
-    Build your own arb bot against pool/NAV spread.
+  <Card title="CLP program reference" icon="file-code" href="/programs/clp">
+    Full instruction and account reference.
+  </Card>
+  <Card title="Book management" icon="chart-line" href="/keeper/dlmm">
+    How the keeper keeps the books pinned to NAV.
+  </Card>
+  <Card title="Peg maintenance" icon="route" href="/keeper/arb-paths">
+    Why prices stay honest without an arb bot.
   </Card>
 </CardGroup>

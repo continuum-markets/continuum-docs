@@ -34,7 +34,7 @@ Continuum is composable - long and short tokens are standard SPL tokens. Some ex
 
 ## How it works in one paragraph
 
-A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the on-chain NAV, transfers `amount` USDC into the market's collateral vault, and mints matched long (`L`) and short (`S`) tokens to the user. The two NAVs are bound by a constant-product invariant - `L_NAV × S_NAV = initial_l × initial_s` - so as one side appreciates the other depreciates reciprocally. To exit, the user calls `redeem_paired(l_amount, s_amount)` and gets USDC back at NAV. In between, both tokens trade on Meteora DLMM pools where a [keeper bot](/concepts/keeper) runs an arbitrage loop that pulls pool prices toward NAV. All of this is on-chain Solana state - no off-chain custodian, no oracle dependency that can freeze user funds.
+A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the on-chain NAV, transfers `amount` USDC into the market's collateral vault, and mints matched long (`L`) and short (`S`) tokens to the user. The two NAVs are bound by a constant-product invariant - `L_NAV × S_NAV = initial_l × initial_s` - so as one side appreciates the other depreciates reciprocally. To exit, the user calls `redeem_paired(l_amount, s_amount)` and gets USDC back at NAV. In between, both tokens trade on Continuum's native venues: per-side CLMM books for instant trades, and committed orders that fill at the next oracle print at NAV ± 0.10% for any size - kept honest by a [keeper bot](/concepts/keeper) that re-pins the books to NAV. All of this is on-chain Solana state - no off-chain custodian, no oracle dependency that can freeze user funds.
 
 ## Where this doc lives in the stack
 
@@ -52,11 +52,11 @@ A user calls `mint_paired(amount)` on the [`mint-redeem`](/programs/mint-redeem)
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Solana base layer + Meteora DLMM          │
+│                       Solana base layer                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The keeper bot runs separately, off-chain, and signs as the privileged `keeper_authority` for arbitrage and DLMM rebalancing. It is not in your call path - your transactions go directly to the on-chain programs.
+The keeper bot runs separately, off-chain, and signs as the privileged `keeper_authority` for oracle relay, book management, and order settlement. It is not in your call path - your transactions go directly to the on-chain programs.
 
 ## Core invariants you can rely on
 
@@ -74,7 +74,7 @@ Continuum deliberately omits things you might expect from a perp DEX:
 - **No funding rate.** The constant-product NAV invariant bounds pair value naturally; no one needs to drain holders of the popular side.
 - **No liquidations.** A paired position cannot become under-collateralized.
 - **No leverage.** Mint cost equals NAV × pair count. Pre-paid in full.
-- **No in-house AMM.** Trading happens on Meteora DLMM pools. The protocol's own LP capital lives in those pools as a normal Meteora position.
+- **In-house venues.** Trading happens on Continuum's own per-side CLMM books and the committed-order path - no external AMM dependency, no LP positions to manage on someone else's protocol.
 - **No user yield vaults.** The CLP capital is operator-funded for the MVP.
 
 ## Get oriented

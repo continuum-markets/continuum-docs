@@ -1,113 +1,89 @@
 ---
-title: Solvency invariants
-description: The set of properties Continuum enforces no matter what users, the keeper, or external markets do.
+title: Solvency
+description: The paired-neutrality invariant, the one attack that exists against it, and the layered defenses - fees, depth caps, dynamic buffer, re-anchoring.
 ---
 
-Continuum's design encodes solvency as **structural invariants** - properties enforced by program logic, not by trust in any actor. Here is the full list.
+Continuum's solvency rests on one structural invariant, one known extraction path, and a stack of defenses sized against that path. This page tells the story in that order.
 
-## 1. Paired-only mint and redeem for users
+## The invariant: paired mint/redeem is solvency-neutral
 
-The user-facing entry points are `mint_paired` and `redeem_paired`. **No path exists by which a non-keeper user can mint single-sided.** Single-sided mint would create an unbacked claim against the collateral vault (mint just L without an offsetting S deposit, then redeem L for cUSDC drained from a vault that had no matching S liability).
-
-Mint always:
-
-- Transfers `amount` cUSDC into the collateral vault.
-- Mints `qty_L` L tokens worth `(amount-fee)/2` cUSDC at NAV.
-- Mints `qty_S` S tokens worth `(amount-fee)/2` cUSDC at NAV.
-
-The vault gain equals the combined token value at NAV. By construction, the vault is fully backed at every point in time.
-
-Redeem is symmetric: burn L+S in independent quantities, return cUSDC value at NAV.
-
-## 2. Single-sided is privileged to `market.keeper_authority`
-
-The mint-redeem program does have single-sided instructions:
-
-- `keeper_mint_single(is_long, collateral)` - fee-free, single-sided mint.
-- `keeper_redeem_single(is_long, token_amount)` - fee-free, single-sided redeem.
-
-These check **`signer == market.keeper_authority`** and reject otherwise (`UnauthorizedKeeper`). They are used by the keeper inside two-phase arb cycles:
-
-- Mint single → sell on pool → end with cUSDC.
-- Buy from pool → redeem single → end with cUSDC.
-
-Net effect across both phases mirrors a paired round-trip from the perspective of total supply and collateral. Mid-flight failure leaves residue that the keeper's [boot-time sweep](/keeper/overview#solvency-guarantees) recovers.
-
-## 3. Constant-product NAV
+Every user mint and redeem is **paired**: `mint_paired` deposits cUSDC and issues matched L+S; `redeem_paired` burns and pays out at NAV. Because `S_NAV = K / L_NAV`, the value of one pair is
 
 ```
-L_NAV × S_NAV = initial_l_price × initial_s_price   (always)
+f(P) = P + K / P        (P = L_NAV, K = initial_l × initial_s)
 ```
 
-`S_NAV` is **derived** from `L_NAV`, not stored independently. There's no path by which an actor can set them inconsistently. Combined pair value `L_NAV + S_NAV` is bounded; short-side NAV asymptotes to zero but never below.
+and the vault always holds `pairs × f(P)` by construction. A paired operation moves collateral and claims by exactly the same amount at any price - it cannot create or destroy solvency. There is no user-facing single-sided mint; an unpaired mint would create an unbacked claim against the vault.
 
-## 4. OI cap per market
+## The attack surface: the convexity gap
 
-Every mint checks:
+With no external venue to trade against, the only riskless extraction is the **paired round-trip**: mint a pair, wait for the price to move, redeem. Its profit is the convexity gap of `f` - the pair you minted at one price is worth slightly more after any move, because `f` is convex with its minimum at `P = √K`.
+
+That profit has to clear the **fee hurdle**: 10 bps base fee each way plus trading spreads. The result splits by asset class:
+
+- **Broad indices near their anchor** (QQQ, SPY): the convexity gap over realistic horizons never clears the hurdle. Effectively unbustable.
+- **High-growth single names** (NVDA-like trajectories): a flat at-NAV venue alone *can* be drained at scale - the convexity gap compounds with trend. This is why the defenses below exist, and why single-name listings require them all.
+
+## The defenses
+
+### 1. Depth-capped books
+
+The instant venues never expose unlimited size at NAV. The CLMM books carry lean, demand-sized depth (~$5k bids, ≤$7.5k asks per side) with real slippage across bins - extraction per round-trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP - lean by design](/concepts/clp#lean-by-design).
+
+Committed orders are uncapped in size but fill at a price set *after* the commitment, so they offer no stale quote to extract against.
+
+### 2. Vol-informed fees
+
+The mint/redeem fee scales with realized volatility:
 
 ```
-require!(total_l_supply + l_to_mint <= oi_cap, OICapExceeded);
+fee_bps = max(10, fee_mult × q90)      capped at 100 bps
 ```
 
-Beyond this hard ceiling, mints reject. Redeems remain open. The cap is a per-market field on the `Clp` account, raised by operator action.
+where `q90` is the trailing 90th-percentile window move from the keeper's spread engine. 90% of every fee stays in the market's collateral vault (directly raising the collateral ratio); 10% is the dev tax. Higher vol → bigger convexity gap → proportionally higher hurdle.
 
-## 5. Hard inventory bounds (q + drawdown)
+### 3. Dynamic overcollateralization buffer
 
-The CLP program tracks per-market q-imbalance and drawdown vs peak, with both **soft** (warning) and **hard** (rejection) bounds. Hard-bound breach blocks new allocations from the global vault and new keeper-driven mints into per-market vaults - the protocol unwinds via user flow + arb until q renormalizes.
+Each market targets a buffer sized to its actual risk, posted on-chain by the keeper via `set_buffer_target`:
 
-The single-sided keeper instructions intentionally **bypass** the q-imbalance check, by design - they exist to push q **back** toward 50/50 by closing per-side NAV divergence.
+```
+B = δ²/2 + |q|·δ + margin
+```
 
-## 6. Keeper post-sweep solvency
+- `δ` = tail multiplier × worst-case σ, doubled during closed market periods.
+- `q` = current inventory skew - a skewed book needs more cushion against a move.
+- Floored at 102%, clamped on-chain to [100, 5000] bps over parity so a bad write can't gut the target.
 
-Every keeper arb cycle ends with cUSDC at the keeper or CLP vault. The keeper enforces this via:
+This replaces the old static 102% everywhere it was used - waiver consumption, the `withdraw_excess` floor, and the donate gap all read the dynamic target.
 
-- **Boot-time sweep** (`sweep_residual_pairs`): on startup, redeem any leftover synth in the keeper wallet.
-- **End-of-cycle sweep**: after every arb, redeem post-swap residue (paired or single-sided as appropriate).
-- **Profit deposit gating**: `deposit_profit` sends `min(actual_delta, expected_profit)` - a favorable-slippage run doesn't over-deposit.
+### 4. Re-anchoring (planned)
 
-There is no path where the keeper accumulates synth inventory past one cycle.
+Periodic on-chain re-anchoring resets `K` so the anchor tracks the asset, collapsing the accumulated convexity gap. Fees × re-anchoring is provably unbustable - this is the planned completion of the defense stack for high-growth single names.
 
-## 7. CLP-owned positions
+## How the collateral ratio refills
 
-All Meteora DLMM positions are owned by the CLP PDA, **not** the keeper wallet. The CLP program enforces position ownership and pool/position address validation on every Meteora-proxy instruction. Keeper rotation does not require position re-creation.
+Four channels push CR up over time:
 
-## 8. Risk-state gating
+1. **Mint/redeem fees** - 90% of every fee stays in the vault, immediately.
+2. **Harvested collateral yield** - deployed collateral earns lending yield; harvests land in the treasury vault and reach CR via `donate_to_vault`.
+3. **Trading-spread profits** - the books buy below NAV and sell above it; profits accumulate in CLP custody and follow the same donate path.
+4. **Convexity reversion** - when price reverts toward `√K`, `f(P)` falls and the existing vault passively over-collateralizes.
 
-The mint-redeem program reads `market.risk_state` (mirrored from oracle health by the keeper) and applies:
+## Supporting structural protections
 
-- `Stress` → mint blocked (`MintNotAllowedInStress`).
-- `ProxyMode` / `Recovery` → mint size throttled (`ExceedsStressMintCap`).
-- `Normal` / `Recovery` → no markup beyond fee.
-- `ProxyMode` → 2× confidence markup applied to mint price.
-
-Redeem is **never** size-gated. Users can always exit at the last fresh NAV.
-
-## 9. Oracle source authentication
-
-The mint-redeem program checks `market.oracle_address` against the supplied oracle account on every read. Wrong oracle → `InvalidOracle` error. The oracle program itself signs `update_price_observation` against the registered keeper authority - random callers cannot push prices.
-
-## 10. Admin-withdraw rate limit
-
-The CLP global vault enforces a 24-hour rolling cap (`AdminWithdrawCapExceeded`) on cumulative `admin_withdraw` calls. This limits operator-side capital drain even in worst-case key-compromise scenarios.
-
-## What is NOT enforced
-
-A few things to be aware of - they are by design but worth knowing:
-
-- **NAV reflects on-chain TWAP, not external markets.** If Pyth/Hermes goes offline and the keeper can't push observations, NAV stales. The risk state machine catches this (Stress) but during transient drift, mint pricing can lag external markets briefly.
-- **Pool prices can diverge from NAV during keeper outages.** Solvency is unaffected - users still mint and redeem at NAV - but pool-only traders get worse fills. The keeper closes the gap when it comes back.
-- **No protection against external market manipulation of Pyth.** If Pyth itself is wrong, NAV is wrong. Mitigation: max-staleness, max-confidence, max-single-update-move (>20% rejected) thresholds reduce blast radius.
+- **Paired-only user mint.** Single-sided issuance paths are CLP-PDA- or keeper-gated and net to zero across their cycles.
+- **Bounded oracle writes.** `update_risk_state` rejects TWAP moves over 25% per call, so a compromised keeper key cannot teleport NAV; the keeper adds its own mainnet-side deviation envelope before pushing.
+- **Staleness gates.** Mint and redeem self-freeze when the on-chain TWAP ages past 300 s (`MAX_TWAP_AGE_SECS`) - no operation prices off a dead oracle. See [Risk states](/concepts/risk-states).
+- **Oracle-swap breakers.** The instant `clp_swap` venue checks staleness, confidence, deviation, a rolling notional window, and a collateral floor on every fill.
+- **Cross-market isolation.** Per-market vaults; the rebalancer moves only excess above the source's dynamic buffer target, floor enforced on-chain.
+- **Pro-rata redemption.** If a tail move pushes CR below 100%, redeem pays `nominal × min(1, CR)` - the vault can never be overdrawn, and every remaining holder faces the same ratio, so there is no first-mover advantage and no bank-run dynamic.
 
 ## What this means for users
 
-**You cannot lose more than your collateral.** A paired position is fully prepaid. Even if the protocol shuts down tomorrow, holders of L+S can redeem at NAV against the existing vault balance.
-
-If only one side of your position survives (you sold the other, lost it, transferred it), the surviving side is still redeemable on its own at NAV. Solvency invariant 1 applies to **mint**, not redeem.
+**You cannot lose more than your collateral.** A paired position is fully prepaid - no margin, no liquidations. Even if the protocol shut down tomorrow, L+S holders redeem against the existing vault: at full NAV while over-collateralized, pro-rata in the tail. If you hold only one leg, it is still redeemable on its own at NAV.
 
 ## What this means for builders
 
-You can integrate Continuum without worrying about counterparty risk on positions. Long and short tokens are SPL tokens with a redemption guarantee at NAV; if you receive 100 QQQS in payment from someone, you can redeem them anytime as long as the collateral vault is solvent (it always is, by invariant 1).
-
-The one operational thing to monitor: **risk state**. During `Stress`, mints reject - your UI should surface this and suggest waiting or trading on the pool instead.
+Long and short tokens carry a redemption guarantee - if you receive 100 QQQS in payment, you can redeem at NAV any time the TWAP is fresh. The operational things to monitor are **risk state** (mint blocks in `Stress`) and **TWAP freshness** (mint and redeem freeze off-hours when the underlying market is closed).
 
 → [Risk states](/concepts/risk-states) · [Reading state](/flows/read-state)

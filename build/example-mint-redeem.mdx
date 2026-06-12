@@ -199,7 +199,7 @@ const redeemIx = await mr.methods
   .rpc();
 ```
 
-You'll receive `lToBurn × L_NAV - fee` cUSDC and still hold `sToBurn` worth of S. Sell it on Meteora when convenient, or hold for short exposure.
+You'll receive `lToBurn × L_NAV - fee` cUSDC and still hold `sToBurn` worth of S. Sell it on the book when convenient, or hold for short exposure.
 
 ## Common errors
 
@@ -217,7 +217,7 @@ You'll receive `lToBurn × L_NAV - fee` cUSDC and still hold `sToBurn` worth of 
 
 - **Mint multiple markets in one tx**: build separate mint instructions for QQQ, SPY, etc., bundle in one Transaction.
 - **Reactive UI**: subscribe to `marketPDA` via `connection.onAccountChange` to refresh NAV automatically.
-- **Trade post-mint**: after step 5, immediately swap the short leg on Meteora to express directional view - see [Trade flow](/flows/trade).
+- **Trade post-mint**: after step 5, immediately sell the short leg (book or committed order) to express a directional view - see [Trade flow](/flows/trade).
 
 ## See also
 

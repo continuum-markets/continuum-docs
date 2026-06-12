@@ -7,6 +7,8 @@ description: Burn long and short tokens (independently), receive cUSDC at NAV.
 
 ## Math
 
+In the normal **over-collateralized** state (the protocol targets a solvency buffer above 100%), redeem returns full NAV value:
+
 ```
 gross  = l_amount × L_NAV + s_amount × S_NAV
 fee    = gross × redeem_fee_bps / 10_000
@@ -15,7 +17,17 @@ return = gross - fee
 
 You burn your L + S, you receive `return` cUSDC.
 
+If the vault is ever **under-collateralized** (`CR < 100%`), the payout is scaled by the collateralization ratio - see [Under-collateralization](#under-collateralization-pro-rata-redemption) below. In the normal case `min(1, CR) = 1`, so the haircut is a no-op. The fee is taken on the post-haircut gross, so it scales with what is actually paid out.
+
 If you redeem only one side (the other amount is zero), the program just burns that side and returns its value in cUSDC. No paired requirement.
+
+## Fees
+
+Same structure as [mint](/flows/mint#fees): base **10bps**, of which 90% stays in the collateral vault as backing and 10% (the dev tax) goes to the fee recipient. On high-vol markets the keeper posts a vol-informed fee - `max(10, fee_mult × q90)` bps, capped at 100 - because the mint/redeem fee is the hurdle that gates paired round-trip extraction. Broad indices in calm regimes sit at the static 10bps.
+
+## Oracle staleness gate
+
+Like mint, redeem outside `Normal` risk state (always, on devnet) requires the TWAP to be fresher than **300 seconds**. When the underlying market is closed the keeper withholds oracle pushes, the TWAP ages out, and redeem freezes with `TwapNotAvailable` until reopen - paying out at a stale pre-gap price would misprice against everyone who stays in. The pool books continue floating off-hours if you need to exit at a live two-sided quote.
 
 ## Accounts
 
@@ -81,10 +93,28 @@ There's no protocol-imposed maximum. You can redeem the entire vault if you hold
 ```
 require!(user_long_balance >= l_amount, InsufficientFunds);
 require!(user_short_balance >= s_amount, InsufficientFunds);
-require!(vault_balance >= return_value, InsufficientCollateral);
+require!(return_value <= total_collateral, InsufficientCollateral);
+require!(vault_balance >= return_value, InsufficientLiquidCollateral);
 ```
 
-If `InsufficientCollateral` ever fires it would mean a solvency bug - the vault should always cover NAV-weighted outstanding supply by [invariant 1](/concepts/solvency#1-paired-only-mint-and-redeem-for-users).
+The pro-rata haircut (below) caps `return_value` at the vault's collateralization, so `InsufficientCollateral` is unreachable in practice. `InsufficientLiquidCollateral` can fire only if collateral is deployed to yield (off by default) and must be recalled first.
+
+## Under-collateralization: pro-rata redemption
+
+Continuum targets an over-collateralized vault, but the [constant-product NAV](/concepts/nav) means a large move on an imbalanced book can, in the tail, push collateralization below 100%. Redeem stays open in that case — it just pays **pro-rata**:
+
+```
+CR     = total_collateral / (total_l_supply × L_NAV + total_s_supply × S_NAV)
+payout = gross × min(1, CR)        // floored
+return = payout - fee
+```
+
+Two guarantees hold by construction:
+
+- **Never overdraws.** A single redeem can never pay out more than the vault holds (`payout ≤ total_collateral`), so the vault can't be pushed negative.
+- **No first-mover advantage.** Every redeemer takes the same `min(1, CR)` factor and the ratio is preserved for everyone who remains — there's no race to exit first. This removes the bank-run dynamic that a "full NAV for early redeemers" rule would create when the vault is thin.
+
+In the normal over-collateralized state this is invisible: `CR ≥ 100%` → `min(1, CR) = 1` → you receive full NAV value.
 
 ## Behavior across risk states
 
@@ -95,7 +125,7 @@ If `InsufficientCollateral` ever fires it would mean a solvency bug - the vault 
 | `Stress` | Redeem **still works** at last fresh NAV. |
 | `Recovery` | Redeem at NAV. |
 
-Redeem is **never blocked** by risk state. Solvency invariant 1 says users must always be able to exit.
+Redeem is **never blocked** by risk state - users can always exit at the last fresh NAV (pro-rata if the vault is under-collateralized; see [above](#under-collateralization-pro-rata-redemption)). The only thing that pauses it is the [staleness gate](#oracle-staleness-gate) while the underlying market is closed.
 
 ## Errors
 
@@ -105,6 +135,7 @@ Redeem is **never blocked** by risk state. Solvency invariant 1 says users must 
 | `InvalidAmount` | Both `l_amount` and `s_amount` are zero |
 | `InsufficientFunds` | User's L or S balance below request |
 | `InsufficientCollateral` | Vault balance can't cover NAV value (should be unreachable) |
+| `TwapNotAvailable` | TWAP older than 300s - typically the underlying market is closed |
 | `OraclePriceUnavailable` | Oracle paused (extreme case - only emergency_pause triggers this) |
 | `MathOverflow` | Should be unreachable |
 
@@ -130,7 +161,7 @@ market.total_collateral: -= gross
 
 ## Closing a directional position
 
-If you minted paired and sold one side on Meteora to express direction, your wallet now holds only one side. Redeem proceeds normally:
+If you minted paired and sold one side to express direction, your wallet now holds only one side. Redeem proceeds normally:
 
 ```typescript
 // You hold 0.1 QQQL and 0 QQQS.
@@ -143,11 +174,9 @@ await program.methods
 
 Your final P&L is the redeem cUSDC plus whatever cUSDC you got from selling the other side, minus your initial mint cost. If `L_NAV` rose since mint, you profit.
 
-## When pool > NAV: redeem vs sell
+## Redeem vs sell
 
-If pool price > NAV (long pool overvalued), it's slightly better to **sell on the pool** than redeem at NAV - the pool gives you the higher price minus the fee. The keeper's arb closes this gap quickly, but during transient drift, check both prices.
-
-The opposite (pool < NAV) → redeeming is better. The keeper will close that gap by buying from the pool and redeeming at NAV.
+To exit one leg, compare the redeem fee (10bps) against the book's half-spread (15-40bps) - redeeming at NAV is usually the cheaper exit for a single side, and a committed order (NAV - 10bps) matches it for size. Selling on the book wins only when you want instant execution and the spread is at its floor.
 
 ## See also
 
@@ -155,7 +184,7 @@ The opposite (pool < NAV) → redeeming is better. The keeper will close that ga
   <Card title="Mint" icon="circle-plus" href="/flows/mint">
     The inverse - deposit cUSDC, receive paired tokens.
   </Card>
-  <Card title="Trade on Meteora" icon="chart-mixed" href="/flows/trade">
-    When pool price diverges from NAV, sometimes selling on the pool beats redeeming.
+  <Card title="Trade" icon="chart-mixed" href="/flows/trade">
+    The three venues - books, committed orders, instant swap - and when to use each.
   </Card>
 </CardGroup>

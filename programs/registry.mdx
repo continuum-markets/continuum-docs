@@ -3,7 +3,7 @@ title: registry
 description: On-chain registry of markets - symbol → mints, pools, positions, active flag.
 ---
 
-The registry program is the canonical on-chain index of Continuum markets. It maps each asset symbol to the corresponding mints, Meteora pool addresses, and current position pubkeys. Frontends and bots query it (or the bundled `market-addresses.json` snapshot) to discover live markets.
+The registry program is the canonical on-chain index of Continuum markets. It maps each asset symbol to the corresponding mints and per-side pool addresses. Frontends and bots query it (or the bundled `market-addresses.json` snapshot) to discover live markets.
 
 ```
 Devnet ID: REGnHqnJMxLoRAKX5RqPd9VJGcZBNgmg4xs5bVGGTap
@@ -36,9 +36,9 @@ Symbol is the asset ticker padded with zero bytes to 16 bytes. So for `"QQQ"`, t
 |---|---|---|
 | `symbol` | `[u8; 16]` | Padded ticker |
 | `long_mint` / `short_mint` | Pubkey | L and S SPL mints |
-| `venue` | enum | `MeteoraDlmm` (only one for now) |
-| `long_pool` / `short_pool` | Pubkey | Meteora DLMM pool addresses |
-| `long_position` / `short_position` | Pubkey | Current LP position pubkeys (mirror of CLP) |
+| `venue` | enum | Legacy tag (`MeteoraDlmm = 0` is the only variant; kept for layout - in v2 the pools are native CLP `Pool` PDAs regardless) |
+| `long_pool` / `short_pool` | Pubkey | Native per-side CLMM `Pool` PDAs |
+| `long_position` / `short_position` | Pubkey | Legacy LP position pointers (unused in v2) |
 | `is_active` | bool | If false, the market is paused |
 
 ## Instructions
@@ -59,7 +59,7 @@ Update mints, pools, or venue for an existing entry.
 
 ### `update_positions(symbol, long_position, short_position)`
 
-Mirror current CLP position pubkeys into the registry. Called after a Meteora rebalance.
+Legacy: mirrored external LP position pubkeys in v1. Unused since the v2 cutover to native books.
 
 ### `set_active(symbol, is_active)`
 

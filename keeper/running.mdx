@@ -14,7 +14,7 @@ This page is for operators who want to run their own. Most integrators don't nee
 - A funded keeper wallet (≥ 0.5 SOL on devnet, more on mainnet)
 - A separate CLP authority keypair (≥ 0.1 SOL)
 - A private RPC URL (Helius, Triton, etc.) - public devnet is rate-limited
-- For arb operation: keeper wallet must be the canonical `market.keeper_authority` for any market you want to operate (single-pubkey constraint today)
+- The keeper wallet must be the canonical `market.keeper_authority` for any market you want to operate (single-pubkey constraint today); the CLP authority key signs book shapes and inventory plumbing
 
 ## Build
 
@@ -54,21 +54,35 @@ MAINNET_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 # Active markets
 ACTIVE_MARKETS=QQQ,SPY,XAU,VXX
 
-# Intervals
-ARB_INTERVAL_SECS=15
-DLMM_INTERVAL_SECS=120
-
-# Sizing and thresholds
-MIN_ARB_PROFIT=100000          # $0.10 (cUSDC lamports)
-MAX_SLIPPAGE_BPS=50
-LIQUIDITY_SEED_FRACTION_BPS=6500
-
-# Optional: hard cap per arb (unset for dynamic sizing)
-# ARB_TRADE_AMOUNT=10000000000  # $10K
-
 # Logging
 RUST_LOG=continuum_keeper=info
 ```
+
+### Kill switches (all default ON)
+
+Every keeper behavior is an independent task behind an env gate, so any loop can be disabled without a redeploy:
+
+| Variable | Gates |
+|---|---|
+| `CLMM_POOLS_ENABLED` | The book manager (reposition + shape posting) |
+| `CLMM_VOL_SPREAD_ENABLED` | Vol-scaled spreads (off = static geometry) |
+| `CLMM_REFILL_ENABLED` | Inventory plumbing (refill / trim / bid cap) |
+| `CLMM_BUFFER_POST_ENABLED` | Dynamic overcollateralization target posting |
+| `CLMM_REBALANCE_ENABLED` | Cross-market collateral rebalance |
+| `CLMM_FEE_SCALE_ENABLED` | Vol-informed mint/redeem fee posting |
+| `COMMIT_SETTLE_ENABLED` | The committed-order settlement cranker |
+| `DEVNET_YIELD_EMULATION` | Devnet yield emulator (hard devnet-only gate in code) |
+
+### Tunables
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CLMM_REPOSITION_BPS` / `CLMM_REPOSITION_BPS_<SYM>` | 20 (VXX 40) | Drift gate before a book re-pins to NAV |
+| `CLMM_BID_TARGET_USD` | 5000 | Standing bid cUSDC per side; excess sweeps to the CLP vault (idle bids forgo lending carry) |
+| `CLMM_TRIM_RATIO` | 1.5 | Max ask value as a multiple of bid value; excess synth sweeps back to CLP custody |
+| `COMMIT_SETTLE_INTERVAL_SECS` | 20 | Settler cadence when idle (drops to 5s while orders are pending) |
+| `HERMES_STALE_SECS` | 120 | Feed publish-time age beyond which the oracle push is withheld (closed-market detection) |
+| `DEVNET_YIELD_APR` | 0.055 | Emulator fallback APR when the DefiLlama cache is cold (live top-venue APY is used when warm) |
 
 <Warning>
   **`USDC_MINT` is the most common misconfig.** If unset, it falls back to mainnet USDC even on devnet - this silently breaks every ATA derivation, vault balance reads as 0, and the seeder skips with no error. Always set `DEVNET_USDC_MINT=B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE` on devnet.
@@ -107,7 +121,7 @@ If you want redundancy:
 - **Active/standby**: peer heartbeat (already in the keeper) + manual primary/standby logic. The reference keeper has basic peer heartbeat; primary/standby logic is on the [roadmap](/markets/roadmap).
 - **Different markets per operator**: rotate `keeper_authority` per market. `update_keeper_authority` is admin-callable.
 
-External arb bots (no keeper authority) can run alongside the canonical keeper without coordination - they compete for paired-arb opportunities directly.
+External bots (no keeper authority) can run alongside the canonical keeper without coordination - committed-order settlement is permissionless, and anyone can take residual paired-arb opportunities.
 
 ## Solvency-checking the keeper
 
@@ -126,15 +140,15 @@ If you see non-zero L or S in the keeper wallet, restart the keeper - boot-time 
 
 ## Common issues
 
-### "Keeper seeder skipping silently"
+### "Keeper skipping silently / balances read as 0"
 
 The most common issue. Check:
 
-1. Is `USDC_MINT` set correctly for your cluster?
-2. Is the global vault balance > `liquidity_seed_threshold` (default $1k)?
-3. Is the keeper authority correct? Check `market.keeper_authority` matches your `KEEPER_KEYPAIR` pubkey.
+1. Is `USDC_MINT` set correctly for your cluster? (See the warning above - mainnet fallback breaks every ATA derivation.)
+2. Is the keeper authority correct? Check `market.keeper_authority` matches your `KEEPER_KEYPAIR` pubkey.
+3. Are both wallets funded? Pool inits and refills pay rent from the **CLP authority**, not the keeper wallet - check both balances on insufficient-lamports errors.
 
-### "Unauthorized keeper" on every arb
+### "Unauthorized keeper"
 
 The keeper signed with a key that doesn't match `market.keeper_authority`. Two common causes:
 
@@ -142,18 +156,6 @@ The keeper signed with a key that doesn't match `market.keeper_authority`. Two c
 2. Admin rotated `keeper_authority` and you didn't update.
 
 Check the on-chain market account vs your keypair pubkey.
-
-### "Position is zombied"
-
-Meteora's `close_position2` failing with `NonEmptyPosition` (6030) after multiple `remove_liquidity` attempts. The keeper detects this automatically and skips the close step. The position's ~0.05 SOL rent is sacrificed.
-
-If your CLP-state pointer is also lost (rare), recover via:
-
-```bash
-MARKET=QQQ SIDE=1 bun run scripts/recover-orphaned-position.ts
-```
-
-This calls `clp_set_meteora_position` to restore the pointer; the keeper drains it on the next tick.
 
 ### "RPC rate-limited"
 
@@ -171,41 +173,33 @@ For production, run a dedicated RPC (Helius / Triton premium tier).
 
 Restart the keeper. Boot-time sweep handles it. If the keeper can't run, manually call `redeem_paired` (paired residue) or `keeper_redeem_single` (asymmetric) signed with the keeper authority.
 
-### "Pool prices drifted far from NAV"
+### "Book prices drifted far from NAV"
 
-Diagnostics:
+First check whether the underlying market is simply **closed**: the oracle withholds pushes on a stale feed, mint/redeem self-freezes, and the books float at their standing band by design - the first fresh print re-anchors them. If the market is open:
 
-1. **Per-side depegs but combined spread tight** → Paired arb can't close. On mainnet external flow corrects per-side; on devnet you're alone.
-2. **Pool depth exhausted** → `spl-token balance <reserve_y_account>`. If near-zero, seed more capital: `LIQUIDITY_SEED_FRACTION_BPS=8000`.
-3. **Zombie positions trapping liquidity** → see above.
-
-Manual push toward NAV (operator override, doesn't route through CLP):
-
-```bash
-bun run scripts/fix-pool-prices.ts
-```
-
-Use sparingly.
+1. **Keeper not repositioning** → check `CLMM_POOLS_ENABLED` and the book-manager logs (`continuum_keeper::clmm=debug`).
+2. **Pool depth exhausted** → the refill loop should restock within a cycle; check `CLMM_REFILL_ENABLED` and CLP vault balances.
+3. **Oracle stale while market open** → check the Hermes feed and `HERMES_STALE_SECS`.
 
 ## Production deployment notes
 
 - **Multisig the admin keypair.** The keeper authority is a hot key by design (signs every cycle). The admin authority should be a Squads multisig - separate from the keeper.
 - **Run one keeper per cluster.** The reference keeper supports dual-network mode (one process, both mainnet and devnet). Separate dashboard ports.
 - **Monitor the dashboard.** It's on `:8484` / `:8485`. Pipe to your monitoring (Datadog, Grafana, custom Prometheus exporter).
-- **Set up alerts.** Watch for: stale oracle (> 60s), unsuccessful arbs in a row (>3), low keeper SOL balance (< 0.1).
-- **Keep keeper SOL topped up.** The keeper pays for every transaction. Burn rate is roughly 0.05 SOL/day on devnet, more under high arb volume.
+- **Set up alerts.** Watch for: stale oracle while markets are open (> 60s), pending committed orders aging toward TTL, low SOL balance on either signer (< 0.1).
+- **Keep both signers topped up.** The keeper wallet pays oracle pushes and settles; the CLP authority pays book repositions and inventory plumbing.
 
 ## Logging
 
 ```env
-RUST_LOG=continuum_keeper=info,continuum_keeper::arb=debug
+RUST_LOG=continuum_keeper=info,continuum_keeper::clmm=debug
 ```
 
 Per-module log levels. Useful in production:
 
 - `continuum_keeper=info` - normal operation
-- `continuum_keeper::arb=debug` - every arb decision
-- `continuum_keeper::dlmm=debug` - every rebalance decision
+- `continuum_keeper::clmm=debug` - every book reposition and refill decision
+- `continuum_keeper::commit=debug` - committed-order discovery and settlement
 - `continuum_keeper::rpc=warn` - RPC failures only
 
 ## Updating
@@ -227,10 +221,10 @@ The keeper does a clean shutdown (boot-time sweep is idempotent so a fast restar
   <Card title="Keeper overview" icon="robot" href="/keeper/overview">
     What the keeper does, why it's privileged.
   </Card>
-  <Card title="Arb paths" icon="route" href="/keeper/arb-paths">
-    The four arb cycles.
+  <Card title="Peg maintenance" icon="route" href="/keeper/arb-paths">
+    Why v2 self-pegs and what bounds drift.
   </Card>
-  <Card title="DLMM management" icon="chart-line" href="/keeper/dlmm">
-    Position rebalancing details.
+  <Card title="Book management" icon="chart-line" href="/keeper/dlmm">
+    Reposition loop, refill, trim, bid cap.
   </Card>
 </CardGroup>

@@ -86,7 +86,7 @@ Things that compile but are off:
 - **User-supplied LP shares.** For MVP the protocol is the sole LP. Re-enabling user LP requires restoring the `GlobalLPAccount` state and three deposit/withdraw/lockup instructions (still in git history).
 - **Cross-market keeper coordination.** Edge-weighted dispatching across operators.
 - **Vol-regime auto-tuning.** Per-asset percentile calibration of the volatility thresholds (currently VIX-inspired heuristics).
-- **Custom per-bin DLMM weights.** The keeper currently uses Meteora's `CurveBalanced` shape; custom weights from fee distribution history would be strictly better but require a new CLP instruction.
+- **Re-anchoring.** Periodically resetting a market's constant-product anchor to spot keeps the convexity defense fresh - required before high-growth single-name listings open uncapped mint/redeem.
 - **Public arb-bot SDK.** A TypeScript / Rust library for external arb bots, packaging the keeper's spread-detection and execution logic.
 
 ## What's explicitly NOT planned
@@ -95,7 +95,7 @@ Things that compile but are off:
 - **Funding rate.** The constant-product NAV invariant replaces it.
 - **Liquidations.** Paired positions are pre-paid.
 - **Margin / leverage.** Synthetic leverage via external borrowing is fine; native leverage is out of scope.
-- **In-house AMM.** Meteora DLMM is the trading venue.
+- **In-house AMM.** Shipped in v2: native per-side CLMM books + committed orders replaced Meteora DLMM entirely.
 - **Closed-source frontend.** The official frontend will remain open-source.
 
 ## Tracking progress

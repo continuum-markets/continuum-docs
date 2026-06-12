@@ -1,88 +1,67 @@
 ---
 title: Oracle
-description: How Continuum sources prices, publishes TWAP, and gates user operations on freshness.
+description: How Continuum sources prices, what the keeper pushes on-chain, and the staleness chain that freezes mint/redeem when the underlying market closes.
 ---
 
-The [`oracle` program](/programs/oracle) is Continuum's price layer. It maintains per-market price observations, computes TWAPs, tracks volatility, and exposes a state machine that other programs (mainly `mint-redeem`) use to gate operations.
+Continuum's price layer is simple by design: the keeper fetches **Pyth Hermes** price + confidence per market (~15 s cadence) and writes both onto the `Market` account via `mint_redeem::update_risk_state`. Everything that prices against NAV - mint, redeem, committed-order settlement, book repositioning - reads that one on-chain TWAP.
 
 ## Sources
 
-| Source | Where used |
-|---|---|
-| **Pyth on-chain** | Primary on mainnet. Read directly from Pyth's price account. |
-| **Pyth Hermes** (HTTP) | Primary on devnet. Keeper pulls every 15s and pushes observations on-chain. |
-| **Switchboard** | Configurable per market (alternative on-chain source). |
-| **Manual** (devnet only) | `force_price` for testing - operators can override. |
-
-The current MVP runs primarily on Hermes-pushed observations on devnet. Mainnet will favor on-chain Pyth (lower latency, no keeper dependency for the price step). You can see which source a market uses via `market.oracle_type`.
-
-## Why the keeper pushes Hermes on devnet
-
-Pyth's RWA feeds on devnet are unreliable (often stale, sometimes missing for entire trading days). The keeper bypasses this by:
-
-1. Polling `https://hermes.pyth.network` every 15 seconds.
-2. Selecting the right session-aware feed (`Primary` for regular hours, `PreMarket`, `PostMarket`, `Overnight`).
-3. Calling `oracle::update_price_observation` with the result.
-
-Mainnet won't need this for liquid TradFi assets - Pyth on-chain is reliable for those. But the keeper-push path remains as a fallback.
-
-## Session-aware feeds
-
-Pyth publishes multiple feeds per asset for different trading sessions. For QQQ, for example:
-
-| Session | Feed kind | Active hours (US/Eastern) |
+| Network | Source | How it reaches the chain |
 |---|---|---|
-| Regular | `Primary` | 09:30 – 16:00 |
-| Pre-market | `PreMarket` | 04:00 – 09:30 |
-| After-hours | `PostMarket` | 16:00 – 20:00 |
-| Overnight | `Overnight` | 20:00 – 04:00 |
+| **Devnet** | Pyth Hermes (HTTP) | Keeper pushes via `update_risk_state`; markets run in `ProxyMode` |
+| **Mainnet (planned)** | Pyth on-chain | Read directly; the keeper-push path remains as fallback |
 
-The oracle program stores these as `OracleFeed` PDAs (one per (market, feed) pair) and selects based on current time. The frontend and keeper agree on which feed is active so quoted prices are consistent.
+On devnet, Hermes is **the** oracle - not a fallback. Pyth's on-chain devnet accounts for RWA feeds are unreliable (stale, sometimes empty), so they are not consulted at all. That is exactly what `ProxyMode` means: the program prices off the keeper-relayed `user_twap_price` instead of an on-chain Pyth account. All devnet markets run in `ProxyMode` permanently.
 
-## TWAP
+<Warning>
+  Mainnet prerequisite: committed-order settlement (`settle_swap`) currently prices off the keeper-relayed TWAP. Mainnet requires reading Pyth directly with `publish_time > order.created_at`.
+</Warning>
 
-Two TWAPs run in parallel per market:
-
-- **`user_twap`** (`window_seconds = 300` default) - drives `L_NAV` for user-facing mint/redeem.
-- **`keeper_twap`** (`window_seconds = 60` default) - drives keeper arb decisions.
-
-Why two? The keeper needs faster reaction to actual market moves; users get a smoother price for fewer mid-price-jump complaints. Both windows are configurable per oracle.
-
-The TWAP is computed from a ring buffer of `PriceObservation` records. Each observation records `(price, confidence, timestamp)`. The TWAP is time-weighted across the window.
-
-If the buffer is too short for the requested window, the TWAP returns 0 - the consuming program treats this as a fallback to `initial_l_price`.
-
-## Risk-state machine
-
-The oracle exposes two enums that gate downstream programs:
-
-### `MarketState` (oracle health)
+## What one push contains
 
 ```
-Active → fully operational
-Paused → emergency halt; all reads blocked
+update_risk_state(new_risk_state, user_twap_price, oracle_confidence)
 ```
 
-`Paused` is admin-only - set via `emergency_pause` for kill-switch use cases.
+- **`user_twap_price`** - the Hermes price, 6 decimals. This is `L_NAV`.
+- **`oracle_confidence`** - the Hermes confidence interval. Used for worst-case quote markups, and the spread engine never quotes inside it.
+- **`new_risk_state`** - the keeper-derived risk regime. See [Risk states](/concepts/risk-states).
 
-### Risk regime (mirrored to mint-redeem)
+Two safety rails bound each write:
 
-The mint-redeem program tracks `RiskState` derived from oracle health and price-movement metrics:
+- **On-chain move cap**: the program rejects any TWAP move over 25% per call (`MAX_TWAP_MOVE_BPS`), so a compromised keeper key cannot teleport NAV.
+- **Keeper-side envelope (mainnet only)**: the keeper refuses to push a Hermes price that deviates more than 10% from the prior on-chain TWAP. On devnet this check is deliberately disabled - the on-chain TWAP *is* the keeper's own last Hermes write, so comparing against it would be self-referential and would deadlock after any pause.
+
+## The staleness chain: what happens when the market closes
+
+Hermes keeps serving the **last** price after the underlying stops trading (nights, weekends for equities). Re-pushing that frozen price would keep mint/redeem open at a stale NAV all weekend. Instead, a chain of gates takes over:
 
 ```
-Normal     → standard operation
-ProxyMode  → oracle stale but recoverable; quote conservatism rises
-Stress     → mint blocked, only redeem allowed
-Recovery   → post-stress wind-down
+underlying closes
+  → Hermes publish_time ages past 120 s        (HERMES_STALE_SECS)
+  → keeper WITHHOLDS the push entirely
+  → on-chain TWAP ages past 300 s              (MAX_TWAP_AGE_SECS)
+  → mint/redeem self-freezes (program-side gate, no keeper action needed)
+  → books stop repositioning (no fresh NAV → no drift signal)
+  → books FLOAT at their standing band
 ```
 
-The keeper polls oracle health and calls `update_risk_state` on each market every cycle to keep the mirror current.
+While frozen:
 
-→ [Full risk-state details](/concepts/risk-states)
+- **Mint and redeem reject** (`OraclePriceUnavailable`) - nothing prices off a dead oracle.
+- **The CLMM books keep trading** inside their standing band - off-hours price discovery within the last posted spread.
+- **Committed orders cannot settle** (settlement requires an oracle print strictly after the commit); after the 180 s TTL, `cancel_swap` refunds unconditionally.
+- At reopen, the first fresh print re-anchors NAV and the keeper re-pins the books.
+
+## Confidence intervals
+
+Every Hermes response includes a confidence interval. It feeds two mechanisms:
+
+1. **Worst-case quote markup** on mint: `mint_price = NAV × (1 + state_mult × confidence_bps / 10_000)`, with `state_mult` per risk state (configurable via `configure_worst_case_quoting`). Wider uncertainty → worse mint quote, paid into the collateral vault.
+2. **Spread floor**: the keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free) includes `oracle_conf + fixed` in its max-of-floors stack - the books never quote inside oracle uncertainty.
 
 ## Reading prices from a client
-
-Three ways:
 
 ### 1. Read from the Market account (recommended)
 
@@ -92,23 +71,14 @@ const lNav = market.userTwapPrice.gtn(0)
   ? market.userTwapPrice
   : market.initialLPrice;
 const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav);
+
+// Freshness gate - mirrors the program's own MAX_TWAP_AGE_SECS check
+const fresh = Date.now() / 1000 - market.twapUpdatedAt.toNumber() <= 300;
 ```
 
-`market.user_twap_price` is updated by the oracle program directly into the market account. No oracle CPI needed at read time - it's a plain account fetch.
+`user_twap_price` is a plain field on the Market account - no oracle CPI needed at read time. Always check `twap_updated_at` before assuming mint/redeem will accept a transaction.
 
-### 2. Read from the OracleConfig account
-
-```typescript
-const oracleAddress = market.oracleAddress;
-const oracleConfig = await oracleProgram.account.oracleConfig.fetch(oracleAddress);
-console.log("Last price:", oracleConfig.lastPrice.toString());
-console.log("Updated:", new Date(oracleConfig.lastUpdateTime.toNumber() * 1000));
-console.log("Volatility (bps):", oracleConfig.recentVolatilityBps);
-```
-
-This gets you finer-grained data: confidence, recent volatility, observation buffer state.
-
-### 3. Read from Hermes directly (off-chain)
+### 2. Read from Hermes directly (off-chain)
 
 ```typescript
 const res = await fetch(
@@ -119,61 +89,20 @@ const data = await res.json();
 console.log(data.parsed[0].price);
 ```
 
-The on-chain TWAP and Hermes will agree to within a few seconds of staleness. Use Hermes if you need a raw spot price; use the on-chain TWAP for anything that affects user-facing P&L attribution.
+The on-chain TWAP and Hermes agree to within one keeper tick (~15 s) during open hours. Use Hermes for a raw spot reference; use the on-chain TWAP for anything that affects user-facing pricing - the protocol prices off the on-chain value regardless of what your client computes.
 
-## Confidence intervals
-
-Every Pyth observation includes a confidence interval - the publisher's estimate of price uncertainty. The oracle stores it on `last_confidence`. The mint-redeem program multiplies confidence by a state-specific multiplier when applying its **worst-case quoting markup**:
-
-```
-mint_price = NAV × (1 + state_mult × confidence_bps / 10_000)
-```
-
-| Risk state | `state_mult` (default) |
-|---|---|
-| `Normal` | 1× |
-| `ProxyMode` | 2× |
-| `Stress` | n/a (mint blocked) |
-
-This is the mechanism by which Continuum charges more during uncertain times - not by raising the explicit `mint_fee_bps`, but by quoting NAV at a worse-than-actual rate.
-
-## Volatility tracking
-
-The oracle program also tracks **recent realized volatility**. Each observation push contributes to a rolling volatility bps figure (`recent_volatility_bps`). The keeper reads this for [DLMM rebalancing](/keeper/dlmm) - wider radius in higher-vol regimes.
-
-The thresholds (calm < 10%, normal < 25%, elevated < 50%, stressed ≥ 50% annualized) are VIX-inspired heuristics. Per-market calibration is on the roadmap.
-
-## Pause and emergency stop
-
-Operators can pause an oracle:
-
-```
-oracle::emergency_pause(authority signer)
-```
-
-A paused oracle returns errors on all reads. The mint-redeem program treats this as `OraclePriceUnavailable` and rejects mints. Redeems still work using the last-fresh NAV.
-
-Mainnet pause authority will be a multisig (Squads) - operator pauses are emergency-only.
-
-## Integration patterns
-
-If you're building on Continuum, the most common pattern is:
+## Integration pattern
 
 ```typescript
-// 1. Fetch market - gives you NAV directly
 const market = await mintRedeem.account.market.fetch(marketPDA);
+const ageSecs = Date.now() / 1000 - market.twapUpdatedAt.toNumber();
 
-// 2. (Optional) Fetch oracle for confidence and freshness
-const oracle = await oracleProgram.account.oracleConfig.fetch(market.oracleAddress);
-
-// 3. Decide whether to act
-const stale = Date.now() / 1000 - oracle.lastUpdateTime.toNumber() > 60;
-if (stale) {
-  console.warn("Oracle stale; might be in ProxyMode soon.");
+if (ageSecs > 300) {
+  // Underlying market is closed (or keeper outage).
+  // Mint/redeem will reject; books float; committed orders won't settle.
+  console.warn("TWAP stale - mint/redeem frozen until next oracle print.");
 }
 ```
-
-Don't roll your own price source for actions that touch the protocol - the protocol uses the on-chain NAV regardless of what your client computes.
 
 ## Read more
 
@@ -181,7 +110,7 @@ Don't roll your own price source for actions that touch the protocol - the proto
   <Card title="Risk states" icon="shield-check" href="/concepts/risk-states">
     What `Normal` / `ProxyMode` / `Stress` / `Recovery` mean for your operations.
   </Card>
-  <Card title="Oracle program reference" icon="square-terminal" href="/programs/oracle">
-    Instructions, account layout, error catalog.
+  <Card title="mint-redeem reference" icon="square-terminal" href="/programs/mint-redeem">
+    `update_risk_state`, staleness gates, error catalog.
   </Card>
 </CardGroup>

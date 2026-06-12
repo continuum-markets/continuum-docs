@@ -74,33 +74,23 @@ Each is an SPL token account holding cUSDC for the corresponding market.
 | XAU | `H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4` | (multi-feed) |
 | VXX | `GYiFbGPQnrB2WpecjaU9CvFHP5JneiZgqfh6JHLkXACA` | (multi-feed) |
 
-## Meteora DLMM pools
+## Native CLMM book pools
+
+One `Pool` PDA per (market, side), seeds `[b"pool", market, side]` on the CLP program:
 
 | Market | Long pool (L/cUSDC) | Short pool (S/cUSDC) |
 |---|---|---|
-| QQQ | `3MN5oS1xvDNZBaGxJX5TurQEiww4bGyYqcnjSF2cxf6a` | `GMZdxttJsMaFKRPpcUVDhiu8S22m6s41xd5kxzh9wvPC` |
-| SPY | `HAVgkB471hUVivMBLzKV1GMamXoCVbXRjEub82MNUww3` | `F8ymHMLEvcnsGBNpFyxw4vhy2fgTrXNGi6GtQcLhfwvK` |
-| XAU | `Hea9Xh64q5F9Bx5iwnKbHMeBkx7QFH9YSfCQQR9R9642` | `8RRmXQqLQKiSe2RHknom2FDddK6tB6BatpC4sckfy17G` |
-| VXX | `6CkswPtW3kGdQC44DVYQrj9ab9Td5zqUPiabRDa6MT4q` | `4AfcArarfaDDDoKUQCVEQRcZKeVQ5emWem25o7tA4SzH` |
+| QQQ | `DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr` | `HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB` |
+| SPY | `4UZmmZYrRfffQmjq2iEaNgkit72s8VS5cnhK5GeuKSt8` | `4JoXbxzAAeAWsQgTYXgWAvRqdR1RU2Tb3ywm2FNLKjAB` |
+| VXX | `2CXQobRBCxfhuh6Lq3PjQUPr1vgpLFcBBVVfjC42dVTU` | `8vyYBMWAS98ZiLC5wC9F8nYgGBAmM2EbQgxgvMU9QxSD` |
+| XAU | `5rEH7sYUS7kuqNiLZmCiQGwQLmQ1qqogRPavT9csKmHL` | `CW8nvKYPi7xgRtimCk1Gj4Db6bbXdqXngdDMxDA6rLHT` |
 
-All currently use `binStep=10, baseFactor=10000` (0.10% base fee).
-
-## Meteora positions (CLP-owned)
-
-These rotate during rebalance - the addresses below are the current positions as of last update. Read `clp.meteora_long_position` / `meteora_short_position` for live values.
-
-| Market | Long position | Short position |
-|---|---|---|
-| QQQ | (rotates) | (rotates) |
-| SPY | `FoW37DP2ocJEpKDerSYQBNJcDT9JPufnfGQY4N238VGy` | `Gzwi7C3NVNtLYXgrRRbXWAU8Q3uPvMFLCmMNdsRmtEEr` |
-| XAU | `3mBvXm49R9vkEgJUi1JGqGH7x5QVakUhVQgUmNEeVSLb` | `CeZXvCeW8BUSAUEzurSPvUCUjRC6wmn4k3SLVGiLKm92` |
-| VXX | `Cjt9Tp4UbykkUR4wTnZ8Z1wHQy46ts5buN6XHQqi6onw` | `GvaK7mun6mSjRPuiB1jsfPdxFB3Xqv5n17LTdyTwQ47W` |
+There is no swap fee on the books - the half-spread (empty inner bins) is the price of immediacy. Geometry is 2-zone: core 15-40bps near NAV, wings 250-600bps.
 
 ## External program IDs
 
 | Program | ID |
 |---|---|
-| Meteora DLMM | `LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo` |
 | SPL Token | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
 | Associated Token | `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL` |
 | Metaplex Token Metadata | `metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s` |
@@ -122,7 +112,7 @@ Always prefer reading from a registry or the protocol's bundled `frontend/lib/ma
 import addresses from "./market-addresses.json";
 
 const qqq = addresses.markets.QQQ;
-const longPool = qqq.liquidity.venues.meteoraDlmm.longPool;
+const longPool = qqq.liquidity.longPool;
 ```
 
 ## See also

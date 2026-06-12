@@ -18,7 +18,7 @@ Continuum's targeted launch is **TradFi only** - equities, indices, commodities,
 Asset checklist:
 
 - [ ] Has a reliable Pyth on-chain feed (preferred) or Hermes feed (fallback).
-- [ ] Volatility regime is defined enough to pick a fee tier (index vs liquid equity vs volatile equity).
+- [ ] Volatility regime is defined enough to pick a book geometry and spread floor (index vs liquid equity vs volatile equity).
 - [ ] Initial price (`initial_l_price`) chosen - this anchors the constant product. Pick something close to the current spot.
 - [ ] OI cap chosen - typically 2× expected initial pool depth.
 
@@ -49,31 +49,27 @@ The reference scripts live in [`scripts/`](https://github.com/continuum-markets/
     ```
     SYMBOL=NVDA bun run scripts/create-clp-token-atas.ts
     ```
-    The CLP PDA needs ATAs for L, S, and cUSDC so it can hold tokens before deploying to Meteora.
+    The CLP PDA needs ATAs for L, S, and cUSDC so it can hold inventory for the books and committed-order provisioning.
   </Step>
-  <Step title="Create Meteora DLMM pools">
-    Two pools per market - one L/cUSDC, one S/cUSDC. Pool fee tier per asset volatility:
-
-    | Asset class | binStep | Base fee |
-    |---|---|---|
-    | Index ETF (QQQ, SPY) | 10 | 0.10% |
-    | Liquid equity (NVDA, AAPL) | 20 | 0.20% |
-    | Volatile equity (TSLA, GME) | 25 | 0.25% |
+  <Step title="Bootstrap the native books">
+    Two pools per market - one per side - created, configured, seeded, and enabled in one idempotent script:
 
     ```
-    MARKET=NVDA SIDE=long  BIN_STEP=20 BASE_FACTOR=10000 POOL_PRICE=120 \
-      bun run scripts/create-meteora-pool.ts
-
-    MARKET=NVDA SIDE=short BIN_STEP=20 BASE_FACTOR=10000 POOL_PRICE=0.00833 \
-      bun run scripts/create-meteora-pool.ts
+    MARKETS=NVDA bun run scripts/init-clmm-pools.ts
     ```
+
+    Per pool it runs `init_pool` (PDA seeds `[b"pool", market, side]`), creates the pool vaults, sets the 2-zone geometry (`configure_pool_geom`), seeds inventory (one paired mint funds both sides' asks; cUSDC funds the bids), and posts the first `set_pool_shape` - which enables the pool. Geometry per vol class:
+
+    | Asset class | Core step | Core bins | Wings | Spread floor (`min_bps`) |
+    |---|---|---|---|---|
+    | Index ETF (QQQ, SPY) | 15-20bps | 3 | 250-300bps | 15-18bps |
+    | Volatility / high-vol (VXX) | 40bps | 2 | 600bps | 40bps |
+    | High-growth single name (NVDA) | 40bps | 2 | 600bps | ~2x the asset's 5-min sigma |
+
+    The rule of thumb is empirical: the static floor should start at roughly **2x the asset's 5-minute volatility** - the keeper's slow auto-floor self-corrects it from live data within days, so err high. No model training is required for any listing: the spread engine runs on the realized ratchet and floors alone.
   </Step>
-  <Step title="Wire pools into CLP">
-    ```
-    MARKET=NVDA LONG_POOL=<long-addr> SHORT_POOL=<short-addr> \
-      bun run scripts/configure-meteora-pools.ts
-    ```
-    The keeper picks up the new pools on its next cycle.
+  <Step title="Set per-market config">
+    Add the market's `min_bps`, `floor_mult`, and (for high-vol single names) `fee_mult` to the keeper's per-market config. `fee_mult` enables vol-informed mint/redeem fees - the paired-arb hurdle scales with volatility exactly when the moves that clear it get big.
   </Step>
   <Step title="Fund global vault (if not already)">
     ```
@@ -82,7 +78,7 @@ The reference scripts live in [`scripts/`](https://github.com/continuum-markets/
     ```
   </Step>
   <Step title="Wait for keeper">
-    The keeper's seeder runs every 600s. On its next tick it allocates from `GlobalClp` to the new market's vault, mints inventory pairs via `vault_mint_pairs`, opens Meteora positions via `clp_open_meteora_position`. Within ~10 minutes the market is live.
+    The keeper picks the new pools up on its next book-manager cycle (30s): it re-pins them to NAV with the vol-scaled shape and takes over inventory management (refill / trim / bid cap). The market is live as soon as the bootstrap script finishes.
   </Step>
   <Step title="Verify">
     ```
@@ -92,18 +88,17 @@ The reference scripts live in [`scripts/`](https://github.com/continuum-markets/
   </Step>
 </Steps>
 
-## Pool fee tier guidance
+## Geometry and spread guidance
 
-`base_fee_pct = bin_step × base_factor / 1_000_000`. Trade-offs:
+The books don't charge a swap fee - the half-spread (empty inner bins around NAV) is the price of immediacy. Trade-offs when choosing the core step and `min_bps`:
 
-| Lower fee (binStep 5–10) | Higher fee (binStep 20–25) |
+| Tighter (core 15bps, low floor) | Wider (core 40bps, high floor) |
 |---|---|
-| Tighter NAV peg band | Wider NAV peg band |
-| Less LP revenue per swap | More LP revenue per swap |
-| Smaller intra-day range covered | Larger intra-day range covered |
-| Better for stable underlyings | Better for volatile underlyings |
+| Better instant-trade pricing | Worse instant-trade pricing |
+| More exposure to toxic flow during gaps | Loss per gap capped lower |
+| Suits low-vol broad indices | Suits high-vol or single names |
 
-Going below `binStep=5` is not recommended - position range collapses too tight, intraday spikes blow active_id out of range, triggering close+reopen rebalance cycles.
+Err wide at listing: the slow auto-floor tightens a too-conservative floor within days, but a too-tight floor donates depth to arbitrage from minute one. The reposition gate should sit just below the market's paired-arb hurdle (first funded bin + 10bps fee), which is also where the backtested optimum lands.
 
 ## What happens once a market is live
 
@@ -111,9 +106,9 @@ Going below `binStep=5` is not recommended - position range collapses too tight,
 |---|---|
 | 0s | Market PDA exists, mints exist, vault exists. Mints will fail because oracle TWAP not populated. |
 | ~30s | Keeper has pushed enough observations to populate TWAP. Mints succeed at NAV. |
-| ~5 min | Keeper's first risk-state mirror, seeder cycle. Capital allocated. |
-| ~10 min | Meteora positions opened. Pool trading viable. |
-| ~30 min | First arb cycle if pool drifted from NAV during seeding. |
+| ~1 min | Books pinned by the keeper. Instant + committed trading viable. |
+| ~5 min | Keeper's first risk-state mirror and rebalance pass. Capital allocated. |
+| ~30 min | Slow floor warming from Benchmarks backfill; spreads settle to steady state. |
 | ~1 hour | Steady state - mints, redeems, trades all functional. |
 
 A user **could** mint during the warm-up window (between t=0 and the first TWAP population) but `OraclePriceUnavailable` will reject. Safe to assume markets need ~5 minutes warm-up after listing.
@@ -126,7 +121,7 @@ The registry is updated separately from market initialization:
 SYMBOL=NVDA bun run scripts/register-market.ts
 ```
 
-This calls `registry::register_market` with the new mints, pools, and the `MeteoraDlmm` venue. After this, the registry-driven frontend picks the market up automatically.
+This calls `registry::register_market` with the new mints and pools. After this, the registry-driven frontend picks the market up automatically.
 
 If you skip registration, the market still works at the program layer - `mint_paired` etc. all succeed. But the official frontend won't know to display it.
 
@@ -153,7 +148,7 @@ For private deployments, the structure of `market-addresses.json` is:
       "shortMint": "...",
       "oracle": "...",
       "collateralVault": "...",
-      "liquidity": { "primaryVenue": "meteoraDlmm", ... },
+      "liquidity": { "primaryVenue": "nativeClmm", "longPool": "...", "shortPool": "..." },
       "initialPrice": 120,
       "clp": { "pda": "...", "vault": "...", "oiCap": 250000000000, ... }
     }
@@ -175,7 +170,7 @@ This flips `Market.is_active = false`. All mints and redeems reject with `Market
 
 Full delist (recover all capital, close pools):
 
-1. Withdraw Meteora positions → CLP PDA ATAs.
+1. Sweep the books back to CLP custody (`pool_sweep_usdc` / `pool_sweep_synth`).
 2. Redeem CLP PDA's L+S balances back to cUSDC.
 3. `return_to_global` per-market vault → `GlobalClp`.
 4. `set_active(false)`.

@@ -138,7 +138,7 @@ Symmetric to mint. Your program calls `mint_redeem::cpi::redeem_paired(cpi_ctx, 
 Some flows are not CPI-friendly:
 
 - **`keeper_mint_single` / `keeper_redeem_single`** - require `signer == market.keeper_authority`. You'd need to be the keeper authority. Generally, only the canonical keeper has this, and on mainnet it'll be a multisig.
-- **All `clp_*` Meteora-proxy ixns** - same. CLP authority requirement.
+- **CLP book and inventory ixns** (`set_pool_shape`, `pool_sweep_*`, `vault_mint_pairs`, ...) - CLP authority requirement. Note `pool_swap`, `commit_swap`, and `settle_swap` are public and CPI-friendly.
 - **Admin ixns (`update_market`, `admin_fund`, etc.)** - admin authority required.
 
 Your CPI integration is limited to the public-user surface unless you've been granted the keeper authority for a market.

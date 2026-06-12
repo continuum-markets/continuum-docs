@@ -20,7 +20,7 @@ Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
 | 6006 | `MathOverflow` | Should be unreachable | Report. |
 | 6007 | `SymbolTooLong` | Symbol > 16 chars | Pick a shorter symbol. |
 | 6008 | `FeeTooHigh` | Fee bps > 1000 (10%) | Lower the fee. |
-| 6009 | `MintNotAllowedInStress` | Risk state is `Stress` | Wait for recovery, or trade on Meteora pool instead. |
+| 6009 | `MintNotAllowedInStress` | Risk state is `Stress` | Wait for recovery, or trade on the native book instead. |
 | 6010 | `RedeemNotAllowedInStress` | Reserved (redeem in Stress is currently allowed) | Should not occur. |
 | 6011 | `ExceedsStressMintCap` | `ProxyMode`/`Recovery` size throttle hit | Reduce mint size, retry. |
 | 6012 | `TwapNotAvailable` | TWAP buffer not yet populated | Wait ~75s after market init. |
@@ -37,6 +37,7 @@ Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
 | 6023 | `ExceedsYieldCeiling` | Deployment > `yield_ceiling_bps` | Operator config issue. |
 | 6024 | `YieldManagementDisabled` | `yield_enabled = false` | Yield is off by design on devnet. |
 | 6025 | `RecallExceedsDeployed` | Recall > deployed balance | Operator config issue. |
+| 6026 | `SingleSideMintStressFloor` | `keeper_mint_single` would leave the vault under-collateralized under an adverse ±20% NAV shock | Keeper-only. The single-side mint is blocked because it would skew the book past the solvency floor; the keeper closes the gap from the other side instead. Not user-facing. |
 
 ## oracle
 
@@ -70,7 +71,7 @@ Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
 | 6002 | `InvalidAmount` | Zero or negative | Pass a positive `BN`. |
 | 6003 | `InsufficientShares` | LP-share path (legacy) | Should not occur in MVP. |
 | 6004 | `InsufficientFunds` | Vault can't cover request | Recall capital from positions first. |
-| 6005 | `InsufficientLiquidFunds` | Funds deployed; recall first | Withdraw Meteora positions, then retry. |
+| 6005 | `InsufficientLiquidFunds` | Funds deployed; recall first | Recall from the yield venue / sweep the books, then retry. |
 | 6006 | `OICapExceeded` | New OI > `oi_cap` | Operator: raise the cap. User: smaller mint. |
 | 6007 | `MathOverflow` | Should be unreachable | Report. |
 | 6008 | `InsufficientBuffer` | Protocol buffer can't absorb loss | Operator action. |
@@ -82,10 +83,10 @@ Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
 | 6014 | `InsufficientDeployment` | Recall > deployed | Operator config. |
 | 6015 | `DeploymentTooHigh` | % > config | Operator config. |
 | 6016 | `OracleReadError` | Bound oracle unreadable | Oracle config bug; report. |
-| 6017 | `InvalidPool` | Pool pubkey mismatch | Use `clp.meteora_long_pool` / `meteora_short_pool`. |
-| 6018 | `PoolNotConfigured` | Pool not yet wired | Operator: run `configure_meteora_pools`. |
+| 6017 | `InvalidPool` | Pool pubkey mismatch | Pass the market's `Pool` PDA (`[b"pool", market, side]`). |
+| 6018 | `PoolNotConfigured` | Pool not yet bootstrapped | Operator: run `init-clmm-pools.ts`. |
 | 6019 | `AdminWithdrawCapExceeded` | 24h $100K cap hit | Wait for window roll. |
-| 6020 | `InvalidPosition` | Position pubkey mismatch | Match `clp.meteora_*_position`. |
+| 6020 | `InvalidPosition` | Legacy (v1 LP position mismatch) | Should not occur in v2. |
 | 6021 | `InvalidAccountData` | Account data too small | Wrong account passed. |
 
 ## registry
