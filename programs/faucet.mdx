@@ -127,10 +127,10 @@ The default cooldown is short enough for testing but long enough to deter naive 
 
 The protocol's bootstrap scripts use the faucet to fund the CLP global vault on devnet. The flow:
 
-1. Set `drip_amount` to a large value (e.g., $200K).
+1. Set `drip_amount` to a large value (e.g., \$200K).
 2. Call `drip` once.
 3. Restore `drip_amount` to the default.
-4. Transfer the $200K to `global_clp_vault`.
+4. Transfer the \$200K to `global_clp_vault`.
 
 This is a faster path than calling `admin_fund` repeatedly with a default-sized drip. On mainnet there is no equivalent - admin must hold real USDC.
 

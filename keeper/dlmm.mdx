@@ -3,10 +3,6 @@ title: Book management
 description: How the keeper shapes, pins, refills, and trims the native CLMM books.
 ---
 
-<Note>
-  Meteora DLMM was retired in v2. Liquidity now lives in Continuum's own per-side CLMM pools, which removed the position churn, bin-array rent, and rebalance races of the external-AMM era. This page documents the native book lifecycle.
-</Note>
-
 Each market has two books - one per synth side - living entirely inside a `Pool` account (up to 16 inline bins, no per-bin rent). The keeper's book manager keeps every book pinned to NAV with a shape derived from live volatility. Because the protocol is the sole LP and the keeper repositions before external arbitrage can profit, the reposition itself captures what an arber would otherwise take.
 
 ## The reposition loop
@@ -26,7 +22,7 @@ During closed market hours the oracle withholds pushes, drift reads zero, and th
 
 - **Refill (drained asks).** One-directional buying converts ask synth into bid cUSDC. When a side's ask value falls below half its bid value, the keeper sweeps surplus bids to the CLP vault, mints fresh L+S pairs from it (`vault_mint_pairs` - delta-neutral by construction), and funds *both* sides' ask vaults in one pass. The reshape that follows is forced, so the new inventory enters the book immediately.
 - **Trim (bloated asks).** Ask depth beyond 1.5x the bid side's value is fake exit capacity and standing arb bait - it sweeps back to CLP custody (`pool_sweep_synth`), where it provisions committed orders instead.
-- **Bid cap.** Standing bid cUSDC is deliberately lean (~$5k per side, `CLMM_BID_TARGET_USD`): idle bids forgo lending carry, and large sells don't need them - they route through the [committed venue](/flows/trade), which the keeper provisions at settlement. Excess bids sweep to the CLP vault.
+- **Bid cap.** Standing bid cUSDC is deliberately lean (~\$5k per side, `CLMM_BID_TARGET_USD`): idle bids forgo lending carry, and large sells don't need them - they route through the [committed venue](/flows/trade), which the keeper provisions at settlement. Excess bids sweep to the CLP vault.
 
 The result is a small, symmetric, self-healing book: deep enough for instant retail trades, too lean to be worth attacking, with effectively unlimited size served by the committed path.
 

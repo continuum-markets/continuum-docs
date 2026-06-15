@@ -26,7 +26,7 @@ Per market, each tick:
 
 - Feeds the vol state with the latest print (ignoring frozen/repeated closed-hours prices).
 - **Repositions** the books when pool price drifts past the per-market gate (QQQ/SPY/XAU 20 bps, VXX 40 bps), posting the vol-scaled shape with protective skew via `set_pool_shape`.
-- **Refills and trims bidirectionally**: drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides, delta-neutral); bids cap at ~$5k/side with excess swept to the vault; asks trim to ≤1.5× bids.
+- **Refills and trims bidirectionally**: drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides, delta-neutral); bids cap at ~\$5k/side with excess swept to the vault; asks trim to ≤1.5× bids.
 - Posts the **dynamic buffer** target (`set_buffer_target`) and the **vol-informed fee** when they move meaningfully.
 - Runs the **cross-market collateral rebalance** (only excess above the source's own dynamic target).
 

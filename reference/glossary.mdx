@@ -17,7 +17,7 @@ description: Continuum-specific terms in one place.
 
 **Base price** - The `Pool` account's anchor price (`base_price_1e6`), pinned to NAV by the keeper. Ask bins ladder above it, bid bins below.
 
-**Bid cap** - Keeper inventory rule: standing bid cUSDC per side is capped (~$5k, `CLMM_BID_TARGET_USD`) because idle bids forgo lending carry; large sells route through committed orders instead.
+**Bid cap** - Keeper inventory rule: standing bid cUSDC per side is capped (~\$5k, `CLMM_BID_TARGET_USD`) because idle bids forgo lending carry; large sells route through committed orders instead.
 
 **Bin step** - The book's bin granularity, in basis points. Continuum pools use 2-zone geometry: a fine core step near NAV (15-40bps) and wide wing steps (250-600bps) beyond `core_bins`.
 
@@ -25,7 +25,7 @@ description: Continuum-specific terms in one place.
 
 **cUSDC** - Continuum's devnet collateral mint (`B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`). On mainnet this is real USDC. We use "cUSDC" throughout these docs to avoid confusion.
 
-**CLP** (Capital and Liquidity Provider) - Continuum's on-chain treasury and trading program. Holds protocol capital, hosts the native books, committed orders, and the instant oracle swap. → [CLP concept](/concepts/clp).
+**CLP** (Continuous Liquidity Provider) - Continuum's on-chain treasury and trading program. Holds protocol capital, hosts the native books, committed orders, and the instant oracle swap. → [CLP concept](/concepts/clp).
 
 **CNTM** - Continuum's planned governance token. Not yet active.
 

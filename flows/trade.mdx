@@ -13,7 +13,7 @@ Continuum v2 trades L and S tokens against **native protocol venues** - no exter
 
 The split is the point: instant venues carry adverse-selection risk, so their depth and spread are sized for small trades. Large orders take the committed path, where the fill price is set *after* the commitment - latency arbitrage is impossible by construction, so size needs no cap and the spread is the thinnest of the three.
 
-The frontend routes for you: book trade for instant fills, auto-switching to committed mode above $5k notional (overridable). This page covers all three for builders.
+The frontend routes for you: book trade for instant fills, auto-switching to committed mode above \$5k notional (overridable). This page covers all three for builders.
 
 <Note>
   Mint/redeem at NAV remains the canonical way to open or close a *paired* position - see [Mint](/flows/mint) and [Redeem](/flows/redeem). The venues here are for directional entries and exits.
@@ -74,7 +74,7 @@ await clp.methods
 
 To quote before swapping, read the `Pool` account and walk the bins yourself: bin `k` is priced at `base_price · r^±k` where `r = 1 + step_bps/10_000` (core zone) switching to `wing_step_bps` beyond `core_bins`. See [Reading state](/flows/read-state#native-pool-book) for a depth read.
 
-**Standing depth is deliberately lean** (~$5k bids / ≤$7.5k asks per side) - depth is sized to demand, not TVL, because toxic loss scales with deployed depth. If your size would eat through the book, use a committed order instead - that is what it exists for.
+**Standing depth is deliberately lean** (~\$5k bids / ≤\$7.5k asks per side) - depth is sized to demand, not TVL, because toxic loss scales with deployed depth. If your size would eat through the book, use a committed order instead - that is what it exists for.
 
 ## Venue 2: committed order (`commit_swap` → `settle_swap`)
 

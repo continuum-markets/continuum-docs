@@ -28,7 +28,7 @@ That profit has to clear the **fee hurdle**: 10 bps base fee each way plus tradi
 
 ### 1. Depth-capped books
 
-The instant venues never expose unlimited size at NAV. The CLMM books carry lean, demand-sized depth (~$5k bids, ≤$7.5k asks per side) with real slippage across bins - extraction per round-trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP - lean by design](/concepts/clp#lean-by-design).
+The instant venues never expose unlimited size at NAV. The CLMM books carry lean, demand-sized depth (~\$5k bids, ≤\$7.5k asks per side) with real slippage across bins - extraction per round-trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP - lean by design](/concepts/clp#lean-by-design).
 
 Committed orders are uncapped in size but fill at a price set *after* the commitment, so they offer no stale quote to extract against.
 

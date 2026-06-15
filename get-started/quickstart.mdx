@@ -72,7 +72,7 @@ This page walks you through it. No code, no CLI. If you want the programmatic fl
     - **Long-only QQQ**: from the market page, hit **Trade** and swap your QQQS for cUSDC. You're now holding QQQL + cUSDC, fully delta-positive.
     - **Short-only QQQ**: same idea, sell QQQL instead.
 
-    Trades happen on Continuum's own per-side books (the protocol is the sole LP). Small trades fill instantly; above ~$5k the app auto-switches to a committed order that fills at the next oracle print at NAV ± 0.10% - any size, no slippage.
+    Trades happen on Continuum's own per-side books (the protocol is the sole LP). Small trades fill instantly; above ~\$5k the app auto-switches to a committed order that fills at the next oracle print at NAV ± 0.10% - any size, no slippage.
   </Step>
   <Step title="Redeem at NAV">
     When you want to exit, head back to **Mint / Redeem** and switch to **Redeem**. Continuum's redeem is **NAV-weighted, not quantity-paired** - you can burn long-only, short-only, or asymmetric pairs. Whatever you burn returns its NAV value in cUSDC, minus a 10 bps redeem fee.

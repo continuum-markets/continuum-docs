@@ -1,6 +1,6 @@
 ---
 title: clp
-description: Capital and Liquidity Provider - the protocol's vaults, native CLMM pools, and the v2 swap venues.
+description: Continuous Liquidity Provider - the protocol's vaults, native CLMM pools, and the v2 swap venues.
 ---
 
 The CLP program is Continuum's treasury and market maker. It holds protocol LP capital, runs the v2 trading venues - native concentrated-liquidity pools for instant swaps and a commit-then-settle path for size - and mints/redeems its own L+S inventory via CPI into mint-redeem. Per-market `Clp` PDAs hold inventory budgets, the OI cap, and swap-guard state. A single `GlobalClp` PDA tracks total deposits and routes capital to per-market vaults.
@@ -256,7 +256,7 @@ Move cUSDC between `global_clp_vault` and a per-market `clp_vault`, updating `al
 
 #### `deposit_profit(amount: u64)` (keeper)
 
-Route arb/spread profit from the keeper wallet into the global vault, minus a TVL-tiered dev tax to `admin_wallet`: 15% below $5M TVL, 10% to $25M, 5% above.
+Route arb/spread profit from the keeper wallet into the global vault, minus a TVL-tiered dev tax to `admin_wallet`: 15% below \$5M TVL, 10% to \$25M, 5% above.
 
 #### `collect_fees(amount: u64)` (keeper)
 
@@ -268,7 +268,7 @@ Transfer trading fees into the per-market vault; advances `total_fees_collected`
 - `update_oi_cap(new_cap)` - per-market OI ceiling.
 - `configure_inventory_budget(...)` - soft and hard q-imbalance + drawdown bounds.
 - `configure_yield_strategy(...)` - per-state deployment percentages (yield is off by default).
-- `configure_liquidity_seeder(threshold)` - below `threshold` the seeder skips. Default $1k.
+- `configure_liquidity_seeder(threshold)` - below `threshold` the seeder skips. Default \$1k.
 - `realloc_clp()` - grow a pre-upgrade `Clp` account to the current layout.
 
 ### Inventory ops

@@ -1,15 +1,11 @@
 ---
-title: CLP - Capital and Liquidity Provider
+title: CLP - Continuous Liquidity Provider
 description: The on-chain program that hosts Continuum's three trading venues and the vaults that provision them.
 ---
 
-The **CLP** (Capital and Liquidity Provider) is the on-chain program where all trading happens. It hosts the three venues - native CLMM books, committed orders, and the instant oracle swap - plus the per-market vaults that stock them with inventory.
+The **CLP** (Continuous Liquidity Provider) is the on-chain program where all trading happens. It hosts the three venues - native CLMM books, committed orders, and the instant oracle swap - plus the per-market vaults that stock them with inventory.
 
 End users interact with the CLP every time they trade a leg. Inventory and treasury operations (funding books, sweeping excess, minting pairs into vaults) are keeper- or admin-gated.
-
-<Note>
-  In v1 the CLP was a proxy for external Meteora DLMM positions. Meteora is retired; the CLP now runs its own books on-chain.
-</Note>
 
 ## Venue 1: native CLMM books
 
@@ -26,7 +22,7 @@ Each market has one `Pool` account **per side** (PDA seeds `[b"pool", market, si
 Book depth is sized to **demand, never to TVL**:
 
 - Toxic-arb loss scales with deployed depth, while organic revenue is demand-capped - so more depth past demand is pure downside.
-- Deployed **synth** has zero yield opportunity cost (the collateral backing the pair earns wherever the tokens sit). Deployed **bid cUSDC** idles, forgoing ~5.5% APR - so bids are capped at ~$5k per side, with excess swept to the CLP vault where it provisions committed orders.
+- Deployed **synth** has zero yield opportunity cost (the collateral backing the pair earns wherever the tokens sit). Deployed **bid cUSDC** idles, forgoing ~5.5% APR - so bids are capped at ~\$5k per side, with excess swept to the CLP vault where it provisions committed orders.
 - Asks trim to ≤1.5× bids via `pool_sweep_synth`.
 
 The keeper's refill loop is bidirectional: drained asks restock by sweeping bids, minting pairs via `vault_mint_pairs`, and funding both sides delta-neutral; bloated sides trim back. Large sells don't need standing bids at all - they route through committed orders, and the keeper provisions cUSDC at settle time via `vault_redeem_pairs`.

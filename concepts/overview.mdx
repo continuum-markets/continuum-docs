@@ -64,7 +64,7 @@ Trading individual legs happens on the `clp` program, which deliberately splits 
 
 Each market has one protocol-native pool **per side** (8 pools live: QQQ/SPY/VXX/XAU × L/S). Bins live inline in the `Pool` account with a 2-zone geometry: fine core steps near NAV, wide wings further out (QQQ: 20 bps core, 300 bps wings). The keeper re-pins the book base to NAV when drift exceeds a per-market gate (20 bps for QQQ/SPY/XAU, 40 bps for VXX).
 
-Standing depth is deliberately lean - sized to organic demand, not TVL, because toxic-arb loss scales with deployed depth. Books converge to roughly $5k of bids and ≤$7.5k of asks per side.
+Standing depth is deliberately lean - sized to organic demand, not TVL, because toxic-arb loss scales with deployed depth. Books converge to roughly \$5k of bids and ≤\$7.5k of asks per side.
 
 ### 2. Committed orders - any size
 
@@ -75,15 +75,11 @@ The large-order path. You escrow your input into an `Order` PDA; the fill execut
 - `cancel_swap` refunds unconditionally after the 180 s TTL and checks nothing else - funds are always recoverable regardless of oracle, keeper, or admin state.
 - Every terminal path closes the Order account and returns rent.
 
-The frontend auto-switches to committed mode above $5k notional (overridable).
+The frontend auto-switches to committed mode above \$5k notional (overridable).
 
 ### 3. Oracle swap - the legacy facade
 
 `clp_swap` fills instantly from pre-stocked CLP inventory at NAV ± a configured spread (30 bps), guarded by oracle-health breakers (60 s staleness, confidence, 25% deviation), a rolling notional window cap, and a collateral floor. It is retained for small instant trades; committed orders bypass it and do not consume its window.
-
-<Note>
-  Continuum v1 traded on external Meteora DLMM pools. That machinery is retired - all liquidity now lives in the protocol-native venues above.
-</Note>
 
 ## End-to-end mint flow
 
