@@ -38,6 +38,7 @@ Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
 | 6024 | `YieldManagementDisabled` | `yield_enabled = false` | Yield is off by design on devnet. |
 | 6025 | `RecallExceedsDeployed` | Recall > deployed balance | Operator config issue. |
 | 6026 | `SingleSideMintStressFloor` | `keeper_mint_single` would leave the vault under-collateralized under an adverse ±20% NAV shock | Keeper-only. The single-side mint is blocked because it would skew the book past the solvency floor; the keeper closes the gap from the other side instead. Not user-facing. |
+| 6027 | `GammaMustRatchetDown` | `set_s_gamma_index` was called with a value above the current γ | Keeper-only. The short-leg volatility-decay scalar can only ratchet down (never raised to restore short claims); it's also floored at `0.5`. Not user-facing. |
 
 ## oracle
 

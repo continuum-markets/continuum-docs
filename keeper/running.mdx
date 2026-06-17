@@ -28,11 +28,7 @@ Output: `keeper/target/release/keeper` (~50MB binary).
 
 ## Configure
 
-```bash
-cp .env.example .env
-```
-
-Key knobs:
+The keeper reads a single `keeper/.env` (override the path with `KEEPER_ENV_FILE`). Create it with the keys below — these are the knobs the keeper actually consumes:
 
 ```env
 # RPC - set both for dual-network mode
@@ -70,8 +66,18 @@ Every keeper behavior is an independent task behind an env gate, so any loop can
 | `CLMM_BUFFER_POST_ENABLED` | Dynamic overcollateralization target posting |
 | `CLMM_REBALANCE_ENABLED` | Cross-market collateral rebalance |
 | `CLMM_FEE_SCALE_ENABLED` | Vol-informed mint/redeem fee posting |
+| `CLMM_COMMIT_SPREAD_ENABLED` | Vol-scaled committed-order spread posting (`settle_swap` floors it at 10bps) |
 | `COMMIT_SETTLE_ENABLED` | The committed-order settlement cranker |
 | `DEVNET_YIELD_EMULATION` | Devnet yield emulator (hard devnet-only gate in code) |
+
+Off by default (opt-in):
+
+| Variable | Gates |
+|---|---|
+| `COLLATERAL_YIELD_ENABLED` | Deploy idle collateral to lending venues at all (default **off**) |
+| `COLLATERAL_YIELD_RATE_AWARE` | Use the rate-impact "water-fill" allocator that splits across venues to equalize marginal rates (default **on**, only acts when yield is enabled and ≥2 venues report TVL) |
+| `CLMM_GAMMA_DECAY_ENABLED` | Post the short-leg volatility decay (`set_s_gamma_index`); default **off** until the on-chain ix is deployed + Markets realloc'd |
+| `GAMMA_DECAY_COEF` | Multiplier on the per-cycle decay; default `1.0` = the r39-calibrated value (decay = realized variance) |
 
 ### Tunables
 
@@ -224,7 +230,7 @@ The keeper does a clean shutdown (boot-time sweep is idempotent so a fast restar
   <Card title="Peg maintenance" icon="route" href="/keeper/arb-paths">
     Why v2 self-pegs and what bounds drift.
   </Card>
-  <Card title="Book management" icon="chart-line" href="/keeper/dlmm">
+  <Card title="Book management" icon="chart-line" href="/keeper/book-management">
     Reposition loop, refill, trim, bid cap.
   </Card>
 </CardGroup>

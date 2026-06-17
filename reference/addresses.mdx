@@ -44,16 +44,27 @@ This is the canonical lookup table. Bookmark it.
 
 Derivation: `findProgramAddressSync([Buffer.from("market"), Buffer.from(symbol)], mintRedeemProgram)`.
 
-## Collateral vaults
+## Collateral vault (unified)
 
-| Market | Vault |
+All markets share **one** physical cUSDC vault, owned by a global `CollateralAuthority` PDA. Per-market accounting is the `total_collateral` scalar on each `Market` (the ledger) minus `deployed_to_yield`; per-market isolation is enforced by a liquid-share gate, not by separate token accounts.
+
+| | Address |
+|---|---|
+| Unified collateral vault | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
+| `CollateralAuthority` PDA | `7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3` |
+
+Derivation: `findProgramAddressSync([Buffer.from("collateral_authority")], mintRedeemProgram)`; the vault is its cUSDC ATA. Every `Market.collateral_vault` field now points at this one account.
+
+<Accordion title="Legacy per-market vaults (pre-unification, drained)">
+Before the unified-vault migration each market owned its own ATA. These are retained as `collateralVaultLegacy` in `market-addresses.json` but hold no balance:
+
+| Market | Legacy vault |
 |---|---|
 | QQQ | `CGEMQpzitYvEnWE7sggqD4aBMpTmXhckQPYMhzhy9oJm` |
 | SPY | `DgL6UTux2gjRubznEnEQ1WprjajW5KYaegBEKgSncgPc` |
 | XAU | `2Z9W8e64czfRDu7DoJmZbhZGbm6W7ERuUnXS7iWzU2xx` |
 | VXX | `s7nNAEzhhP1nkahspsb5cWG8vZhPV4w1oNHrKwgvn6G` |
-
-Each is an SPL token account holding cUSDC for the corresponding market.
+</Accordion>
 
 ## CLP accounts
 

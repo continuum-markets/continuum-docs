@@ -15,7 +15,7 @@ The result: mispricing on any venue is bounded by `max(reposition gate, half-spr
 
 ## What bounds a stale book (the depth cap)
 
-If price gaps inside one keeper cycle, an arber can lift whichever bins went in-the-money - and that is the *worst case by design*: the loss is capped at the deployed depth of those bins, the books are deliberately lean (see [Book management](/keeper/dlmm)), and the next cycle re-pins and refills. This depth-capped extraction is the property that makes the books safe to run on high-volatility assets where an uncapped at-NAV venue could be drained.
+If price gaps inside one keeper cycle, an arber can lift whichever bins went in-the-money - and that is the *worst case by design*: the loss is capped at the deployed depth of those bins, the books are deliberately lean (see [Book management](/keeper/book-management)), and the next cycle re-pins and refills. This depth-capped extraction is the property that makes the books safe to run on high-volatility assets where an uncapped at-NAV venue could be drained.
 
 ## Residual keeper arbitrage
 

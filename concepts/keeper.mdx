@@ -27,7 +27,8 @@ Per market, each tick:
 - Feeds the vol state with the latest print (ignoring frozen/repeated closed-hours prices).
 - **Repositions** the books when pool price drifts past the per-market gate (QQQ/SPY/XAU 20 bps, VXX 40 bps), posting the vol-scaled shape with protective skew via `set_pool_shape`.
 - **Refills and trims bidirectionally**: drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides, delta-neutral); bids cap at ~\$5k/side with excess swept to the vault; asks trim to ≤1.5× bids.
-- Posts the **dynamic buffer** target (`set_buffer_target`) and the **vol-informed fee** when they move meaningfully.
+- Posts the **dynamic buffer** target (`set_buffer_target`), the **vol-informed fee**, and the **vol-scaled committed spread** (`set_commit_spread`, floored at 10bps in `settle_swap`) when they move meaningfully.
+- Optionally posts the **short-leg volatility decay** (`set_s_gamma_index`, gated by `CLMM_GAMMA_DECAY_ENABLED`, off by default): ratchets the short NAV down by realized per-cycle variance, banking choppiness-convexity as surplus. Ratchet-down only, floored at γ = 0.5. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 - Runs the **cross-market collateral rebalance** (only excess above the source's own dynamic target).
 
 RPC-lean: ~3 reads per market per tick in steady state.
@@ -38,12 +39,14 @@ Discovers pending `Order` accounts with one filtered `getProgramAccounts`, provi
 
 ### Yield router
 
-Auto-switches deployed collateral between Kamino, MarginFi, Save (Solend), and Jupiter Lend using DefiLlama-cached supply APYs - recall-all + redeploy when the winning venue changes. Harvests land in the treasury vault and reach the collateral ratio via `donate_to_vault`.
+Routes deployed collateral across Kamino, Save (Solend), and Jupiter Lend (MarginFi is wired but dormant — DefiLlama doesn't index its lending rate) using **30-day-mean** supply APYs from a DefiLlama-backed cache, with switch hysteresis so it doesn't churn between near-equal venues. Harvests land in the treasury vault and reach the collateral ratio via `donate_to_vault`.
 
-**Devnet:** a yield emulator mints real cUSDC at the live top-venue APY through the real `harvest_collateral_yield` instruction hourly, so devnet economics mirror mainnet (hard devnet-only gate).
+With `COLLATERAL_YIELD_RATE_AWARE` (default on), the router uses a **rate-impact "water-fill" allocator**: it models each venue's marginal supply rate as it absorbs a deposit (`a·T/(T+x)`) and splits the deploy so every funded venue lands at the same marginal rate — the allocation that maximizes the blended aggregate yield. Diversification across venues becomes *emergent* (deeper/higher-rate pools take more, overflow spills to the next venue) rather than a fixed per-venue cap.
+
+**Devnet:** a yield emulator mints real cUSDC at the live top-venue APY through the real `harvest_collateral_yield` instruction hourly, so devnet economics mirror mainnet (hard devnet-only gate). Note: the collateral token on devnet is **cUSDC**, and yield deployment is **off by default** (`COLLATERAL_YIELD_ENABLED`).
 
 <Note>
-  Honest gap: the router does not yet model venue deposit caps or the rate impact of its own size.
+  Remaining gap: the allocator models its own rate impact (above) but does not yet enforce venues' hard deposit caps — a venue at its cap would reject the leg, which the router treats as a failed deploy and retries elsewhere next cycle.
 </Note>
 
 ### Housekeeping

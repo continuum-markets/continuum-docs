@@ -26,7 +26,7 @@ Continuum has three moving pieces. Two live on-chain, one runs off-chain.
    │  redeem_paired           │◄──┤  2. Committed      (commit_swap │
    │  risk state + TWAP       │CPI│     orders          settle_swap)│
    │  dynamic buffer target   │   │  3. Oracle swap    (clp_swap)   │
-   │  collateral vaults       │   │  per-market vaults              │
+   │  unified vault (γ-decay) │   │  per-market inventory vaults    │
    └──────────────────────────┘   └─────────────────────────────────┘
                           ▲                   ▲
                           │                   │

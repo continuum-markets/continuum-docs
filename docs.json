@@ -73,7 +73,7 @@
             "pages": [
               "keeper/overview",
               "keeper/arb-paths",
-              "keeper/dlmm",
+              "keeper/book-management",
               "keeper/running"
             ]
           }

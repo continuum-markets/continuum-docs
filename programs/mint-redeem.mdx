@@ -29,11 +29,11 @@ The central account for one synthetic asset.
 | `long_mint` | Pubkey | L SPL mint |
 | `short_mint` | Pubkey | S SPL mint |
 | `collateral_mint` | Pubkey | cUSDC mint |
-| `collateral_vault` | Pubkey | Token account holding all backing cUSDC |
+| `collateral_vault` | Pubkey | Points at the **one unified** cUSDC vault (owned by the `CollateralAuthority` PDA), shared by all markets |
 | `multi_collateral_enabled` | bool | If true, multiple collateral types accepted |
 | `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees in basis points (10 = 0.10%) |
 | `total_l_supply` / `total_s_supply` | u64 | Outstanding supply (6 decimals) |
-| `total_collateral` | u64 | Vault balance (6 decimals) |
+| `total_collateral` | u64 | This market's collateral **ledger** (6 decimals). With the unified vault this scalar (not the live token balance) is the per-market solvency source of truth; per-market isolation = `total_collateral − deployed_to_yield`. |
 | `is_active` | bool | If false, all mint/redeem reject |
 | `risk_state` | enum | `Normal` / `ProxyMode` / `Stress` / `Recovery` |
 | `risk_state_updated_at` | i64 | Last mirror update unix-ts |
@@ -43,6 +43,7 @@ The central account for one synthetic asset.
 | `keeper_authority` | Pubkey | Privileged signer for fee-free single-sided ops |
 | `dev_tax_pct` | u8 | Slice of the fee routed to fee_recipient (default 10%) |
 | `buffer_target_bps` | u16 | Keeper-posted dynamic overcollateralization buffer (bps over parity) |
+| `s_gamma_index` | u64 | Short-leg volatility-decay scalar, 1e9 fixed (`1e9` = 1.0 = no decay; `0`/unset reads as 1.0). Multiplies `S_NAV`. Ratchet-down only, floored at `0.5`. See [NAV → Volatility decay](/concepts/nav#volatility-decay). |
 | `yield_ceiling_bps` / `deployed_to_yield` / `yield_enabled` / `total_yield_harvested` | various | Collateral-yield management state |
 
 ### `UserCollateralPosition` PDA
@@ -151,9 +152,13 @@ The hot path: mirrors oracle health into `risk_state` and writes the TWAP + conf
 
 Posts the market's **dynamic overcollateralization buffer** - the per-market solvency target that replaced the static 102%. The keeper sizes it from the volatility regime and live inventory; on-chain it is clamped to [100, 5000] bps over parity (target ratio 101%-150%), and 0/unset falls back to the 200 bps (102%) default. This target gates donations, fee waivers, excess withdrawals, and cross-market rebalances.
 
+#### `set_s_gamma_index(s_gamma_index: u64)`
+
+Posts the **short-leg volatility-decay scalar** γ (1e9 fixed). The keeper ratchets it down by realized per-cycle variance, marking `S_NAV` down to bank choppiness-convexity as collateral surplus. On-chain it **rejects any value above the current γ** (ratchet-down only — see `GammaMustRatchetDown`) and clamps to a `0.5` floor. Gated off-chain by `CLMM_GAMMA_DECAY_ENABLED` (default off). Does not touch the long leg. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+
 #### `rebalance_collateral(amount: u64)`
 
-Cross-market collateral move: transfer cUSDC from an over-collateralized market's vault directly to an under-collateralized one's, funding it faster than waiting for fresh capital. The **source floor** is enforced on-chain: the source market must remain at or above its *own* dynamic target after the move, only liquid (non-yield-deployed) collateral moves, and the source's TWAP must be fresh. Both markets must share the keeper authority.
+Cross-market collateral move. With the unified vault this is a **scalar-only ledger move** — no cUSDC token transfer happens; it shifts `total_collateral` from an over-collateralized market to an under-collateralized one. The **source floor** is enforced on-chain: the source market must remain at or above its *own* dynamic target after the move, and only its liquid share (`total_collateral − deployed_to_yield`) may move. (The old TWAP-freshness gate was removed — with no token movement the source-CR floor is the real guard, and gating on a closed-market TWAP only produced spurious `OraclePriceUnavailable` reverts.) Both markets must share the keeper authority.
 
 #### `deploy_collateral_to_yield(amount, protocol)` / `recall_collateral_from_yield(amount, protocol)`
 

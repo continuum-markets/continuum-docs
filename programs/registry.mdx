@@ -36,7 +36,7 @@ Symbol is the asset ticker padded with zero bytes to 16 bytes. So for `"QQQ"`, t
 |---|---|---|
 | `symbol` | `[u8; 16]` | Padded ticker |
 | `long_mint` / `short_mint` | Pubkey | L and S SPL mints |
-| `venue` | enum | Legacy tag (`MeteoraDlmm = 0` is the only variant; kept for layout - in v2 the pools are native CLP `Pool` PDAs regardless) |
+| `venue` | enum | Venue tag; currently always the native CLP `Pool` PDAs |
 | `long_pool` / `short_pool` | Pubkey | Native per-side CLMM `Pool` PDAs |
 | `long_position` / `short_position` | Pubkey | Legacy LP position pointers (unused in v2) |
 | `is_active` | bool | If false, the market is paused |

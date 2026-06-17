@@ -84,7 +84,7 @@ CLMM books ◄──── pool_sweep_usdc / pool_sweep_synth ──── exces
 
 `vault_mint_pairs`, `vault_redeem_pairs`, and `vault_redeem_single` are CLP-PDA-signed CPIs into mint-redeem - the CLP can convert between cUSDC and paired inventory without touching solvency (paired mint/redeem is neutral by construction).
 
-Per-market vaults isolate markets. A cross-market rebalancer moves only excess above a source market's own dynamic buffer target, with the floor enforced on-chain (`rebalance_collateral` on mint-redeem).
+Collateral is a single unified vault, but each market is isolated by its own `total_collateral − deployed_to_yield` ledger — every outflow is gated on that per-market liquid share. A cross-market rebalancer moves only excess above a source market's own dynamic buffer target (a scalar ledger move, no token transfer), with the floor enforced on-chain (`rebalance_collateral` on mint-redeem).
 
 ## Where protocol revenue accumulates
 

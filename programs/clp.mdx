@@ -11,9 +11,7 @@ Devnet ID: 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES
 
 User-facing instructions: `pool_swap`, `clp_swap`, `commit_swap`, `settle_swap` (permissionless crank), and `cancel_swap`. Everything else is gated by admin or keeper authority.
 
-<Note>
-  **Meteora retirement.** v1 routed liquidity through Meteora DLMM positions owned by the CLP PDA. The v2 cutover replaced that with the native pools documented below - liquidity lives inline in the `Pool` account (no per-bin rent) and repositioning is a single transaction. The Meteora proxy instructions (`clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_close_meteora_position`, `clp_claim_lp_fees`, `clp_init_bin_array`, `configure_meteora_pools`, `clp_set_meteora_position`, `clear_meteora_positions`, `vault_record_liquidity_recall`) remain on the program only to unwind legacy positions and are not documented further here.
-</Note>
+Liquidity lives inline in each market's native `Pool` accounts (no per-bin rent), and repositioning a book is a single transaction.
 
 ## The two swap venues
 
@@ -24,7 +22,7 @@ User-facing instructions: `pool_swap`, `clp_swap`, `commit_swap`, `settle_swap` 
 
 The pool book is deliberately lean - posted depth is a written option against latency arbitrage, and idle bid cUSDC forgoes carry, so the keeper sizes it to organic demand, not to TVL. Committed orders carry the size: because the fill price is set strictly *after* the commitment, latency arbitrage is structurally impossible and no depth needs to be posted in advance.
 
-`clp_swap` (the oracle-pegged swap at NAV ± spread from CLP inventory) predates the pool book and remains live as a fallback during the migration soak.
+`clp_swap` (the oracle-pegged swap at NAV ± spread from CLP inventory) remains live as a fallback to the pool book.
 
 ## Accounts
 
@@ -69,7 +67,6 @@ One per market.
 | `swap_guards` | `SwapGuardsState` | v2 swap circuit-breaker config (below) |
 | `swap_window_start` / `swap_window_used` | i64 / u64 | Rolling notional-cap window state |
 | `swap_prev_price` | u64 | Last NAV accepted by a swap (deviation anchor) |
-| `meteora_*` | Pubkey | Legacy Meteora pool/position pointers |
 | `authority` | Pubkey | Keeper/admin signer |
 
 ### `SwapGuardsState`
@@ -320,8 +317,8 @@ The SVM caps each stack frame at 4096 bytes. Instructions with many deserialized
 | 6028 | `InsufficientDeployment` | Recall > deployed |
 | 6029 | `DeploymentTooHigh` | % > config |
 | 6030 | `OracleReadError` | Bound oracle unreadable |
-| 6031 | `InvalidPool` | Pool pubkey mismatch (legacy Meteora paths) |
-| 6032 | `PoolNotConfigured` | Pool not yet wired (legacy Meteora paths) |
+| 6031 | `InvalidPool` | Pool pubkey mismatch |
+| 6032 | `PoolNotConfigured` | Pool not yet wired/initialized |
 | 6033 | `AdminWithdrawCapExceeded` | 24h cap or fund cooldown hit |
 | 6034 | `InvalidPosition` | Position/PDA pubkey mismatch |
 | 6035 | `InvalidAccountData` | Account data too small |
