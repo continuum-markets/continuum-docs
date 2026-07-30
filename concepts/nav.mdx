@@ -95,7 +95,7 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × γ
 - **Ratchet-down only.** The on-chain `set_s_gamma_index` instruction rejects any value above the current γ, and clamps to a floor of `0.5` (at most 50% cumulative decay). γ can never be raised to retroactively restore short claims.
 - **It charges realized variance, not direction.** The keeper decays γ by the realized per-cycle variance (`Δγ/γ ≈ σ²`), so a *choppy* path costs the decay while a *smooth directional* move barely does — the directional payoff lives in the untouchable long leg. This banks the choppiness-convexity the protocol is short as collateral surplus.
 - **It is not a funding rate.** There is no periodic cash transfer between holders. γ is a structural mark on the short token's value; an instant mint→redeem round-trip is unaffected at a fixed γ, and **long positions never pay it**. The frontend surfaces it on the short side as "volatility decay," deliberately not "funding."
-- **Default 1.0 (off).** Until the keeper posts a value (`CLMM_GAMMA_DECAY_ENABLED`, off by default), `s_gamma_index` reads as `1e9` and every formula above reduces to the plain constant-product NAV.
+- **Default 1.0; decay on.** `CLMM_GAMMA_DECAY_ENABLED` defaults **on** as of June 2026 (solvency-critical; set `=false` to disable). Until the keeper has posted a value `s_gamma_index` reads as `1e9` and every formula above reduces to the plain constant-product NAV.
 
 See [Solvency](/concepts/solvency) for why this only covers the variance regime and not a directional run.
 
@@ -137,16 +137,23 @@ The 6-decimal scaling means `lNav.toNumber() / 1e6` gives a human-readable price
 
 The TWAP is what the user-facing flow uses. There's also a **keeper TWAP** (shorter window) used internally for arb decisions. They derive from the same observation buffer in the oracle program but with different windows.
 
-When the oracle's risk state is **not** `Normal`, the mint-redeem program applies a **worst-case quoting markup** to mint pricing. This is bounded by `oracle_confidence` (also stored on the market) and a state-specific multiplier:
+When the oracle's risk state is **not** `Normal`, the mint-redeem program applies **worst-case quoting** to **both mint and redeem**, quoted **per leg against the user**. It is bounded by `oracle_confidence` (stored on the market) and a state-specific multiplier `c = oracle_confidence × mult`:
 
-| Risk state | Multiplier (default) | Effect on mint price |
+| Risk state | Multiplier (default) | Confidence half-width `c` |
 |---|---|---|
-| `Normal` | 1× | NAV directly |
-| `ProxyMode` | 2× | NAV + 2 × confidence_bps markup |
-| `Stress` | (mint blocked) | mint rejected with `MintNotAllowedInStress` |
-| `Recovery` | 1× | NAV directly (post-stress recovery) |
+| `Normal` | 1× | NAV directly (no markup) |
+| `ProxyMode` | 1.5× | `1.5 × confidence_bps` |
+| `Stress` | 3× | mint **and** redeem disabled by default (free-float; `MintNotAllowedInStress` / `RedeemNotAllowedInStress`) — the 3× markup applies only if an operator re-enables trading via `allow_mint_in_stress` / `allow_redeem_in_stress` |
+| `Recovery` | decays 3× → 1× over 1h | shrinks with recovery |
 
-Redeem prices are not marked up - only mint. (Otherwise users would be stranded when the oracle goes shaky.)
+Because the long NAV is linear in price (`L_NAV = P`) but the short NAV is **inverse** (`S_NAV = K/P`), a single widened price can't protect both legs — so each leg is quoted at the price that moves *against* the user:
+
+| | Long leg (`L_NAV`) | Short leg (`S_NAV = K/P`) |
+|---|---|---|
+| **Mint** (user buys) | `P + c` → fewer L | priced at `P − c` → `K/(P−c)` is higher → fewer S |
+| **Redeem** (user sells) | `P − c` → less out | priced at `P + c` → `K/(P+c)` is lower → less out |
+
+This makes a paired mint→redeem round-trip return **less** than the deposit at any confidence (the spread is protective on both sides). An earlier version widened one shared price into both legs, which inverted the short leg and let a round-trip return *more* than deposited — that's fixed.
 
 → [Risk states explained](/concepts/risk-states)
 
@@ -167,7 +174,7 @@ If `last_oracle_update` is past the staleness threshold, the oracle's `OracleHea
 
 ## NAV vs pool price
 
-NAV is what the protocol mints/redeems at. **Book price** is what the native per-side CLMM book trades at between repositions - the two are kept close by structure, not by arbitrage. The keeper re-pins each book's base to NAV whenever drift exceeds the per-market gate (20-40bps), and the standing half-spread means the book never quotes inside NAV ± spread anyway.
+NAV is what the protocol mints/redeems at. **Book price** is what the native per-side bin book trades at between repositions - the two are kept close by structure, not by arbitrage. The keeper re-pins each book's base to NAV whenever drift exceeds the per-market gate (20-40bps), and the standing half-spread means the book never quotes inside NAV ± spread anyway.
 
 In steady state, `book_price ≈ NAV ± half_spread`. During closed market hours the oracle withholds pushes and the books float - the gap can widen, and the first fresh print re-anchors everything. A user choosing a venue picks by size and urgency:
 

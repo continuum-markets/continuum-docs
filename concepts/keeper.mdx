@@ -6,7 +6,7 @@ description: The off-chain bot that pushes oracle prices, manages the on-chain b
 The **keeper** is an off-chain Rust async bot that runs Continuum's operational loops:
 
 1. **Oracle updater** - pushes Hermes price + confidence on-chain every ~15 s, and withholds when the underlying market is closed.
-2. **CLMM pool manager** - repositions the books to NAV, sizes the spread, refills/trims inventory, and posts the dynamic buffer and vol-informed fees.
+2. **Book manager** (`clmm_pool.rs`) - repositions the books to NAV, sizes the spread, refills/trims inventory, and posts the dynamic buffer and vol-informed fees.
 3. **Commit settler** - cranks committed-order settlement (which is permissionless - anyone can settle).
 4. **Yield router** - moves deployed collateral to the best lending venue and harvests yield.
 
@@ -20,15 +20,15 @@ Fetches Pyth Hermes price + confidence per market and pushes both on-chain via `
 
 **Closed-market aware:** if the Hermes feed's own `publish_time` is stale (> 120 s, `HERMES_STALE_SECS`), the keeper **withholds** the push entirely. The on-chain TWAP then ages past 300 s, mint/redeem freezes itself, and the books stop repositioning and float at their standing band - off-hours price discovery inside the band, re-anchor to NAV at reopen.
 
-### CLMM pool manager (30 s)
+### Book manager (30 s)
 
 Per market, each tick:
 
 - Feeds the vol state with the latest print (ignoring frozen/repeated closed-hours prices).
-- **Repositions** the books when pool price drifts past the per-market gate (QQQ/SPY/XAU 20 bps, VXX 40 bps), posting the vol-scaled shape with protective skew via `set_pool_shape`.
+- **Repositions** the books when pool price drifts past the per-market gate (20 bps for indices/metals, 25–30 bps for single names), posting the vol-scaled shape with protective skew via `set_pool_shape`.
 - **Refills and trims bidirectionally**: drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides, delta-neutral); bids cap at ~\$5k/side with excess swept to the vault; asks trim to ≤1.5× bids.
 - Posts the **dynamic buffer** target (`set_buffer_target`), the **vol-informed fee**, and the **vol-scaled committed spread** (`set_commit_spread`, floored at 10bps in `settle_swap`) when they move meaningfully.
-- Optionally posts the **short-leg volatility decay** (`set_s_gamma_index`, gated by `CLMM_GAMMA_DECAY_ENABLED`, off by default): ratchets the short NAV down by realized per-cycle variance, banking choppiness-convexity as surplus. Ratchet-down only, floored at γ = 0.5. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+- Posts the **short-leg volatility decay** (`set_s_gamma_index`, gated by `CLMM_GAMMA_DECAY_ENABLED`, **on by default** since June 2026): ratchets the short NAV down by realized per-cycle variance, banking choppiness-convexity as surplus. Ratchet-down only, floored at γ = 0.5. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 - Runs the **cross-market collateral rebalance** (only excess above the source's own dynamic target).
 
 RPC-lean: ~3 reads per market per tick in steady state.
@@ -65,7 +65,7 @@ half_spread = max(
                              # self-corrects mis-set listing floors
     oracle_conf + fixed,     # never quote inside oracle uncertainty
     min_bps,                 # per-market static boot floor:
-)                            # QQQ 18, SPY 15, XAU 18, VXX 40
+)                            # QQQ 18, SPY 15, XAU 18, NVDA 30
 ```
 
 Two post-processing steps:

@@ -12,9 +12,13 @@ Continuum's MVP runs on devnet. The path to mainnet and the planned market roste
 | **QQQ** | Nasdaq-100 ETF | Apr 2026 |
 | **SPY** | SPDR S&P 500 ETF | Apr 2026 |
 | **XAU** | Gold spot | Apr 2026 |
-| **VXX** | VIX short-term futures ETN | Apr 2026 |
+| **XAG** | Silver | Jun 2026 |
+| **NVDA** | NVIDIA | Jun 2026 |
+| **AAPL** | Apple | Jun 2026 |
+| **OIL** | WTI crude oil | Jun 2026 |
+| **EUR** | EUR/USD | Jun 2026 |
 
-All four use 0.10% bin-step pools. See [Live markets](/markets/live) for full pubkeys.
+Eight markets, ~$11.5M TVL, all on 0.10% native bin-book pools. See [Live markets](/markets/live) for full pubkeys. (VXX was delisted in June 2026.)
 
 ## Planned markets
 
@@ -28,8 +32,6 @@ Continuum's targeted launch is **TradFi-only**. No crypto markets - the constant
 - Russell 2000
 
 ### Equities
-- NVDA (Nvidia)
-- AAPL (Apple)
 - TSLA (Tesla)
 - GME (GameStop)
 - AMC (AMC Entertainment)
@@ -37,17 +39,20 @@ Continuum's targeted launch is **TradFi-only**. No crypto markets - the constant
 - AMZN (Amazon)
 - GOOGL (Alphabet)
 
+_(NVDA and AAPL are now live.)_
+
 ### Commodities
-- XAG (Silver)
-- WTI (Crude oil)
 - BRENT (Brent crude)
 - HG (Copper)
 
+_(XAG silver and OIL/WTI are now live.)_
+
 ### Forex
-- EUR/USD
 - USD/JPY
 - GBP/USD
 - USD/CHF
+
+_(EUR/USD is now live.)_
 
 The order of rollout depends on:
 
@@ -95,7 +100,7 @@ Things that compile but are off:
 - **Funding rate.** The constant-product NAV invariant replaces it.
 - **Liquidations.** Paired positions are pre-paid.
 - **Margin / leverage.** Synthetic leverage via external borrowing is fine; native leverage is out of scope.
-- **In-house AMM.** Shipped in v2: native per-side CLMM books + committed orders are the live trading venue.
+- **In-house AMM.** Shipped in v2: native per-side bin books + committed orders are the live trading venue.
 - **Closed-source frontend.** The official frontend will remain open-source.
 
 ## Tracking progress

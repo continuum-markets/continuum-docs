@@ -1,6 +1,6 @@
 ---
 title: Markets
-description: A market is one synthetic asset - a pair of SPL mints, two native CLMM books, a collateral vault, and a CLP vault. Here's how they're shaped and listed.
+description: A market is one synthetic asset - a pair of SPL mints, two native bin books, a collateral vault, and a CLP vault. Here's how they're shaped and listed.
 ---
 
 A **market** in Continuum is one synthetic asset. Each market has:
@@ -8,7 +8,7 @@ A **market** in Continuum is one synthetic asset. Each market has:
 - A `Market` PDA (mint-redeem program) holding initial prices, fees, supply, TWAP, risk state, buffer target, and the keeper authority.
 - Two SPL mints - long (`L`) and short (`S`) - both with the market PDA as mint authority.
 - One collateral vault (cUSDC token account) holding the collateral backing outstanding L+S supply.
-- Two native CLMM `Pool` PDAs (clp program) - one book per side.
+- Two native bin-book `Pool` PDAs (clp program) - one book per side.
 - A `Clp` PDA and per-market CLP vault tracking trading inventory and capital allocation.
 
 Markets are not interchangeable - a QQQL token is a different mint from an SPYL token, even though both are "long" tokens.
@@ -69,14 +69,18 @@ For all live markets at once, batch via `getMultipleAccounts`. See [Reading stat
 
 ## Live markets
 
-Four markets - eight books - are active on devnet:
+Eight markets - sixteen books - are active on devnet (~$11.5M TVL):
 
 | Symbol | Asset | Book geometry (core / wing × core bins) | Reposition gate |
 |---|---|---|---|
 | `QQQ` | Nasdaq-100 ETF | 20 bps / 300 bps × 3, 12 bins | 20 bps |
 | `SPY` | SPDR S&P 500 ETF | 15 bps / 250 bps × 3 | 20 bps |
 | `XAU` | Gold spot | 20 bps / 300 bps × 3 | 20 bps |
-| `VXX` | VIX short-term futures ETN | 40 bps / 600 bps × 2 | 40 bps |
+| `XAG` | Silver | 20 bps / 300 bps × 3 | 20 bps |
+| `NVDA` | NVIDIA | 30 bps / 450 bps × 3 | 30 bps |
+| `AAPL` | Apple | 25 bps / 400 bps × 3 | 25 bps |
+| `OIL` | WTI crude oil | 25 bps / 400 bps × 3 | 25 bps |
+| `EUR` | EUR/USD | 10 bps / 200 bps × 3 | 10 bps |
 
 Fine core steps quote tight near NAV; wide wings hold the float for off-hours drift. The reposition gate is calibrated just below each market's toxic-arb line. Books converge to ~\$5k of bids and ≤\$7.5k of asks per side; committed orders take any size at NAV ± 10 bps.
 
@@ -110,10 +114,12 @@ The full operator flow lives in the protocol's operations runbook. At a high lev
 
 Continuum's targeted launch coverage is **TradFi-only**:
 
-- **Indices**: SPX, NDX (QQQ), FTSE 100, DAX
-- **Equities**: NVDA, AAPL, TSLA, GME, AMC
-- **Commodities**: XAU (Gold), XAG (Silver), WTI (Oil)
-- **Forex**: EUR/USD, USD/JPY, GBP/USD
+Live today: QQQ, SPY, XAU, XAG, NVDA, AAPL, OIL (WTI), EUR/USD. Still planned:
+
+- **Indices**: SPX, NDX (raw indices), FTSE 100, DAX
+- **Equities**: TSLA, GME, AMC, META, AMZN, GOOGL
+- **Commodities**: BRENT, HG (Copper)
+- **Forex**: USD/JPY, GBP/USD
 
 No crypto markets - the constant-product invariant gives no edge over an actual perp DEX for crypto pairs. High-growth single names ship only with the full solvency stack (vol-informed fees, depth-capped books, re-anchoring) - see [Solvency](/concepts/solvency).
 
@@ -125,7 +131,7 @@ Continuum follows the underlying's session for NAV-priced operations, while the 
 
 - **During the underlying's trading hours**: NAV tracks the live oracle; mint, redeem, committed orders, and books all operate.
 - **When the underlying closes** (nights, weekends for equities): the keeper withholds oracle pushes, the on-chain TWAP ages past 300 s, and **mint/redeem self-freezes**. Committed orders can't settle (cancel refunds after 180 s).
-- **The CLMM books float** at their standing band off-hours - you can still trade either leg, with price discovery happening inside the band. At reopen, the first fresh print re-anchors NAV and the keeper re-pins the books.
+- **The bin books float** at their standing band off-hours - you can still trade either leg, with price discovery happening inside the band. At reopen, the first fresh print re-anchors NAV and the keeper re-pins the books.
 
 See [Oracle - the staleness chain](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes).
 
@@ -133,7 +139,7 @@ See [Oracle - the staleness chain](/concepts/oracle#the-staleness-chain-what-hap
 
 <CardGroup cols={2}>
   <Card title="Live market addresses" icon="address-book" href="/markets/live">
-    QQQ, SPY, XAU, VXX - every pubkey.
+    All 8 markets - every pubkey.
   </Card>
   <Card title="How to read market state" icon="magnifying-glass" href="/flows/read-state">
     Batch fetch markets, derive NAV, query book depth.

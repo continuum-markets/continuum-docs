@@ -3,19 +3,36 @@ title: CLP - Continuous Liquidity Provider
 description: The on-chain program that hosts Continuum's three trading venues and the vaults that provision them.
 ---
 
-The **CLP** (Continuous Liquidity Provider) is the on-chain program where all trading happens. It hosts the three venues - native CLMM books, committed orders, and the instant oracle swap - plus the per-market vaults that stock them with inventory.
+The **CLP** (Continuous Liquidity Provider) is the on-chain program where all trading happens. It hosts the three venues - native bin books, committed orders, and the instant oracle swap - plus the per-market vaults that stock them with inventory.
 
 End users interact with the CLP every time they trade a leg. Inventory and treasury operations (funding books, sweeping excess, minting pairs into vaults) are keeper- or admin-gated.
 
-## Venue 1: native CLMM books
+## Venue 1: native bin books
 
-Each market has one `Pool` account **per side** (PDA seeds `[b"pool", market, side]`), so 8 pools across the 4 live markets. Unlike an external AMM:
+Each market has one `Pool` account **per side** (a long pool and a short pool; PDA seeds `[b"pool", market, side]`), so 16 native pools across the 8 live markets. Unlike an external AMM:
 
 - **Bins are inline.** Up to 16 price bins live directly in the `Pool` account - no separate bin-array accounts, no rent churn on reposition.
 - **2-zone geometry.** Fine core steps near NAV for tight small-trade pricing, wide wings further out (e.g. QQQ: 20 bps core steps ×3, then 300 bps wings). Set via `configure_pool_geom(wing_step_bps, core_bins)`.
-- **Keeper-pinned to NAV.** `set_pool_shape(base_price, asks, bids)` posts the book base and per-bin sizes in one call (sums are checked against vault balances). The keeper re-pins when pool price drifts past a per-market gate - 20 bps for QQQ/SPY/XAU, 40 bps for VXX, calibrated just below each market's toxic-arb line.
+- **Keeper-pinned to NAV.** `set_pool_shape(base_price, asks, bids)` posts the book base and per-bin sizes in one call (sums are checked against vault balances). The keeper re-pins when pool price drifts past a per-market gate - 20 bps for indices/metals, 25–30 bps for single names, calibrated just below each market's toxic-arb line.
 
 `pool_swap(direction, amount_in, min_out)` walks the bins with real slippage. It is pure inventory trading - no mint or burn happens in the swap.
+
+### What the book actually is
+
+The keeper env vars are prefixed `CLMM_` and the pricing module is `clmm.rs`, but **this is not a concentrated-liquidity market maker** in the Uniswap v3 sense. The distinction is worth being precise about:
+
+| | Uniswap-v3-style CLMM | Continuum's book |
+|---|---|---|
+| Liquidity shape | Continuous `x·y=k` curve inside a tick range | Discrete bins; a fixed reserve at a fixed price |
+| Price inside a unit | Moves continuously along the curve | Constant within a bin; a fill walks to the next bin |
+| Who supplies it | Many permissionless LPs choosing their own ranges | One quoter - the protocol is the sole LP |
+| How the shape is set | Emergent from LP deposits | Posted by the keeper (`set_pool_shape`) each reposition |
+
+Mechanically it is a **discrete-bin liquidity book**: the same family as Trader Joe's Liquidity Book and Meteora's DLMM (the "D" is for *discrete*), which is what `clmm.rs` means when its header calls the math "DLMM-style". Bin `i` sits at `base · r^±(i+1)` with `r = 1 + step_bps/1e4`, holds a reserve, and prices at constant sum until exhausted.
+
+It differs from those too, in the direction of being *less* of an AMM: the entire book lives inline in one `Pool` account rather than in per-bin accounts, and the ladder is **posted** by the keeper rather than emerging from deposits. There is no bonding curve. The most accurate description is a **keeper-quoted bin book** - an on-chain market maker whose quotes happen to be settled by an AMM-style swap instruction.
+
+We keep the `CLMM_*` env-var prefix and the `clmm.rs` filename for compatibility with deployed configuration; the docs use "book" or "bin book".
 
 ### Lean by design
 
@@ -76,7 +93,7 @@ CLP inventory (L + S + cUSDC)
     │ clp_fund_pool_synth /   → stock the per-side books
     │ set_pool_shape
     ▼
-CLMM books ◄──── pool_sweep_usdc / pool_sweep_synth ──── excess back to vault
+bin books ◄──── pool_sweep_usdc / pool_sweep_synth ──── excess back to vault
     │
     └─ committed orders provision from the vault at settle time
        (vault_redeem_pairs converts pairs back to cUSDC)

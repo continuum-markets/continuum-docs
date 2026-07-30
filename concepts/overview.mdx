@@ -22,7 +22,7 @@ Continuum has three moving pieces. Two live on-chain, one runs off-chain.
    ┌──────────────────────────┐   ┌─────────────────────────────────┐
    │       mint-redeem        │   │              clp                │
    │                          │   │                                 │
-   │  mint_paired             │   │  1. CLMM books     (pool_swap)  │
+   │  mint_paired             │   │  1. bin books     (pool_swap)  │
    │  redeem_paired           │◄──┤  2. Committed      (commit_swap │
    │  risk state + TWAP       │CPI│     orders          settle_swap)│
    │  dynamic buffer target   │   │  3. Oracle swap    (clp_swap)   │
@@ -56,13 +56,13 @@ Trading individual legs happens on the `clp` program, which deliberately splits 
 
 | Venue | Instruction | Fill | Best for |
 |---|---|---|---|
-| **CLMM book** | `pool_swap` | Instant, walks on-chain bins with real slippage | Small trades, immediate execution |
+| **bin book** | `pool_swap` | Instant, walks on-chain bins with real slippage | Small trades, immediate execution |
 | **Committed order** | `commit_swap` → `settle_swap` | Next oracle print, NAV ± 10 bps, any size | Large trades |
 | **Oracle swap** | `clp_swap` | Instant at NAV ± 30 bps, breaker-guarded | Small instant trades (legacy path) |
 
-### 1. CLMM books - instant, small
+### 1. bin books - instant, small
 
-Each market has one protocol-native pool **per side** (8 pools live: QQQ/SPY/VXX/XAU × L/S). Bins live inline in the `Pool` account with a 2-zone geometry: fine core steps near NAV, wide wings further out (QQQ: 20 bps core, 300 bps wings). The keeper re-pins the book base to NAV when drift exceeds a per-market gate (20 bps for QQQ/SPY/XAU, 40 bps for VXX).
+Each market has one protocol-native pool **per side** (16 pools live: 8 markets × L/S). Bins live inline in the `Pool` account with a 2-zone geometry: fine core steps near NAV, wide wings further out (QQQ: 20 bps core, 300 bps wings). The keeper re-pins the book base to NAV when drift exceeds a per-market gate (20 bps for the indices/metals, wider for higher-vol single names).
 
 Standing depth is deliberately lean - sized to organic demand, not TVL, because toxic-arb loss scales with deployed depth. Books converge to roughly \$5k of bids and ≤\$7.5k of asks per side.
 

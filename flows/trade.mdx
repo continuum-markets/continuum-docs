@@ -21,7 +21,7 @@ The frontend routes for you: book trade for instant fills, auto-switching to com
 
 ## Venue 1: instant book trade (`pool_swap`)
 
-Each market has one native CLMM pool **per side** - `(QQQ, long)` and `(QQQ, short)` are separate pools. The whole book lives inline in the `Pool` account (up to 16 bins, no per-bin rent): `asks` are synth reserves above the base price, `bids` are cUSDC reserves below it. The keeper re-pins `base_price` to NAV whenever drift exceeds a per-market gate (see [Book management](/keeper/book-management)).
+Each market has one native bin-book pool **per side** - `(QQQ, long)` and `(QQQ, short)` are separate pools. The whole book lives inline in the `Pool` account (up to 16 bins, no per-bin rent): `asks` are synth reserves above the base price, `bids` are cUSDC reserves below it. The keeper re-pins `base_price` to NAV whenever drift exceeds a per-market gate (see [Book management](/keeper/book-management)).
 
 Bin geometry is 2-zone: fine core steps near NAV (e.g. QQQ 20bps × 3 core bins), then wide wings (300bps steps) that keep quoting through off-hours drift. A swap walks the bins in order - **the output reflects real slippage**, enforced by your `min_out`.
 

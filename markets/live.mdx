@@ -3,7 +3,7 @@ title: Live markets
 description: Every Continuum market currently live on devnet - full pubkeys for mints, pools, oracles, vaults.
 ---
 
-Four markets are active on Solana devnet. Mainnet markets will be added when mainnet launches.
+Eight markets are active on Solana devnet (~$11.5M TVL). Mainnet markets will be added when mainnet launches.
 
 <Note>
   The cUSDC mint for all devnet markets is `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. On mainnet this will be real USDC.
@@ -21,8 +21,8 @@ Four markets are active on Solana devnet. Mainnet markets will be added when mai
 | **Collateral vault** (unified — shared by all markets) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
 | **CLP PDA** | `EEDKqU3C4wgWQBcgFagHTqEAjKNMCV4eVYyaUt9swKHc` |
 | **CLP vault** | `8Doh7uAU95RkqZDx66C1643Q8xJeg4T8eYKMak6ac1En` |
-| **Long pool (native CLMM)** | `DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr` |
-| **Short pool (native CLMM)** | `HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB` |
+| **Long pool (native bin book)** | `DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr` |
+| **Short pool (native bin book)** | `HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB` |
 | **Initial L price** | 480.00 |
 | **Initial S price** | 1.00 (constant-product anchor) |
 | **OI cap** | 250,000,000 cUSDC |
@@ -39,8 +39,8 @@ Four markets are active on Solana devnet. Mainnet markets will be added when mai
 | **Collateral vault** (unified — shared by all markets) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
 | **CLP PDA** | `F4eAvoAd2tUnpDz7dSqj2d4eCBzHLHYTvPmiwHNe1nnX` |
 | **CLP vault** | `J5cj2Ba1bMsgK4qk2uis6asL6hUSwAd53kYepteBG94B` |
-| **Long pool (native CLMM)** | `4UZmmZYrRfffQmjq2iEaNgkit72s8VS5cnhK5GeuKSt8` |
-| **Short pool (native CLMM)** | `4JoXbxzAAeAWsQgTYXgWAvRqdR1RU2Tb3ywm2FNLKjAB` |
+| **Long pool (native bin book)** | `4UZmmZYrRfffQmjq2iEaNgkit72s8VS5cnhK5GeuKSt8` |
+| **Short pool (native bin book)** | `4JoXbxzAAeAWsQgTYXgWAvRqdR1RU2Tb3ywm2FNLKjAB` |
 | **Long position** | `FoW37DP2ocJEpKDerSYQBNJcDT9JPufnfGQY4N238VGy` |
 | **Short position** | `Gzwi7C3NVNtLYXgrRRbXWAU8Q3uPvMFLCmMNdsRmtEEr` |
 | **Initial L price** | 715.00 |
@@ -58,32 +58,86 @@ Four markets are active on Solana devnet. Mainnet markets will be added when mai
 | **Collateral vault** (unified — shared by all markets) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
 | **CLP PDA** | `DdUuCiNzv5A3XZJk5jj4vY8zGS1avcrcMu1MuR4J65BA` |
 | **CLP vault** | `C6X4VEBggnwdC6Ju5tBMm8wxRiFekRZQrWSeX5Ja2kVn` |
-| **Long pool (native CLMM)** | `2CXQobRBCxfhuh6Lq3PjQUPr1vgpLFcBBVVfjC42dVTU` |
-| **Short pool (native CLMM)** | `8vyYBMWAS98ZiLC5wC9F8nYgGBAmM2EbQgxgvMU9QxSD` |
+| **Long pool (native bin book)** | `2CXQobRBCxfhuh6Lq3PjQUPr1vgpLFcBBVVfjC42dVTU` |
+| **Short pool (native bin book)** | `8vyYBMWAS98ZiLC5wC9F8nYgGBAmM2EbQgxgvMU9QxSD` |
 | **Long position** | `3mBvXm49R9vkEgJUi1JGqGH7x5QVakUhVQgUmNEeVSLb` |
 | **Short position** | `CeZXvCeW8BUSAUEzurSPvUCUjRC6wmn4k3SLVGiLKm92` |
 | **Initial L price** | 4683.00 |
 | **OI cap** | 250,000,000 cUSDC |
 | **Pool fee tier** | 0.10% |
 
-## VXX - VIX Short-Term Futures ETN
+<Note>
+  ⚠️ VERIFY: XAU pool addresses disagree across sources — this page lists `2CXQ…dVTU` / `8vyY…QxSD`, [`/reference/addresses`](/reference/addresses) lists `5rEH…KmHL` / `CW8n…rLHT`, and `market-addresses.json` (under `venues.meteoraDlmm`) lists `Hea9…R9642` / `8RRm…y17G`. Confirm the live native bin-book XAU pools on-chain before integrating. Note also that the JSON tags XAU `primaryVenue: "meteoraDlmm"`, but the live venue is the native bin book.
+</Note>
+
+## XAG - Silver
 
 | | Address |
 |---|---|
-| **Market PDA** | `CkK5rTLKBHwo7NeRGrzjKUJAnKPrV2ko4UgbfBf788f6` |
-| **Long mint** (`VXXL`) | `9GAPZW9pE8jkwzupFDnheDU1X35kh7vUMQvBkDLRuQn8` |
-| **Short mint** (`VXXS`) | `3Dnogj7nRYKEVBfPaBVkGw1Zbj5j3Nhm7RtGSKJfssch` |
-| **Oracle config** | `GYiFbGPQnrB2WpecjaU9CvFHP5JneiZgqfh6JHLkXACA` |
-| **Collateral vault** (unified — shared by all markets) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
-| **CLP PDA** | `BW82gQyxpNYCX8UNoqyKN29ZKXiPXhqvie75rnCyDhfm` |
-| **CLP vault** | `Bx6hMqHuTN2XYJrzqNu5hgkzPbt3BUhosn4AUdepQ9fP` |
-| **Long pool (native CLMM)** | `5rEH7sYUS7kuqNiLZmCiQGwQLmQ1qqogRPavT9csKmHL` |
-| **Short pool (native CLMM)** | `CW8nvKYPi7xgRtimCk1Gj4Db6bbXdqXngdDMxDA6rLHT` |
-| **Long position** | `Cjt9Tp4UbykkUR4wTnZ8Z1wHQy46ts5buN6XHQqi6onw` |
-| **Short position** | `GvaK7mun6mSjRPuiB1jsfPdxFB3Xqv5n17LTdyTwQ47W` |
-| **Initial L price** | 29.07 |
-| **OI cap** | 250,000,000 cUSDC |
-| **Pool fee tier** | 0.10% |
+| **Market PDA** | `6vX3BNEbeem7xjiTKuMC9uMDD3hxPxo9fgM834BucH3n` |
+| **Long mint** (`XAGL`) | `VETzCeHk2mobTaUATNRBcokKE3x8YrcRyGx3Vsz4prr` |
+| **Short mint** (`XAGS`) | `DnHSia6WX5jYPnRkSTfu4GtbrTw2CAdLWKRmdMsWPHU3` |
+| **Oracle config** | `5wW4bJZ3vLtsGVDrfCuoAUBozzNgKDdp3urSRyERD6x3` |
+| **Hermes feed** | `Metal.XAG/USD` |
+| **Long pool (native bin book)** | `EVPrpQiPPXwDorKPrSop36WFg53wTujdGyFFb6j8VM9j` |
+| **Short pool (native bin book)** | `DsiYTmZcTSq3i4NfBfMFJBST7Kyess73yjVcRNJ8m5Fw` |
+| **Initial L price** | 64.84 |
+
+## NVDA - NVIDIA
+
+| | Address |
+|---|---|
+| **Market PDA** | `3dadTP1Wce1CBrwxhCXor4HanjioauS7Qey3TFtpriVb` |
+| **Long mint** (`NVDAL`) | `B8M3y6wHGFZidqYciVxGu27KYk2dLcqgBGNoUDXMVzNN` |
+| **Short mint** (`NVDAS`) | `6n525VkawSkm6h1HxisHCpRssdbmazb1Q9S3Bi2f9emL` |
+| **Oracle config** | `H3wyiSQg8BubRwEdRaHYCMVx4HMwtAYdjgqEfohJmSyd` |
+| **Hermes feed** | `Equity.US.NVDA/USD` (+ pre/post/overnight) |
+| **Long pool (native bin book)** | `6oBYXyw6bQqySqEEXdkYGtZxzBN2VXd8RR66sf9z7Wh4` |
+| **Short pool (native bin book)** | `8evyJuf3b6g3x8DHSXHjQYBvXFBHmyDEyycRpQ183mUn` |
+| **Initial L price** | 210.71 |
+
+## AAPL - Apple
+
+| | Address |
+|---|---|
+| **Market PDA** | `4ZunzWTX3XAhdhPvjsfFLaXXzZSgMD7CPr9moC1XKpSA` |
+| **Long mint** (`AAPLL`) | `7ofckkctk9wUpTn77zFv8t8yb3iBUSkuU3vmcXbaUboS` |
+| **Short mint** (`AAPLS`) | `438bLh6shsVHXoQwtaRP56zWuAsLJK1o2u6FyRe6crYV` |
+| **Oracle config** | `7YwnWSbwNxJhzKkt3WoAkJ7nxnzpcAFNBsQ7gyYgpEVe` |
+| **Hermes feed** | `Equity.US.AAPL/USD` |
+| **Long pool (native bin book)** | `DPFt4A1hGeaCWh8c8mVqT1JNG8vGUTqKsMejVmXVkfaE` |
+| **Short pool (native bin book)** | `6v9KZZY4uXaNHkmq2JSJHcbuntCCrXkCyrz8WZD3pGef` |
+| **Initial L price** | 298.17 |
+
+## OIL - Crude Oil (WTI)
+
+| | Address |
+|---|---|
+| **Market PDA** | `GfCCPnP6TkM5ykN6vfXSUpqt8nwqJFEXBpJp2hfaPPyZ` |
+| **Long mint** (`OILL`) | `HcCmSMfBdNh1XhphBKiDYb3Vk8dgCsYyuEBXiSDnY4Eh` |
+| **Short mint** (`OILS`) | `ADHvHu51SS5CiM9TTkDo3RGxkhgsShcywGzNEDndLBJ7` |
+| **Oracle config** | `GS6nnzH89YW95KT13wi4pBbNa5rGW12dvnKpQxpfxP3q` |
+| **Hermes feed** | `Commodities.USOILSPOT` (WTI continuous) |
+| **Long pool (native bin book)** | `Fsj1BwsJw5Corwdr41AvzQX6KiQTZuCBCPN8oZJsf5rY` |
+| **Short pool (native bin book)** | `7DMNg6Dk2DJce5HyPf51qatqpPmxmShuMHtJgkXY7T5J` |
+| **Initial L price** | 76.60 |
+
+## EUR - Euro (EUR/USD)
+
+| | Address |
+|---|---|
+| **Market PDA** | `CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR` |
+| **Long mint** (`EURL`) | `FLDQtZ2adGWTcawQh6jziufJejkexoPA2uYimQTqA8z9` |
+| **Short mint** (`EURS`) | `z5u5UYz5jWdbycMexwdYvkw56fLY1uvx5RZW3EtxRsM` |
+| **Oracle config** | `J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh` |
+| **Hermes feed** | `FX.EUR/USD` |
+| **Long pool (native bin book)** | `CSpjyN6YkFkhbLKux47pnw4KeWQAtWNgu6yBHTn7SsGe` |
+| **Short pool (native bin book)** | `8QJiubkx3xWxNGXrPSUjTsaTss6TcNBiMNT5xzrByZfp` |
+| **Initial L price** | 1.14746 |
+
+<Note>
+  The five markets above (added June 2026) route collateral through the **Global CLP** and currently use per-market collateral vaults pending migration onto the unified vault. All eight markets carry a 250,000,000 cUSDC OI cap and a 0.10% base fee.
+</Note>
 
 ## Global state
 
@@ -106,8 +160,14 @@ import addresses from "./market-addresses.json";
 const qqq = addresses.markets.QQQ;
 console.log(qqq.marketPDA);    // "F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5"
 console.log(qqq.longMint);     // ...
-console.log(qqq.liquidity.longPool); // ...
+// Pool addresses are nested under `liquidity.venues.<venue>` — there is no
+// top-level `liquidity.longPool` field.
+console.log(qqq.liquidity.venues.meteoraDlmm.longPool); // ...
 ```
+
+<Note>
+  ⚠️ VERIFY: In `market-addresses.json` the only populated venue key is `meteoraDlmm`, but the live trading venue is the **native bin book**. `primaryVenue` on QQQ/SPY/XAU still reads `meteoraDlmm` (legacy/unwound) and should be the native bin book per the live venue — confirm the venue and pool addresses on-chain before integrating.
+</Note>
 
 This file is keyed by cluster (devnet today; mainnet when launched).
 

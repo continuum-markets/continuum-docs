@@ -31,7 +31,11 @@ This is the canonical lookup table. Bookmark it.
 | QQQ | `E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ` | `BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG` |
 | SPY | `8mVLeXHpchLvt3WZRhRrAZYJ4oU3e2crVF1QEomgdDQ8` | `3n5x1QaXSSw5ysAK5zkMo1XSm52TwzTBK48RAfkeKJiu` |
 | XAU | `AoufiP54693dn9HKonVBn6W75tKe8eHq5ncTwjTz6i5c` | `9XjYivtQfhDitFJugsskP6LppL7JJzANWwc7kmybpd55` |
-| VXX | `9GAPZW9pE8jkwzupFDnheDU1X35kh7vUMQvBkDLRuQn8` | `3Dnogj7nRYKEVBfPaBVkGw1Zbj5j3Nhm7RtGSKJfssch` |
+| XAG | `VETzCeHk2mobTaUATNRBcokKE3x8YrcRyGx3Vsz4prr` | `DnHSia6WX5jYPnRkSTfu4GtbrTw2CAdLWKRmdMsWPHU3` |
+| NVDA | `B8M3y6wHGFZidqYciVxGu27KYk2dLcqgBGNoUDXMVzNN` | `6n525VkawSkm6h1HxisHCpRssdbmazb1Q9S3Bi2f9emL` |
+| AAPL | `7ofckkctk9wUpTn77zFv8t8yb3iBUSkuU3vmcXbaUboS` | `438bLh6shsVHXoQwtaRP56zWuAsLJK1o2u6FyRe6crYV` |
+| OIL | `HcCmSMfBdNh1XhphBKiDYb3Vk8dgCsYyuEBXiSDnY4Eh` | `ADHvHu51SS5CiM9TTkDo3RGxkhgsShcywGzNEDndLBJ7` |
+| EUR | `FLDQtZ2adGWTcawQh6jziufJejkexoPA2uYimQTqA8z9` | `z5u5UYz5jWdbycMexwdYvkw56fLY1uvx5RZW3EtxRsM` |
 
 ## Market PDAs
 
@@ -40,7 +44,11 @@ This is the canonical lookup table. Bookmark it.
 | QQQ | `F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5` |
 | SPY | `GT1XPJmWNxFukQXVxCmT6c9VdLdR6Da54aU9m9QGfd8b` |
 | XAU | `8HVoUTS3iNdKSCHhvhc2FNRnXjd7yHcEARD6mTFjem7b` |
-| VXX | `CkK5rTLKBHwo7NeRGrzjKUJAnKPrV2ko4UgbfBf788f6` |
+| XAG | `6vX3BNEbeem7xjiTKuMC9uMDD3hxPxo9fgM834BucH3n` |
+| NVDA | `3dadTP1Wce1CBrwxhCXor4HanjioauS7Qey3TFtpriVb` |
+| AAPL | `4ZunzWTX3XAhdhPvjsfFLaXXzZSgMD7CPr9moC1XKpSA` |
+| OIL | `GfCCPnP6TkM5ykN6vfXSUpqt8nwqJFEXBpJp2hfaPPyZ` |
+| EUR | `CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR` |
 
 Derivation: `findProgramAddressSync([Buffer.from("market"), Buffer.from(symbol)], mintRedeemProgram)`.
 
@@ -53,7 +61,11 @@ All markets share **one** physical cUSDC vault, owned by a global `CollateralAut
 | Unified collateral vault | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
 | `CollateralAuthority` PDA | `7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3` |
 
-Derivation: `findProgramAddressSync([Buffer.from("collateral_authority")], mintRedeemProgram)`; the vault is its cUSDC ATA. Every `Market.collateral_vault` field now points at this one account.
+Derivation: `findProgramAddressSync([Buffer.from("collateral_authority")], mintRedeemProgram)`; the vault is its cUSDC ATA. QQQ/SPY/XAU point at this one account.
+
+<Note>
+  The five markets added in June 2026 (XAG, NVDA, AAPL, OIL, EUR) currently use their own per-market collateral vaults and will be migrated onto the unified vault; their `total_collateral` ledger and isolation guarantees are unaffected either way.
+</Note>
 
 <Accordion title="Legacy per-market vaults (pre-unification, drained)">
 Before the unified-vault migration each market owned its own ATA. These are retained as `collateralVaultLegacy` in `market-addresses.json` but hold no balance:
@@ -63,7 +75,6 @@ Before the unified-vault migration each market owned its own ATA. These are reta
 | QQQ | `CGEMQpzitYvEnWE7sggqD4aBMpTmXhckQPYMhzhy9oJm` |
 | SPY | `DgL6UTux2gjRubznEnEQ1WprjajW5KYaegBEKgSncgPc` |
 | XAU | `2Z9W8e64czfRDu7DoJmZbhZGbm6W7ERuUnXS7iWzU2xx` |
-| VXX | `s7nNAEzhhP1nkahspsb5cWG8vZhPV4w1oNHrKwgvn6G` |
 </Accordion>
 
 ## CLP accounts
@@ -74,18 +85,23 @@ Before the unified-vault migration each market owned its own ATA. These are reta
 | QQQ Clp | `EEDKqU3C4wgWQBcgFagHTqEAjKNMCV4eVYyaUt9swKHc` | `8Doh7uAU95RkqZDx66C1643Q8xJeg4T8eYKMak6ac1En` |
 | SPY Clp | `F4eAvoAd2tUnpDz7dSqj2d4eCBzHLHYTvPmiwHNe1nnX` | `J5cj2Ba1bMsgK4qk2uis6asL6hUSwAd53kYepteBG94B` |
 | XAU Clp | `DdUuCiNzv5A3XZJk5jj4vY8zGS1avcrcMu1MuR4J65BA` | `C6X4VEBggnwdC6Ju5tBMm8wxRiFekRZQrWSeX5Ja2kVn` |
-| VXX Clp | `BW82gQyxpNYCX8UNoqyKN29ZKXiPXhqvie75rnCyDhfm` | `Bx6hMqHuTN2XYJrzqNu5hgkzPbt3BUhosn4AUdepQ9fP` |
+
+The five June-2026 markets (XAG, NVDA, AAPL, OIL, EUR) route through the **Global CLP** above and do not yet have a dedicated per-market `Clp` PDA.
 
 ## Oracle configs
 
 | Market | OracleConfig PDA | Pyth feed |
 |---|---|---|
-| QQQ | `7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1` | `8u6Bv99YnmTEr4R5fZ3UGdNjX2HeUbuZD82a52n2Dmuk` |
-| SPY | `CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE` | (multi-feed) |
-| XAU | `H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4` | (multi-feed) |
-| VXX | `GYiFbGPQnrB2WpecjaU9CvFHP5JneiZgqfh6JHLkXACA` | (multi-feed) |
+| QQQ | `7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1` | Equity.US.QQQ/USD (+ pre/post/overnight) |
+| SPY | `CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE` | Equity.US.SPY/USD (+ pre/post/overnight) |
+| XAU | `H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4` | Metal.XAU/USD |
+| XAG | `5wW4bJZ3vLtsGVDrfCuoAUBozzNgKDdp3urSRyERD6x3` | Metal.XAG/USD |
+| NVDA | `H3wyiSQg8BubRwEdRaHYCMVx4HMwtAYdjgqEfohJmSyd` | Equity.US.NVDA/USD (+ pre/post/overnight) |
+| AAPL | `7YwnWSbwNxJhzKkt3WoAkJ7nxnzpcAFNBsQ7gyYgpEVe` | Equity.US.AAPL/USD |
+| OIL | `GS6nnzH89YW95KT13wi4pBbNa5rGW12dvnKpQxpfxP3q` | Commodities.USOILSPOT (WTI) |
+| EUR | `J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh` | FX.EUR/USD |
 
-## Native CLMM book pools
+## Native bin book pools
 
 One `Pool` PDA per (market, side), seeds `[b"pool", market, side]` on the CLP program:
 
@@ -93,10 +109,18 @@ One `Pool` PDA per (market, side), seeds `[b"pool", market, side]` on the CLP pr
 |---|---|---|
 | QQQ | `DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr` | `HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB` |
 | SPY | `4UZmmZYrRfffQmjq2iEaNgkit72s8VS5cnhK5GeuKSt8` | `4JoXbxzAAeAWsQgTYXgWAvRqdR1RU2Tb3ywm2FNLKjAB` |
-| VXX | `2CXQobRBCxfhuh6Lq3PjQUPr1vgpLFcBBVVfjC42dVTU` | `8vyYBMWAS98ZiLC5wC9F8nYgGBAmM2EbQgxgvMU9QxSD` |
 | XAU | `5rEH7sYUS7kuqNiLZmCiQGwQLmQ1qqogRPavT9csKmHL` | `CW8nvKYPi7xgRtimCk1Gj4Db6bbXdqXngdDMxDA6rLHT` |
+| XAG | `EVPrpQiPPXwDorKPrSop36WFg53wTujdGyFFb6j8VM9j` | `DsiYTmZcTSq3i4NfBfMFJBST7Kyess73yjVcRNJ8m5Fw` |
+| NVDA | `6oBYXyw6bQqySqEEXdkYGtZxzBN2VXd8RR66sf9z7Wh4` | `8evyJuf3b6g3x8DHSXHjQYBvXFBHmyDEyycRpQ183mUn` |
+| AAPL | `DPFt4A1hGeaCWh8c8mVqT1JNG8vGUTqKsMejVmXVkfaE` | `6v9KZZY4uXaNHkmq2JSJHcbuntCCrXkCyrz8WZD3pGef` |
+| OIL | `Fsj1BwsJw5Corwdr41AvzQX6KiQTZuCBCPN8oZJsf5rY` | `7DMNg6Dk2DJce5HyPf51qatqpPmxmShuMHtJgkXY7T5J` |
+| EUR | `CSpjyN6YkFkhbLKux47pnw4KeWQAtWNgu6yBHTn7SsGe` | `8QJiubkx3xWxNGXrPSUjTsaTss6TcNBiMNT5xzrByZfp` |
 
 There is no swap fee on the books - the half-spread (empty inner bins) is the price of immediacy. Geometry is 2-zone: core 15-40bps near NAV, wings 250-600bps.
+
+<Note>
+  ⚠️ VERIFY: XAU pool addresses disagree across sources — this table lists `5rEH…KmHL` / `CW8n…rLHT`, [`/markets/live`](/markets/live) lists `2CXQ…dVTU` / `8vyY…QxSD`, and `market-addresses.json` (under `venues.meteoraDlmm`) lists `Hea9…R9642` / `8RRm…y17G`. Confirm the live native bin-book XAU pools on-chain before integrating.
+</Note>
 
 ## External program IDs
 
@@ -123,8 +147,14 @@ Always prefer reading from a registry or the protocol's bundled `frontend/lib/ma
 import addresses from "./market-addresses.json";
 
 const qqq = addresses.markets.QQQ;
-const longPool = qqq.liquidity.longPool;
+// Pool addresses are nested under `liquidity.venues.<venue>` — there is no
+// top-level `liquidity.longPool` field.
+const longPool = qqq.liquidity.venues.meteoraDlmm.longPool;
 ```
+
+<Note>
+  ⚠️ VERIFY: In `market-addresses.json` the only populated venue key is `meteoraDlmm`, but the live trading venue is the **native bin book** (see the pool tables above). The `primaryVenue` field on QQQ/SPY/XAU reads `meteoraDlmm` (a legacy/unwound venue) and should be the native bin book per the live venue — confirm on-chain before wiring pool addresses from this path.
+</Note>
 
 ## See also
 

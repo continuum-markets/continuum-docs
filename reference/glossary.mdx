@@ -39,7 +39,7 @@ description: Continuum-specific terms in one place.
 
 ## D - L
 
-**Drift gate (reposition gate)** - The per-market threshold (QQQ/SPY/XAU 20bps, VXX 40bps) a book's drift from NAV must exceed before the keeper re-pins it. Swept empirically to sit just below each market's toxic-arbitrage line.
+**Drift gate (reposition gate)** - The per-market threshold (20bps for indices/metals, wider for single names) a book's drift from NAV must exceed before the keeper re-pins it. Swept empirically to sit just below each market's toxic-arbitrage line.
 
 **Dynamic buffer** - The per-market overcollateralization target the keeper posts on-chain (`set_buffer_target`): `B = δ²/2 + |q|·δ + margin`, floor 102%. Replaces the old static 102%.
 
@@ -89,7 +89,7 @@ description: Continuum-specific terms in one place.
 
 **Paired** - As in `mint_paired` / `redeem_paired`. The user-facing entry where L and S are minted/burned at NAV-weighted values, not equal quantities.
 
-**Native book / CLMM pool** - Continuum's own per-side concentrated-liquidity book: one `Pool` account per (market, side), bins inline (max 16, no per-bin rent), filled by `pool_swap`. The instant-trade venue.
+**Native book / bin book** - Continuum's own per-side quote book: one `Pool` account per (market, side), bins inline (max 16, no per-bin rent), filled by `pool_swap`. The instant-trade venue. It is a **discrete-bin book**, not a concentrated-liquidity AMM - see [What the book actually is](/concepts/clp#what-the-book-actually-is). The `CLMM_*` keeper env vars and the `clmm.rs` module keep the older label for compatibility.
 
 **PDA** (Program Derived Address) - Solana's deterministic-pubkey-from-seeds primitive. Continuum has many: `Market`, `Clp`, `OracleConfig`, etc. → [PDA derivations](/build/idls-and-pdas#pda-derivation-cheatsheet).
 

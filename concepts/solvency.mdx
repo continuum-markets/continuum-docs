@@ -30,7 +30,7 @@ That profit has to clear the **fee hurdle**: 10 bps base fee each way plus tradi
 
 ### 1. Depth-capped books
 
-The instant venues never expose unlimited size at NAV. The CLMM books carry lean, demand-sized depth (~\$5k bids, ≤\$7.5k asks per side) with real slippage across bins - extraction per round-trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP - lean by design](/concepts/clp#lean-by-design).
+The instant venues never expose unlimited size at NAV. The bin books carry lean, demand-sized depth (~\$5k bids, ≤\$7.5k asks per side) with real slippage across bins - extraction per round-trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP - lean by design](/concepts/clp#lean-by-design).
 
 Committed orders are uncapped in size but fill at a price set *after* the commitment, so they offer no stale quote to extract against.
 
@@ -66,7 +66,7 @@ The convexity the protocol is short lives entirely in the short leg (`S_NAV = K/
 S_NAV = (K / P) × γ              γ ratchets down by realized per-cycle variance
 ```
 
-This **banks the choppiness-convexity the protocol bleeds as collateral surplus**. The r39 calibration shows the right decay (`Δγ/γ = σ²` per cycle) banks *exactly* the short-leg gamma on a choppy path. Crucially it charges **realized variance, not direction**: a smooth directional run barely moves γ (that payoff is in the untouchable long leg), so decay is the lever for the *variance* regime, while a directional single-name run still leans on the buffer, OI caps, and asset selection. Ratchet-down only, floored at γ = 0.5, off-chain gated by `CLMM_GAMMA_DECAY_ENABLED` (off until deployed). It is **not** a perp funding rate and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+This **banks the choppiness-convexity the protocol bleeds as collateral surplus**. The r39 calibration shows the right decay (`Δγ/γ = σ²` per cycle) banks *exactly* the short-leg gamma on a choppy path. Crucially it charges **realized variance, not direction**: a smooth directional run barely moves γ (that payoff is in the untouchable long leg), so decay is the lever for the *variance* regime, while a directional single-name run still leans on the buffer, OI caps, and asset selection. **Decay only charges realized variance (choppiness), not directional single-name drift** — so single-name solvency rests on the two-pool bin book + solvency buffer + OI cap, not on γ. Ratchet-down only, floored at γ = 0.5, off-chain gated by `CLMM_GAMMA_DECAY_ENABLED`, which **defaults ON** (solvency-critical; the kill switch is `CLMM_GAMMA_DECAY_ENABLED=false`). It is **not** a perp funding rate and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 
 ### 5. Re-anchoring (not built — settlement, not a trigger)
 

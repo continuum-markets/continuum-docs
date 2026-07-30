@@ -12,6 +12,8 @@ Continuum's price layer is simple by design: the keeper fetches **Pyth Hermes** 
 | **Devnet** | Pyth Hermes (HTTP) | Keeper pushes via `update_risk_state`; markets run in `ProxyMode` |
 | **Mainnet (planned)** | Pyth on-chain | Read directly; the keeper-push path remains as fallback |
 
+The `Normal`-mode on-chain Pyth read (the mainnet pricing path, used by every mint/redeem when `risk_state == Normal`) enforces its own freshness: it rejects a print older than `MAX_PYTH_AGE_SECS` (60s, via `get_price_no_older_than`) and one whose confidence half-width exceeds `MAX_PYTH_CONF_BPS` (2% of price), returning `OraclePriceUnavailable`. A halted or wide feed therefore fails closed instead of pricing against a stale mark. (Devnet never exercises this path — it runs `ProxyMode`, below.)
+
 On devnet, Hermes is **the** oracle - not a fallback. Pyth's on-chain devnet accounts for RWA feeds are unreliable (stale, sometimes empty), so they are not consulted at all. That is exactly what `ProxyMode` means: the program prices off the keeper-relayed `user_twap_price` instead of an on-chain Pyth account. All devnet markets run in `ProxyMode` permanently.
 
 <Warning>
@@ -50,7 +52,7 @@ underlying closes
 While frozen:
 
 - **Mint and redeem reject** (`OraclePriceUnavailable`) - nothing prices off a dead oracle.
-- **The CLMM books keep trading** inside their standing band - off-hours price discovery within the last posted spread.
+- **The bin books keep trading** inside their standing band - off-hours price discovery within the last posted spread.
 - **Committed orders cannot settle** (settlement requires an oracle print strictly after the commit); after the 180 s TTL, `cancel_swap` refunds unconditionally.
 - At reopen, the first fresh print re-anchors NAV and the keeper re-pins the books.
 

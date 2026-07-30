@@ -14,7 +14,7 @@ Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#marke
 | State | Meaning | User mint | User redeem | Mint price |
 |---|---|---|---|---|
 | `Normal` | Pyth-direct steady state (mainnet) | ✅ | ✅ | NAV + 1× confidence markup |
-| `ProxyMode` | Pricing off keeper-relayed TWAP (devnet default) | ✅ | ✅ | NAV + 2× confidence markup |
+| `ProxyMode` | Pricing off keeper-relayed TWAP (devnet default) | ✅ | ✅ | NAV + 1.5× confidence markup |
 | `Stress` | Oracle unreliable - defensive | ❌ `MintNotAllowedInStress` | ✅ | n/a |
 | `Recovery` | Post-stress wind-down | ✅ (size-throttled) | ✅ | NAV + 1× confidence markup |
 
@@ -41,7 +41,7 @@ underlying closes
 This is program-enforced - no keeper action is required for the freeze, and no keeper action can bypass it. While frozen:
 
 - **Mint and redeem reject.** Nothing prices off a frozen NAV.
-- **The CLMM books keep trading** inside the last posted band. Off-hours price discovery happens here.
+- **The bin books keep trading** inside the last posted band. Off-hours price discovery happens here.
 - **Committed orders cannot settle** (no post-commit oracle print exists); `cancel_swap` refunds unconditionally after the 180 s TTL.
 - At reopen, the first fresh print re-anchors NAV; the keeper re-pins the books.
 
@@ -51,7 +51,7 @@ If you only check one thing before submitting a mint or redeem, check `market.tw
 
 ### `ProxyMode` (devnet default)
 
-Operate normally. Quotes carry a 2× confidence markup on mint - usually a few bps. If you're a bot, note that NAV freshness is bounded by the keeper's ~15 s push cadence.
+Operate normally. Quotes carry a 1.5× confidence markup on mint - usually a few bps. If you're a bot, note that NAV freshness is bounded by the keeper's ~15 s push cadence.
 
 ### `Stress`
 
@@ -72,7 +72,7 @@ mint_price = NAV × (1 + state_mult × confidence_bps / 10_000)
 | State | `state_mult` (default) |
 |---|---|
 | `Normal` | 1× |
-| `ProxyMode` | 2× |
+| `ProxyMode` | 1.5× |
 | `Stress` | n/a (blocked) |
 | `Recovery` | 1× |
 

@@ -1,6 +1,6 @@
 ---
 title: Book management
-description: How the keeper shapes, pins, refills, and trims the native CLMM books.
+description: How the keeper shapes, pins, refills, and trims the native bin books.
 ---
 
 Each market has two books - one per synth side - living entirely inside a `Pool` account (up to 16 inline bins, no per-bin rent). The keeper's book manager keeps every book pinned to NAV with a shape derived from live volatility. Because the protocol is the sole LP and the keeper repositions before external arbitrage can profit, the reposition itself captures what an arber would otherwise take.
@@ -10,7 +10,7 @@ Each market has two books - one per synth side - living entirely inside a `Pool`
 Every 30s, per (market, side):
 
 1. **Feed the vol state.** One NAV sample per cycle goes into the spread engine - the same series the oracle pushes. At boot the state seeds from 60 days of Pyth Benchmarks history, so floors are warm from the first cycle even right after a deploy.
-2. **Check the drift gate.** The book only re-pins when `|NAV - base| >=` the per-market gate - QQQ/SPY/XAU 20bps, VXX 40bps. The gates were swept empirically: the optimum sits just below each market's toxic-arbitrage line (first funded bin plus the paired-arb fee hurdle). Tighter gates burn transactions repositioning a book nobody can exploit; looser gates donate depth.
+2. **Check the drift gate.** The book only re-pins when `|NAV - base| >=` the per-market gate - 20bps for indices/metals, 25–30bps for single names. The gates were swept empirically: the optimum sits just below each market's toxic-arbitrage line (first funded bin plus the paired-arb fee hurdle). Tighter gates burn transactions repositioning a book nobody can exploit; looser gates donate depth.
 3. **Compute the shape.** Half-spread = the model-free stack (realized-q90 ratchet, slow auto-floor, oracle confidence, static floor - see [the keeper concept page](/concepts/keeper)). The inner `round(half_spread / step)` bins stay empty; remaining liquidity distributes geometrically outward. The **protective skew** then widens the trend-adverse side only - in an uptrend the asks move out (don't sell cheap into a rally) while the bids never tighten below the symmetric shape. The short book mirrors automatically: its own price series is `K / L`, so its skew signal flips sign.
 4. **Post it.** `set_pool_shape(base = NAV, asks, bids)` - sums are validated against the pool's vault balances on-chain.
 

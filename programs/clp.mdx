@@ -1,6 +1,6 @@
 ---
 title: clp
-description: Continuous Liquidity Provider - the protocol's vaults, native CLMM pools, and the v2 swap venues.
+description: Continuous Liquidity Provider - the protocol's vaults, native bin-book pools, and the v2 swap venues.
 ---
 
 The CLP program is Continuum's treasury and market maker. It holds protocol LP capital, runs the v2 trading venues - native concentrated-liquidity pools for instant swaps and a commit-then-settle path for size - and mints/redeems its own L+S inventory via CPI into mint-redeem. Per-market `Clp` PDAs hold inventory budgets, the OI cap, and swap-guard state. A single `GlobalClp` PDA tracks total deposits and routes capital to per-market vaults.
@@ -149,9 +149,9 @@ Rolling 24h cap state for `admin_withdraw`: `window_start_at`, `cumulative_in_wi
 
 #### `pool_swap(direction: u8, amount_in: u64, min_out: u64)`
 
-Swap against a pool's bin book. `direction`: 0 = buy synth (pay cUSDC), 1 = sell synth (receive cUSDC). The handler walks the bins - buys consume ask bins upward from `base·r`, sells consume bid bins downward from `base/r` - decrementing reserves in place so the stored book always matches the vault balances. Partial fills round in the pool's favor. Rejects with `SwapDisabled` if the pool is disabled or frozen, `SlippageExceeded` if output < `min_out`, and `InsufficientFunds` on an empty book.
+Swap against a pool's bin book. `direction`: 0 = buy synth (pay cUSDC), 1 = sell synth (receive cUSDC). The handler walks the bins - buys consume ask bins upward from `base·r`, sells consume bid bins downward from `base/r` - decrementing reserves in place so the stored book always matches the vault balances. Partial fills round in the pool's favor. Rejects with `SwapDisabled` if the pool is disabled or frozen, `SlippageExceeded` if output < `min_out`, and `InsufficientFunds` on an empty book. The swap's cUSDC notional is also charged against the CLP's rolling-window cap (`swap_guards.window_cap_usd`; `0` = uncapped), so it can't drain the venue faster than the configured budget.
 
-Accounts: `user` (signer), `user_usdc`, `user_synth`, `pool`, `synth_vault`, `usdc_vault`, token program. The pool PDA signs the outbound transfer.
+Accounts: `user` (signer), `user_usdc`, `user_synth`, `pool`, `clp` (per-market CLP PDA, seeds `[b"clp", pool.market]` — carries the swap-guard + window-cap state), `synth_vault`, `usdc_vault`, token program. The pool PDA signs the outbound transfer. **The `clp` account is required** (added for the notional cap); a client that omits it fails account resolution.
 
 #### `clp_swap(side: u8, direction: u8, amount_in: u64, min_out: u64)`
 
