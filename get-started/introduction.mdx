@@ -5,7 +5,7 @@ description: Continuum is a Solana-native protocol for 24/7 synthetic exposure t
 
 Continuum is a Solana protocol for **24/7 synthetic exposure to real-world assets** - equities, indices, commodities, FX. You deposit USDC, you get paired long and short tokens that track the asset's NAV. Sell either side on a DEX, hold to maturity, or redeem the pair back to USDC at any time.
 
-It is not a perp DEX, not a margin platform, not a wrapped-asset protocol. There are no funding rates, no liquidations, no leverage. The position **is** an SPL token.
+It is not a perp DEX, not a margin platform, not a wrapped-asset protocol. There is no funding rate, no liquidations, no leverage. The position **is** an SPL token. (The short leg does carry a [volatility decay](/concepts/nav#volatility-decay) in place of funding — driven by realized volatility, not by positioning. Longs carry no holding cost.)
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
@@ -71,7 +71,7 @@ See [Solvency invariants](/concepts/solvency) for the complete list.
 
 Continuum deliberately omits things you might expect from a perp DEX:
 
-- **No funding rate.** The constant-product NAV invariant bounds pair value naturally; no one needs to drain holders of the popular side.
+- **No funding rate.** The constant-product NAV invariant bounds pair value naturally; no one needs to drain holders of the popular side. The short leg instead carries a [volatility decay](/concepts/nav#volatility-decay) that charges realized volatility rather than positioning, and never touches longs.
 - **No liquidations.** A paired position cannot become under-collateralized.
 - **No leverage.** Mint cost equals NAV × pair count. Pre-paid in full.
 - **In-house venues.** Trading happens on Continuum's own per-side bin books and the committed-order path - no external AMM dependency, no LP positions to manage on someone else's protocol.

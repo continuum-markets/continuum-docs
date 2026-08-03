@@ -97,7 +97,7 @@ Things that compile but are off:
 ## What's explicitly NOT planned
 
 - **Crypto markets.** Use a real perp DEX.
-- **Funding rate.** The constant-product NAV invariant replaces it.
+- **Funding rate.** The constant-product NAV invariant replaces it for positioning; the short leg's [volatility decay](/concepts/nav#volatility-decay) covers the pair's convexity.
 - **Liquidations.** Paired positions are pre-paid.
 - **Margin / leverage.** Synthetic leverage via external borrowing is fine; native leverage is out of scope.
 - **In-house AMM.** Shipped in v2: native per-side bin books + committed orders are the live trading venue.

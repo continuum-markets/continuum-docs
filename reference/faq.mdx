@@ -9,7 +9,7 @@ A Solana protocol for **24/7 synthetic exposure to real-world assets**. Deposit 
 
 ## Is it like a perp DEX?
 
-No. Perp DEXs use funding rates, margin, and liquidations. Continuum has none of these - positions are pre-paid SPL tokens, the long/short pair has a constant-product NAV invariant that bounds combined value, and there's no leverage. The position **is** an SPL token; you can transfer it, deposit it elsewhere, or redeem it.
+No. Perp DEXs use funding rates, margin, and liquidations. Continuum has none of these - positions are pre-paid SPL tokens (the short leg carries a volatility decay in place of funding, charged on realized volatility rather than positioning), the long/short pair has a constant-product NAV invariant that bounds combined value, and there's no leverage. The position **is** an SPL token; you can transfer it, deposit it elsewhere, or redeem it.
 
 ## What's the difference between long and short tokens?
 
@@ -39,6 +39,8 @@ The protocol enforces **paired mint and redeem** for solvency. Once paired token
 ## Why no funding rate?
 
 The constant-product NAV invariant `L_NAV × S_NAV = initial_l × initial_s` does what funding does in a perp DEX - it redistributes value between holders of the popular vs unpopular side. As `L_NAV` rises, `S_NAV` falls reciprocally. Combined pair value stays bounded. There's nothing extra to redistribute.
+
+That rules out *positioning-driven* funding: you are never charged for being on the crowded side. It does not mean holding is free on both legs. The short leg carries a [volatility decay](/concepts/nav#volatility-decay) (the γ index), which pays for the convexity a long/short pair is exposed to. It differs from a perp funding rate in that it tracks **realized volatility rather than positioning**, only ever moves one way (it can never credit a holder), and **never touches the long leg**.
 
 ## How does the price stay anchored to NAV on the pool?
 

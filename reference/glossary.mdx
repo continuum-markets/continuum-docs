@@ -31,7 +31,7 @@ description: Continuum-specific terms in one place.
 
 **Confidence interval** - Pyth's published uncertainty around the price. Continuum uses it for worst-case quoting markup in non-Normal risk states.
 
-**Constant-product invariant** - `L_NAV × S_NAV = initial_l × initial_s`. The relationship that bounds combined pair value and replaces funding rates.
+**Constant-product invariant** - `L_NAV × S_NAV = initial_l × initial_s`. The relationship that bounds combined pair value and removes the need for positioning-driven funding. (Convexity is charged separately, by the short leg's volatility decay.)
 
 **Committed order** - The large-trade venue: `commit_swap` escrows the input, the fill executes at the *first oracle print after the commitment* at NAV ± 10bps. No size cap - a price set after the commitment has no stale quote to arb. Unfilled orders refund unconditionally after the 180s TTL. → [Trade flow](/flows/trade).
 

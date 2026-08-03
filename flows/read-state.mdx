@@ -73,7 +73,7 @@ For UIs showing every market, use one `getMultipleAccountsInfo` call:
 import { unpackAccount } from "@solana/spl-token";
 
 // Build the list of market PDAs from your registry / market-addresses.json
-const symbols = ["QQQ", "SPY", "XAU", "VXX"];
+const symbols = ["QQQ", "SPY", "XAU", "XAG", "NVDA", "AAPL", "OIL", "EUR"];
 const marketPDAs = symbols.map(s =>
   PublicKey.findProgramAddressSync(
     [Buffer.from("market"), Buffer.from(s)],

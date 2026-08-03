@@ -85,7 +85,7 @@ Base mint and redeem fees are **10 bps** each. The keeper posts vol-informed upd
 
 The split: `dev_tax_pct` (default 10%) of each fee goes to the `fee_recipient`'s cUSDC account; the remaining ~90% stays in the collateral vault as extra backing. Retained fees are real collateral and count toward `total_collateral`.
 
-## TWAP freshness gate
+## Price freshness gate
 
 In any non-Normal risk state (all devnet markets run in `ProxyMode`), pricing comes from the keeper-relayed `market.user_twap_price`. Every ratio- or price-dependent instruction - `mint_paired`, `redeem_paired`, the keeper single-side paths, donations, excess withdrawals, rebalances - rejects with `TwapNotAvailable` when `twap_updated_at` is older than `MAX_TWAP_AGE_SECS = 300` (5 minutes). A delayed keeper can't be quoted against a stale price.
 
@@ -146,7 +146,7 @@ Mirror of `keeper_redeem_single` for the CLP's own inventory: burns from CLP-PDA
 
 #### `update_risk_state(new_state, user_twap_price, oracle_confidence)`
 
-The hot path: mirrors oracle health into `risk_state` and writes the TWAP + confidence the whole program prices against. Two hard bounds protect against a compromised keeper key: the TWAP may move at most 25% per call, and `Stress` can only de-escalate through `Recovery` (where the fee multiplier unwinds over an hour) - never jump straight to `Normal`.
+The hot path: mirrors oracle health into `risk_state` and writes the spot price + confidence the whole program prices against. Two hard bounds protect against a compromised keeper key: the price may move at most 25% per call (`MAX_TWAP_MOVE_BPS`), and `Stress` can only de-escalate through `Recovery` (where the fee multiplier unwinds over an hour) - never jump straight to `Normal`.
 
 #### `set_buffer_target(buffer_target_bps: u16)`
 
@@ -154,7 +154,7 @@ Posts the market's **dynamic overcollateralization buffer** - the per-market sol
 
 #### `set_s_gamma_index(s_gamma_index: u64)`
 
-Posts the **short-leg volatility-decay scalar** γ (1e9 fixed). The keeper ratchets it down by realized per-cycle variance, marking `S_NAV` down to bank choppiness-convexity as collateral surplus. On-chain it **rejects any value above the current γ** (ratchet-down only — see `GammaMustRatchetDown`) and clamps to a `0.5` floor. Gated off-chain by `CLMM_GAMMA_DECAY_ENABLED` (default off). Does not touch the long leg. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+Posts the **short-leg volatility-decay scalar** γ (1e9 fixed). The keeper ratchets it down by realized per-cycle variance, marking `S_NAV` down to bank choppiness-convexity as collateral surplus. On-chain it **rejects any value above the current γ** (ratchet-down only — see `GammaMustRatchetDown`) and clamps to a `0.5` floor. Gated off-chain by `CLMM_GAMMA_DECAY_ENABLED` (default **on** as of June 2026 — it's solvency-critical; set `=false` to disable). Does not touch the long leg. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 
 #### `rebalance_collateral(amount: u64)`
 
@@ -168,7 +168,9 @@ Move idle collateral to an external lending venue and back. Deployment is capped
 
 Routes net interest from a yield recall to the CLP vault as protocol revenue. Principal returns via `recall_collateral_from_yield`; this instruction forwards only the earned spread and advances `total_yield_harvested`.
 
-### Admin (signer = `market.authority`)
+#### `mark_yield_impairment(amount: u64)` (admin)
+
+Realizes a loss on collateral deployed to a lending venue. `recall_collateral_from_yield` only decrements `deployed_to_yield` by what physically returns and never touches `total_collateral`, so if a venue freezes or loses principal the vault would keep reporting phantom backing — early redeemers exit at par while stragglers eat the loss. This instruction decrements **both** `deployed_to_yield` and `total_collateral` by `amount` (must be ≤ `deployed_to_yield`, else `RecallExceedsDeployed`), so the pro-rata redeem haircut then measures true CR and socializes the loss across all holders. Gated on `market.authority` (a governance action; it can only ever reduce reported backing, never inflate it). No token movement — a pure ledger correction.
 
 #### `initialize_market(asset_symbol, oracle_type, initial_l_price, initial_s_price, mint_fee_bps, redeem_fee_bps, keeper_authority)`
 

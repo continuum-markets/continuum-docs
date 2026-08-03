@@ -63,8 +63,10 @@ The reference scripts live in [`scripts/`](https://github.com/continuum-markets/
     | Asset class | Core step | Core bins | Wings | Spread floor (`min_bps`) |
     |---|---|---|---|---|
     | Index ETF (QQQ, SPY) | 15-20bps | 3 | 250-300bps | 15-18bps |
-    | Volatility / high-vol (VXX) | 40bps | 2 | 600bps | 40bps |
-    | High-growth single name (NVDA) | 40bps | 2 | 600bps | ~2x the asset's 5-min sigma |
+    | Metal (XAU, XAG) | 20bps | 3 | 300bps | ~20bps |
+    | Single name (NVDA, AAPL) | 25-30bps | 3 | 400-450bps | ~2x the asset's 5-min sigma |
+    | Commodity (OIL/WTI) | 25bps | 3 | 400bps | ~2x the asset's 5-min sigma |
+    | Forex (EUR/USD) | 10bps | 3 | 200bps | ~10bps |
 
     The rule of thumb is empirical: the static floor should start at roughly **2x the asset's 5-minute volatility** - the keeper's slow auto-floor self-corrects it from live data within days, so err high. No model training is required for any listing: the spread engine runs on the realized ratchet and floors alone.
   </Step>

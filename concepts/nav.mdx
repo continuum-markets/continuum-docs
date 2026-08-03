@@ -21,7 +21,7 @@ For QQQ at launch: `initial_l_price = 480, initial_s_price = 1`. So if `L_NAV = 
 The relationship `L_NAV × S_NAV = initial_l × initial_s` is invariant by construction. This produces several useful properties:
 
 1. **Pair value is bounded.** `L_NAV + S_NAV` is minimized at `L_NAV = S_NAV = √(initial_l × initial_s)` (the geometric mean) and grows as either side moves away. There is no scenario where the pair value collapses to zero.
-2. **No funding rate needed.** In a perp DEX, funding redistributes from longs to shorts (or vice versa) when one side is over-popular. Continuum doesn't need this - the constant-product NAV does the redistribution **automatically** through reciprocal NAV movement. If everyone holds L, S becomes cheap, and any new mint on the popular side is dilutive in NAV terms.
+2. **No funding rate needed.** In a perp DEX, funding redistributes from longs to shorts (or vice versa) when one side is over-popular. Continuum doesn't need this - the constant-product NAV does the redistribution **automatically** through reciprocal NAV movement. If everyone holds L, S becomes cheap, and any new mint on the popular side is dilutive in NAV terms. This removes *positioning-driven* funding specifically; the short leg still carries a [volatility decay](#volatility-decay) for the pair's convexity.
 3. **Short side can never go negative.** As `L_NAV → ∞`, `S_NAV → 0`. A holder of S can lose 100% of their position but never owe more.
 4. **Long side has unbounded upside.** No cliff, no liquidation; if the underlying 100xs, the L side 100xs.
 

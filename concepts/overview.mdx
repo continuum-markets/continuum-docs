@@ -109,7 +109,7 @@ The user's transaction is independent of the keeper - the keeper is never in the
 
 | Question | Answer |
 |---|---|
-| Why no funding rate? | The constant-product NAV invariant `L_NAV × S_NAV = K` bounds combined pair value. Gains on one side mirror losses on the other. There's nothing to redistribute. |
+| Why no funding rate? | The constant-product NAV invariant `L_NAV × S_NAV = K` bounds combined pair value. Gains on one side mirror losses on the other. There's nothing to redistribute by positioning. The short leg does carry a [volatility decay](/concepts/nav#volatility-decay) for the pair's convexity; longs carry nothing. |
 | Why no liquidations? | A paired position prepays full collateral. There is no margin to call. |
 | Why three venues? | Each venue is optimal for a different trade. Instant small trades get an on-chain book with real slippage; large trades get an uncapped NAV ± 10 bps fill that cannot be latency-arbed; the oracle swap covers small instant flow with breakers. Splitting them lets each be priced for its own adverse-selection profile. |
 | Why is committed-order spread (10 bps) thinner than instant (30 bps)? | A price set strictly after the commitment carries zero adverse selection - there is nothing to select against, so the venue can quote tighter. |

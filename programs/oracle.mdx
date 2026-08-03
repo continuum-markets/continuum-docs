@@ -84,7 +84,7 @@ The hot path. Keeper calls every ~15s with the latest Pyth/Hermes price + confid
 3. Rejects if confidence > `max_confidence_interval` (`ConfidenceTooHigh`).
 4. Pushes observation into the ring buffer.
 5. Updates `last_price`, `last_confidence`, `last_update_time`.
-6. Recomputes `user_twap`, `keeper_twap`.
+6. Recomputes `keeper_twap` (which backs `recent_volatility_bps`) and writes the latest **spot** price into `user_twap.last_twap` — the user-side 300s average was removed (the lag-arb a lagging average creates exceeds the single-print manipulation it blunts, which the depth cap already bounds).
 7. Updates `recent_volatility_bps`.
 8. Writes `user_twap.last_twap` to the bound `Market.user_twap_price` (CPI).
 
@@ -92,7 +92,7 @@ The hot path. Keeper calls every ~15s with the latest Pyth/Hermes price + confid
 
 #### `configure_twap_windows(keeper_window_seconds, user_window_seconds)`
 
-Defaults are 60s and 300s respectively. Adjust per market based on volatility.
+Sets the keeper window (default 60s) that feeds `recent_volatility_bps`. The user window is **vestigial** — the user side now carries spot, not an average — so `user_window_seconds` no longer affects pricing.
 
 #### `configure_health_thresholds`
 
@@ -110,12 +110,12 @@ Clear `recent_volatility_bps` (used after large legitimate move that should not 
 
 These instructions don't write - they're convenient CPI-callable helpers if your own program needs to query oracle state without account-fetching.
 
-- `get_keeper_twap` - returns the keeper-window TWAP.
-- `get_user_twap` - returns the user-window TWAP.
+- `get_keeper_twap` - deprecated; always errors (`keeper_twap` is read off the account directly).
+- `get_user_twap` - returns the user-side quoting price (now **spot**; the TWAP was removed).
 - `get_market_state` - returns `MarketState` enum.
 - `get_oracle_health` - returns a struct combining staleness, confidence, state.
 - `get_price` - returns most-recent observation.
-- `get_user_price` / `get_keeper_price` - TWAP-based price for the right window.
+- `get_user_price` - the user-side **spot** price; `get_keeper_price` - the keeper-window TWAP (still live for volatility).
 
 In practice you can also just `account.fetch(oracleConfig)` and read fields directly. The CPI helpers exist for programs that want to enforce on-chain price consistency.
 

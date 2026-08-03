@@ -47,8 +47,9 @@ CLP_AUTHORITY_KEYPAIR=keeper/key/keeper-keypair.json
 DEVNET_USDC_MINT=B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE
 MAINNET_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 
-# Active markets
-ACTIVE_MARKETS=QQQ,SPY,XAU,VXX
+# Active markets — OPTIONAL. Leave unset and the keeper discovers every on-chain
+# Market with is_active=true (the source of truth). Set it only to pin a subset.
+# ACTIVE_MARKETS=QQQ,SPY,XAU,XAG,NVDA,AAPL,OIL,EUR
 
 # Logging
 RUST_LOG=continuum_keeper=info
@@ -68,6 +69,7 @@ Every keeper behavior is an independent task behind an env gate, so any loop can
 | `CLMM_FEE_SCALE_ENABLED` | Vol-informed mint/redeem fee posting |
 | `CLMM_COMMIT_SPREAD_ENABLED` | Vol-scaled committed-order spread posting (`settle_swap` floors it at 10bps) |
 | `COMMIT_SETTLE_ENABLED` | The committed-order settlement cranker |
+| `CLMM_GAMMA_DECAY_ENABLED` | Post the short-leg volatility decay (`set_s_gamma_index`). Default **on** since June 2026 (solvency-critical) — the ix is deployed and live; **no Market realloc is needed** (`s_gamma_index` is already present at 0 = 1.0). Set `=false` to disable |
 | `DEVNET_YIELD_EMULATION` | Devnet yield emulator (hard devnet-only gate in code) |
 
 Off by default (opt-in):
@@ -76,14 +78,13 @@ Off by default (opt-in):
 |---|---|
 | `COLLATERAL_YIELD_ENABLED` | Deploy idle collateral to lending venues at all (default **off**) |
 | `COLLATERAL_YIELD_RATE_AWARE` | Use the rate-impact "water-fill" allocator that splits across venues to equalize marginal rates (default **on**, only acts when yield is enabled and ≥2 venues report TVL) |
-| `CLMM_GAMMA_DECAY_ENABLED` | Post the short-leg volatility decay (`set_s_gamma_index`); default **off** until the on-chain ix is deployed + Markets realloc'd |
 | `GAMMA_DECAY_COEF` | Multiplier on the per-cycle decay; default `1.0` = the r39-calibrated value (decay = realized variance) |
 
 ### Tunables
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CLMM_REPOSITION_BPS` / `CLMM_REPOSITION_BPS_<SYM>` | 20 (VXX 40) | Drift gate before a book re-pins to NAV |
+| `CLMM_REPOSITION_BPS` / `CLMM_REPOSITION_BPS_<SYM>` | 20 (per-market, e.g. EUR 10, NVDA 30) | Drift gate before a book re-pins to NAV |
 | `CLMM_BID_TARGET_USD` | 5000 | Standing bid cUSDC per side; excess sweeps to the CLP vault (idle bids forgo lending carry) |
 | `CLMM_TRIM_RATIO` | 1.5 | Max ask value as a multiple of bid value; excess synth sweeps back to CLP custody |
 | `COMMIT_SETTLE_INTERVAL_SECS` | 20 | Settler cadence when idle (drops to 5s while orders are pending) |
