@@ -143,7 +143,7 @@ console.log(sim.value.logs);
 
 ### "User mint failed with `OraclePriceUnavailable`"
 
-→ Oracle is `Paused` or stale beyond threshold. Likely the keeper is down or restarting. Wait 30 seconds, retry. If persistent, check the [Discord #status channel](https://discord.gg/U5hPCB8ufJ).
+→ The oracle is `Paused` or its price is stale. If the underlying market is closed (nights and weekends for equities), this is expected: mint and redeem pause until it reopens, and the books keep trading. Otherwise the keeper is probably down or restarting. Wait 30 seconds and retry. If it persists, check #announcements on [Discord](https://discord.gg/U5hPCB8ufJ), where the team posts outages, or ask in #help.
 
 ### "Mint failed with `MintNotAllowedInStress`"
 
