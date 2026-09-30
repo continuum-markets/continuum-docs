@@ -118,9 +118,9 @@
           "icon": "discord"
         },
         {
-          "anchor": "Twitter",
-          "href": "https://twitter.com/ContinuumMkts",
-          "icon": "twitter"
+          "anchor": "X",
+          "href": "https://x.com/ContinuumMkts",
+          "icon": "x-twitter"
         }
       ]
     }
@@ -139,7 +139,7 @@
   },
   "footer": {
     "socials": {
-      "x": "https://twitter.com/ContinuumMkts",
+      "x": "https://x.com/ContinuumMkts",
       "discord": "https://discord.gg/U5hPCB8ufJ"
     }
   }
