@@ -9,6 +9,13 @@
     "dark": "#5B21B6"
   },
   "favicon": "/logo/favicon.webp",
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_nT3W7YNT9oxBtiFEeVfNitrFALx2WdVwFiBHiAqVFCkf",
+      "apiHost": "https://continuum.markets/ingest",
+      "sessionRecording": true
+    }
+  },
   "logo": {
     "light": "/logo/light.webp",
     "dark": "/logo/dark.webp"
