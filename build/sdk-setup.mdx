@@ -182,12 +182,6 @@ const IDL_BASE =
 
 for (const name of ["mint_redeem", "clp", "faucet"]) {
   const idl = await (await fetch(`${IDL_BASE}/${name}.json`)).json();
-  if (name === "mint_redeem") {
-    // initialize_market's market seed names an argument that now sits inside
-    // `params`, which the Anchor importer rejects. Drop that seed definition.
-    const ix = idl.instructions.find((i: any) => i.name === "initialize_market");
-    delete ix.accounts.find((a: any) => a.name === "market").pda;
-  }
   await createFromRoot(rootNodeFromAnchor(idl)).accept(
     renderVisitor(".", { generatedFolder: `src/generated/${name}` }),
   );

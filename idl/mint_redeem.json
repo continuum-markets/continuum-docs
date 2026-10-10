@@ -868,7 +868,7 @@
               },
               {
                 "kind": "arg",
-                "path": "asset_symbol"
+                "path": "params.asset_symbol"
               }
             ]
           }
@@ -905,6 +905,13 @@
         {
           "name": "rent",
           "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "program",
+          "address": "5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4"
+        },
+        {
+          "name": "program_data"
         }
       ],
       "args": [
@@ -3240,6 +3247,16 @@
       "code": 6045,
       "name": "CorporateActionPendingExists",
       "msg": "A future corporate action is already pending; wait until it takes effect"
+    },
+    {
+      "code": 6046,
+      "name": "UnauthorizedInitializer",
+      "msg": "Market initialization requires the program upgrade authority"
+    },
+    {
+      "code": 6047,
+      "name": "InvalidProgramData",
+      "msg": "Market initialization requires this program's ProgramData account"
     }
   ],
   "types": [

@@ -116,7 +116,7 @@ Listing is an operator process; integrators get market addresses from [Addresses
     Create the L and S mints (classic SPL Token, 6 decimals, the future Market PDA as mint authority, no freeze authority) and a cUSDC token account owned by the Market PDA (live markets use the PDA's associated token account). `initialize_market` creates none of these.
   </Step>
   <Step title="Call initialize_market">
-    Call `initialize_market(params: InitMarketParams)` with `asset_symbol` (at most 10 bytes), `oracle_type` (`Pyth` or `Continuum`), `initial_l_price`, `initial_s_price`, `mint_fee_bps`, `redeem_fee_bps` and `keeper_authority`. With `Continuum`, the `oracle` account must be the market's `OracleConfig` PDA, which doesn't exist yet. The signer becomes `market.authority`.
+    The program's upgrade authority calls `initialize_market(params: InitMarketParams)`, passing the program and its `program_data` as the last two accounts, with `asset_symbol` (at most 10 bytes), `oracle_type` (`Pyth` or `Continuum`), `initial_l_price`, `initial_s_price`, `mint_fee_bps`, `redeem_fee_bps` and `keeper_authority`. With `Continuum`, the `oracle` account must be the market's `OracleConfig` PDA, which doesn't exist yet. The signer becomes `market.authority`.
   </Step>
   <Step title="Create the oracle config">
     `initialize_oracle_config(max_confidence_interval, max_staleness, keeper_authority)`, signed by `market.authority`, creates the `OracleConfig`. `upsert_oracle_feed(priority, kind, is_active)`, signed by the config's admin, registers a Pyth price account as a feed.

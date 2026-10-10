@@ -116,7 +116,7 @@ The Continuum team lists markets as an operator process. In outline:
 
 <Steps>
   <Step title="Create the market">
-    Create the two mints (6 decimals, Market PDA as mint authority, no freeze authority) and the market's cUSDC vault. Then call `initialize_market(params: InitMarketParams)` with the symbol, initial prices, starting fees and keeper authority.
+    Create the two mints (6 decimals, Market PDA as mint authority, no freeze authority) and the market's cUSDC vault. Then call `initialize_market(params: InitMarketParams)` (admin only: the signer must be the program's upgrade authority) with the symbol, initial prices, starting fees and keeper authority.
   </Step>
   <Step title="Create the oracle config">
     `initialize_oracle_config` creates the `OracleConfig` PDA, and `upsert_oracle_feed` registers Pyth price accounts as its feeds. The keeper doesn't use them on devnet.

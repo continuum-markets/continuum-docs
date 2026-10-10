@@ -61,6 +61,8 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6043 | `0x179b` | `PriceAdjustOverflow` | `Oracle price could not be mapped into genesis share units (corporate-action adjustment overflowed)` | Applying `price_adjust_num / price_adjust_den` to a price overflowed or truncated it to 0. |
 | 6044 | `0x179c` | `CorporateActionEffectiveTooFarAhead` | `Corporate-action effective_ts is implausibly far ahead — check the unit (seconds, not milliseconds)` | `effective_ts` more than 400 days ahead, usually milliseconds passed as seconds. |
 | 6045 | `0x179d` | `CorporateActionPendingExists` | `A future corporate action is already pending; wait until it takes effect` | Another action is armed and hasn't taken effect yet. |
+| 6046 | `0x179e` | `UnauthorizedInitializer` | `Market initialization requires the program upgrade authority` | `initialize_market` signed by anyone other than the mint-redeem program's upgrade authority. Only the admin can list a market. |
+| 6047 | `0x179f` | `InvalidProgramData` | `Market initialization requires this program's ProgramData account` | `initialize_market` passed a `program_data` account that is not this program's ProgramData. |
 
 ## clp
 

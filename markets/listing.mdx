@@ -23,7 +23,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
     Create the long and short mints as classic SPL Token mints with 6 decimals and no freeze authority. Their mint authority is the Market PDA (`[b"market", symbol]` on mint-redeem), which can be derived before the market exists. The collateral vault is the cUSDC ATA of the Market PDA.
   </Step>
   <Step title="Initialize the market">
-    The market authority calls `initialize_market(params: InitMarketParams)`:
+    The mint-redeem program's upgrade authority (the admin) calls `initialize_market(params: InitMarketParams)`. Any other signer fails with `UnauthorizedInitializer` (6046):
 
     ```rust
     pub struct InitMarketParams {
