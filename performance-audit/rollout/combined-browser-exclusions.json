@@ -1,0 +1,47 @@
+{
+  "reason": "Concurrent visual release preserved all fixes; entire final comparison rerun against its build ID, without merging the earlier two valid samples into the new run.",
+  "excluded": [
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/mint?analytics_qa=performance-rollout-v2-1.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    },
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/mint?analytics_qa=performance-rollout-v2-0.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    },
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/pools__AAPL?analytics_qa=performance-rollout-v2-0.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    },
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/pools?analytics_qa=performance-rollout-v2-2.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    },
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/pools__AAPL?analytics_qa=performance-rollout-v2-1.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    },
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/pools__AAPL?analytics_qa=performance-rollout-v2-2.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    },
+    {
+      "file": "frontend/docs/performance-audit/rollout-final/mint?analytics_qa=performance-rollout-v2-2.json",
+      "expectedBuild": "ABSepvkk-MRqtc5DJciD2",
+      "observedBuild": "IKi12OWWBM-jIGLF_59hR",
+      "reason": "Build ID differs from the verified deployment; exclude this sample"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+
+running 11 tests
+test tests::bid_ask_gap_is_the_spread ... ok
+test tests::empty_book_quotes_zero ... ok
+test tests::buy_walks_multiple_bins_at_rising_prices ... ok
+test tests::execute_matches_quote_and_decrements_bins ... ok
+test tests::geometric_shape_sums_to_total_and_decays ... ok
+test tests::sell_partial_fill_rounds_pool_favorable ... ok
+test tests::skewed_book_thin_asks_thick_bids ... ok
+test tests::small_buy_pays_first_ask ... ok
+test tests::round_trip_costs_about_two_steps ... ok
+test tests::two_zone_uniform_equals_legacy ... ok
+test tests::two_zone_wings_are_wider_than_core ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

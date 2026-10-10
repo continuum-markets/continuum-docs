@@ -1,0 +1,286 @@
+bun test v1.3.8 (b64edcb4)
+
+scripts/landing-render.test.tsx:
+(pass) landing content before hydration > market categories render on the server with symbols, not numbered nodes [14.71ms]
+(pass) landing content before hydration > the mobile stack includes the full flow and every explanation without JS [5.98ms]
+(pass) landing content before hydration > mobile snap frames stay separate from moving artwork and copy [4.52ms]
+(pass) landing content before hydration > the stack exposes three sequential connector stages [1.42ms]
+
+scripts/landing-pager.test.ts:
+(pass) landing pager > a fling moves one stop however hard it is and however long its momentum lasts [2.92ms]
+(pass) landing pager > the next fling moves one more, and a fling back up returns [0.50ms]
+(pass) landing pager > a new push inside a long momentum tail moves on at once, with no pause [0.19ms]
+(pass) landing pager > the glide starts on the first event of 4px or more: no creep, no spring back
+(pass) landing pager > a slow drag of small steady steps still turns the page [0.09ms]
+(pass) landing pager > a lone nudge under 4px, or two of them, is held [0.05ms]
+(pass) landing pager > every event is cancelled, including held nudges and ones absorbed mid-glide [0.09ms]
+(pass) landing pager > a mouse notch moves one stop; notches during the glide are absorbed [0.05ms]
+(pass) landing pager > a direction flip is a new gesture even inside a stream [0.21ms]
+(pass) landing pager > the last stop and the first stop hold at the page edges [0.24ms]
+(pass) landing pager > a stop taller than the viewport scrolls within, stops at its edge, and a fresh push goes on [0.31ms]
+(pass) landing pager > the old machine's dead case: a gesture of 5px events moves the page [0.03ms]
+(pass) rest ranges > zero-height stops are skipped and the list is sorted by offset [0.11ms]
+(pass) rest ranges > a tall stop's end is clamped to the page end [0.02ms]
+(pass) rest ranges > aimMove from off-grid positions glides to the stop ahead or behind [0.02ms]
+
+scripts/landing-scroll.test.ts:
+(pass) landing scroll boundaries > pulling past the hero never saves a negative position [0.09ms]
+(pass) landing scroll boundaries > footer overscroll is bounded by the current viewport [0.02ms]
+(pass) landing scroll boundaries > ordinary and fractional positions are unchanged [0.02ms]
+(pass) landing scroll boundaries > a document shorter than its viewport stays at zero
+(pass) landing scroll boundaries > normalising an elastic offset preserves Next's history metadata [0.04ms]
+
+scripts/landing-motion.test.tsx:
+(pass) mobile motion never mounts hidden desktop entrances > panel is complete before hydration and without a desktop provider [0.22ms]
+(pass) mobile motion never mounts hidden desktop entrances > comparison card is complete before hydration and without a desktop provider [0.06ms]
+(pass) mobile motion never mounts hidden desktop entrances > blurred copy is complete before hydration and without a desktop provider [0.05ms]
+(pass) mobile motion never mounts hidden desktop entrances > masked heading is complete before hydration and without a desktop provider [0.07ms]
+(pass) mobile motion never mounts hidden desktop entrances > typed heading is complete before hydration and without a desktop provider [0.04ms]
+(pass) mobile motion never mounts hidden desktop entrances > lit paragraph is complete before hydration and without a desktop provider [0.07ms]
+(pass) mobile motion never mounts hidden desktop entrances > section label is complete before hydration and without a desktop provider [0.12ms]
+(pass) mobile motion never mounts hidden desktop entrances > desktop still opts into its existing entrance [0.16ms]
+
+lib/portfolio-prices.test.ts:
+(pass) unpriced holdings remain visible and values are unknown, not zero [0.11ms]
+(pass) posted prices revalue existing holdings without fetching balances again [0.02ms]
+(pass) missing account discovery makes total unknown; invalid prices never poison totals [0.06ms]
+
+lib/wallet-storage.test.ts:
+(pass) restores the exact name encoded by WalletProvider, including spaces [0.34ms]
+(pass) missing, cleared or malformed selections cannot trigger a connection
+
+lib/waitlist.test.ts:
+(pass) waitlist trims contact details and permits optional fields and plus addressing [0.17ms]
+(pass) waitlist rejects forged options, absent consent, malformed contacts and non-UUID identifiers [0.06ms]
+
+lib/wallet-errors.test.ts:
+(pass) explicit wallet rejection survives plain and nested wrappers [0.13ms]
+(pass) adapter types, network failures and on-chain rejection are not user cancellation [0.05ms]
+
+lib/transaction-confirmation.test.ts:
+(pass) only a null execution error confirms transaction success [0.33ms]
+
+lib/comparison-rows.test.ts:
+(pass) current comparison summaries pair each feature without losing values [0.36ms]
+(pass) missing facts are preserved as absent, not inferred from another protocol
+
+lib/mint-route.test.ts:
+(pass) explicit markets do not fall back to the default QQQ [0.03ms]
+(pass) invalid or ambiguous market requests are rejected
+(pass) mode changes retain the selected market [0.10ms]
+
+lib/agent-api.test.ts:
+(pass) public catalog matches configured addresses and distinguishes configuration from live state [3.05ms]
+(pass) OpenAPI describes real public GET routes with distinct operation IDs and no caller credentials [1.44ms]
+(pass) Pyth documented fields match parsed data and distinguish provider, NAV, and timestamp units [0.13ms]
+(pass) unknown API routes return actionable JSON 404s for body-bearing HTTP methods [0.42ms]
+(pass) unknown API HEAD requests retain JSON 404 headers without a response body [0.36ms]
+(pass) public read endpoints reject writes with recovery details and disclose supported methods [0.13ms]
+
+lib/analytics-runtime.test.ts:
+(pass) analytics loading > retries a failed chunk and preserves queued events [3.39ms]
+(pass) analytics loading > bounds retries and queue, isolates broken callbacks, and recovers online [5.23ms]
+(pass) analytics loading > disabled analytics does not load or retain work [1.39ms]
+
+lib/analytics.test.ts:
+(pass) wallet switch during slow SDK startup cannot reattribute an in-flight attempt [7.03ms]
+(pass) repeated wallet effects do not multiply connect/disconnect events [1.55ms]
+(pass) handoff exists before SDK readiness and is linked to its initiating wallet [1.70ms]
+(pass) SDK exceptions cannot prevent transaction completion [2.26ms]
+
+lib/order-status.test.ts:
+(pass) each terminal outcome resolves through a v1 JSON receipt [0.91ms]
+(pass) failed transactions and unavailable newer receipts do not hide the successful closure [0.16ms]
+(pass) confirmed closure becomes unknown after bounded missing, failing or unsupported history [0.20ms]
+(pass) an account-read outage never proves closure or consumes the history budget [0.07ms]
+(pass) an old restored order resolves closed on its only read, but an account outage remains pending
+(pass) an existing account resets tentative closure; indexing recovery resolves before the cap [0.14ms]
+
+lib/market-analytics.test.ts:
+(pass) public market context distinguishes symbol from canonical address
+(pass) optional identity derivation cannot interrupt transaction preparation [0.04ms]
+
+lib/shared-read-cache.test.ts:
+(pass) concurrent reads coalesce and cache provenance does not advance on failure [0.46ms]
+(pass) empty success and a failed first request remain different states [0.15ms]
+
+lib/usdc-supply-apr.test.ts:
+(pass) server projection preserves filters, mean priority, spot fallback and stable tie order [0.08ms]
+(pass) concurrent readers share one fetch and source timestamp; expired data is never silently served [0.53ms]
+(pass) only transient failures retry, bounded to three attempts, respecting Retry-After [0.75ms]
+
+lib/transaction-tracking.test.ts:
+(pass) confirmed is terminal even when later refresh code fails or repeats [0.19ms]
+(pass) confirmation timeout remains unresolved and can later confirm [0.06ms]
+(pass) known chain failures stay failures, and real wallet failures are not cancellations [0.11ms]
+(pass) explicit user rejection closes once without exception capture [0.04ms]
+(pass) preparation failure preserves the attempt join and emits once without a conversion
+(pass) Anchor submission failures do not pretend to identify wallet versus confirmation time
+(pass) uncertain submissions and wallet rejection remain distinct from preparation failures
+
+lib/landing-scroll.test.ts:
+(pass) mergeHistoryState preserves Next history fields [0.07ms]
+(pass) readLandingScroll accepts only finite non-negative numbers [0.06ms]
+
+lib/trade-blockers.test.ts:
+(pass) unknown balances and unavailable quotes remain distinct from insufficient funds [0.13ms]
+(pass) polls/amount edits are silent; recovery is distinct from clearing the form [0.14ms]
+(pass) noisy transitions are bounded and a different wallet has independent context [0.04ms]
+
+lib/pyth-data.test.ts:
+(pass) catalog uses unified feeds and preserves USD/JPY direction [0.16ms]
+(pass) history retains real OHLC, sorts timestamps, and does not invent volume [0.15ms]
+(pass) invalid history is an error, not an empty successful chart [0.10ms]
+(pass) spot prices retain provider confidence and publication time [0.08ms]
+
+lib/faucet-cooldown.test.ts:
+(pass) countdown shows seconds near expiry and now at the deadline [0.04ms]
+(pass) display ticks slowly until the last minute [0.02ms]
+
+lib/pyth-http.test.ts:
+(pass) missing configuration never attempts an upstream request [0.29ms]
+(pass) authorization is a header and redirects cannot forward it elsewhere [0.19ms]
+(pass) authentication, entitlement and unknown feed failures are not retried [0.69ms]
+(pass) transient reads retry within a finite budget [0.14ms]
+
+lib/read-state.test.ts:
+(pass) retained data is marked stale when a refresh fails
+(pass) failed fetches are unavailable, not idle or loading
+(pass) a retry in flight is loading rather than a frozen error
+(pass) in-flight reads without data are loading [0.08ms]
+
+lib/posted-prices.test.ts:
+(pass) Anchor BN values retain exact atoms above Number precision [0.46ms]
+(pass) keeper five-minute window is inclusive; zero has no invented price [0.06ms]
+(pass) Continuum oracle scales actual last price/confidence, preserving floored 1e9→1e6 units [0.96ms]
+(pass) Continuum stale, paused and passive values remain visible but unquotable [0.40ms]
+(pass) Continuum missing, malformed, wrong-owner/market, executable and zero prices are absent [0.66ms]
+(pass) cached keeper, Continuum and Pyth snapshots expire even after later reads fail [0.24ms]
+(pass) legacy Pyth uses aggregate Trading or complete previous Trading tuple [0.04ms]
+(pass) Pyth absolute freshness and unrounded confidence boundary match the program [0.09ms]
+(pass) Pyth rejects malformed headers, overflows, unsafe exponents and respects Buffer offsets [0.14ms]
+(pass) batch reads actual Normal oracle addresses once and isolates missing siblings [0.97ms]
+(pass) all non-Normal risk states use keeper; unknown state does not silently become Normal [0.24ms]
+(pass) batch RPC failures and incomplete responses are surfaced, never replaced by TWAP for Normal [0.08ms]
+(pass) CLP uses keeper in every risk state, with exact short gamma and integer order [0.17ms]
+(pass) CLP has its own inclusive freshness, confidence and deviation floor boundaries [0.09ms]
+(pass) missing, disabled, frozen and zero CLP snapshots cannot quote [0.05ms]
+
+lib/committed-orders.test.ts:
+(pass) blocked storage retains confirmed orders in this tab and can remove them [0.16ms]
+(pass) failed writes cannot resurrect an order removed after confirmed cancellation [0.17ms]
+(pass) malformed saved values are ignored without throwing or losing valid orders [0.03ms]
+
+lib/pyth-history-availability.test.ts:
+(pass) missing config/auth is terminal for automatic polling; transient outages are retryable [0.10ms]
+(pass) history client retains public error code for the no-poll policy [0.18ms]
+
+lib/solana/http-confirmation.test.ts:
+{"control":"web3.js unavailable WS","durationMs":33.3365,"httpStatusReads":0}
+(pass) control: installed web3.js never checks HTTP while WebSocket subscription is unavailable [34.41ms]
+{"variant":"HTTP confirmed fixture","durationMs":1.7211670000000368}
+(pass) HTTP confirmation completes without a WebSocket and preserves the status context [1.85ms]
+(pass) null and processed are not confirmed; finalized callers retain the stronger requirement [12.38ms]
+(pass) legacy confirmation counts and commitment aliases have the same strength [4.61ms]
+(pass) confirmed execution errors stay errors, including errors observed before the requested commitment [4.21ms]
+(pass) unknown status reaches the original unknown-outcome timeout and retains its signature [15.57ms]
+(pass) malformed, mismatched, and incomplete responses never become successful confirmations [0.47ms]
+(pass) HTTP 403 is not retried; exhausted 429 retries remain unknown, and transient failures can recover [8.31ms]
+(pass) a permanent JSON-RPC failure remains unknown and is not retried [0.24ms]
+(pass) Retry-After is honored and the total deadline aborts its wait without a retry storm [16.07ms]
+(pass) hung HTTP requests are bounded, aborted, and never overlap [16.92ms]
+(pass) blockheight expiry checks status again and cannot mask a just-confirmed transaction [0.40ms]
+(pass) a processed transaction can still confirm after its blockhash validity window [1.45ms]
+(pass) an earlier processed observation cannot be erased by a lagging backend null at expiry [15.46ms]
+(pass) external cancellation preserves the abort reason and prevents later reads [6.53ms]
+(pass) invalid signatures fail before making any request [0.16ms]
+(pass) the installed Anchor provider signs/sends exactly once and resolves via shared HTTP confirmation [23.73ms]
+(pass) Anchor does not resend a transaction when confirmation reads are unavailable or time out [21.05ms]
+
+lib/solana/transaction-receipt.test.ts:
+(pass) legacy, v0 and v1 receipts use JSON metadata without decoding the transaction message [0.24ms]
+(pass) finalized callers keep their stronger commitment [0.06ms]
+(pass) missing transactions and metadata remain unknown; reverted receipts remain failures [0.09ms]
+(pass) HTTP and JSON-RPC errors are not mistaken for missing history or success [0.06ms]
+(pass) malformed or mismatched responses cannot produce a successful receipt [0.16ms]
+
+lib/solana/token-balances.test.ts:
+(pass) absent ATAs are zero while valid accounts preserve amounts and byte offsets [0.23ms]
+(pass) partial and malformed RPC responses cannot become zero portfolio balances [0.02ms]
+
+lib/server/waitlist-handler.test.ts:
+(pass) submission is durable and claimed before Discord; duplicate requests deliver once without sending PII to analytics [4.01ms]
+(pass) concurrent identical submissions use CAS so only one bot POST is admitted [0.35ms]
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+(pass) lost Discord response survives restart as uncertain and is never resent [0.63ms]
+(pass) lost storage claim acknowledgement never authorizes a bot POST [0.45ms]
+(pass) lost terminal storage acknowledgement is reconciled without losing analytics or resending Discord [0.48ms]
+(pass) same UUID with different normalized contents conflicts without another send [0.21ms]
+waitlist analytics pending 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+(pass) analytics failure cannot negate a delivered lead and retries with the same UUID [0.33ms]
+waitlist delivery pending 6d6d5598-30d1-4d6c-9b5c-d18fdf376591 rate_limited
+(pass) 429 preserves lead, honors delay, then only an explicit retry attempts delivery [0.34ms]
+waitlist delivery pending 6d6d5598-30d1-4d6c-9b5c-d18fdf376591 ambiguous
+(pass) failed receipts, absent config, invalid origin, oversized streamed body, and honeypot cannot produce captures [0.45ms]
+(pass) origin is exact, localhost is development-only, and Discord text cannot trigger mentions [0.08ms]
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+waitlist delivery uncertain 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+(pass) wrong author, channel, webhook, footer or missing receipt stays uncertain without capture or resend [1.32ms]
+(pass) legacy delivered records remain complete after switching to bot delivery [0.20ms]
+
+lib/server/waitlist-reconcile.test.ts:
+(pass) inspection emits delivery state without contact or analytics identity [0.15ms]
+(pass) confirm verifies bot author, channel, and exact UUID footer before CAS update [0.84ms]
+(pass) wrong footer, message, author, channel, webhook, malformed body, and 404 cannot mark delivered [0.43ms]
+(pass) configuration cannot silently retarget a persisted bot delivery [0.09ms]
+(pass) legacy records require the original webhook identity, channel, and footer and preserve legacy provenance [0.35ms]
+(pass) transient read failure is bounded and does not write until proof arrives [0.14ms]
+(pass) a CAS conflict never falls back to an unconditional overwrite [0.10ms]
+(pass) retry requires an explicit fixed-configuration assertion and a known rejected 4xx [0.19ms]
+
+lib/server/waitlist-store.test.ts:
+(pass) AES-GCM stores no plaintext lead data and authenticates both ciphertext and object identity [1.03ms]
+(pass) SigV4 sorts conditional headers together with host and x-amz headers [0.32ms]
+(pass) conditional conflict and lost write response never fall back to unconditional writes [0.56ms]
+(pass) reads retry transient failure only and require authenticated body plus ETag [0.57ms]
+(pass) configuration fails closed unless encryption key is exactly 32 bytes [0.07ms]
+(pass) bounded listing signs its cursor and rejects truncated history without a continuation token [1.96ms]
+
+lib/server/waitlist-discord.test.ts:
+(pass) bot configuration requires a token, expected author and bounded channel ID [0.06ms]
+
+lib/server/waitlist-worker.test.ts:
+waitlist requires delivery review 6d6d5598-30d1-4d6c-9b5c-d18fdf376592
+(pass) recovery keeps page remainder, resumes cursor, sends safe pending lead, and repairs analytics independently [0.52ms]
+waitlist requires delivery review 6d6d5598-30d1-4d6c-9b5c-d18fdf376591
+(pass) worker is single-flight and never retries rejected 4xx or uncertain sends [0.14ms]
+
+lib/seo/markdown.test.ts:
+(pass) explicit Markdown negotiation honors quality and browser HTML preference [0.15ms]
+(pass) editorial Markdown preserves the content and caveats used by HTML [3.45ms]
+(pass) missing documents receive a recoverable Markdown404, while valid app paths keep routing [1.53ms]
+(pass) home Markdown is compact and substantive; HEAD is bodyless; Flight/API/assets are untouched [0.34ms]
+(pass) coming-soon mode keeps public discovery and API endpoints readable [0.14ms]
+
+lib/seo/llms.test.ts:
+(pass) follows the llmstxt.org shape: H1, then a blockquote summary
+(pass) lists every detail page the sitemap does [0.77ms]
+(pass) the summary counts the live roster [0.13ms]
+(pass) Optional is the last section, so readers short on context can drop it
+(pass) every list line under a section is a well-formed link [0.15ms]
+(pass) never links the unrelated Discord server that owns the vanity invite
+
+lib/seo/metadata.test.ts:
+(pass) index pages get a default social image without dropping canonicals [0.10ms]
+(pass) detail routes can omit fallback images so file-based OG wins [0.02ms]
+(pass) wallet-only surfaces are noindex with a self canonical
+
+ 187 pass
+ 0 fail
+Ran 187 tests across 39 files. [831.00ms]

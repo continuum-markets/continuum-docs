@@ -1,0 +1,135 @@
+{
+  "source_commit": "3024aab4d8d1cf8ccbd781d4425cb02e03002648",
+  "base": "95851676698aab6c3d721544d0c1f1d53211f041",
+  "worktree": "/tmp/continuum-analytics-visual-release",
+  "branch": "analytics/visual-polish-20261009",
+  "changes": [
+    "Two grid children min-w-0: confirmed mobile width 778\u2192375 at viewport375",
+    "Hide redundant red history warning when history configuration intentionally unavailable"
+  ],
+  "status": "SUCCESS; live visual QA passed",
+  "checked_at": "2026-10-09T02:16:49.697488+00:00",
+  "deployment_id": "4676f241-c577-4950-8f6d-91ef586f6921",
+  "build_id": "IKi12OWWBM-jIGLF_59hR",
+  "deployed_at_checked": "2026-10-09T02:18:43.311462+00:00",
+  "visual_validation": {
+    "status": "passed",
+    "checked_at": "2026-10-09T02:20:47.525526+00:00",
+    "source_commit": "3024aab4d8d1cf8ccbd781d4425cb02e03002648",
+    "deployment_id": "4676f241-c577-4950-8f6d-91ef586f6921",
+    "build_id": "IKi12OWWBM-jIGLF_59hR",
+    "snapshots": [
+      {
+        "file": "mint-eur-1440.json",
+        "url": "https://continuum.markets/mint?market=EUR&analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          1440,
+          900
+        ],
+        "scroll_width": 1440
+      },
+      {
+        "file": "mint-eur-375.json",
+        "url": "https://continuum.markets/mint?market=EUR&analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          375,
+          900
+        ],
+        "scroll_width": 375
+      },
+      {
+        "file": "mint-eur-768.json",
+        "url": "https://continuum.markets/mint?market=EUR&analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          768,
+          900
+        ],
+        "scroll_width": 768
+      },
+      {
+        "file": "mint-qqq-375.json",
+        "url": "https://continuum.markets/mint?market=QQQ&analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          375,
+          900
+        ],
+        "scroll_width": 375
+      },
+      {
+        "file": "pool-eur-1440.json",
+        "url": "https://continuum.markets/pools/EUR?analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          1440,
+          900
+        ],
+        "scroll_width": 1440
+      },
+      {
+        "file": "pool-eur-375.json",
+        "url": "https://continuum.markets/pools/EUR?analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          375,
+          900
+        ],
+        "scroll_width": 375
+      },
+      {
+        "file": "pool-eur-768.json",
+        "url": "https://continuum.markets/pools/EUR?analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          768,
+          900
+        ],
+        "scroll_width": 768
+      },
+      {
+        "file": "portfolio-1440.json",
+        "url": "https://continuum.markets/portfolio?analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          1440,
+          900
+        ],
+        "scroll_width": 1440
+      },
+      {
+        "file": "portfolio-375.json",
+        "url": "https://continuum.markets/portfolio?analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          375,
+          900
+        ],
+        "scroll_width": 375
+      },
+      {
+        "file": "portfolio-768.json",
+        "url": "https://continuum.markets/portfolio?analytics_qa=posted-pricing-visual-20261009",
+        "build_id": "IKi12OWWBM-jIGLF_59hR",
+        "viewport": [
+          768,
+          900
+        ],
+        "scroll_width": 768
+      }
+    ],
+    "screenshots_visually_reviewed": 10,
+    "all_widths_no_horizontal_overflow": true,
+    "pyth_http_spot_requests": 0,
+    "optional_history_requests_before": 1,
+    "optional_history_requests_after": 1,
+    "observation_seconds": 37.149,
+    "fresh_eur_price_visible": true,
+    "stale_qqq_quotes_unavailable": true,
+    "red_optional_history_warning_absent": true,
+    "scope": "Live disconnected-wallet responsive UI; no signed transaction in this visual pass. Unpriced connected holdings covered by existing unit tests; prior real economic QA retained separately.",
+    "browser": "Isolated Chrome DevTools MCP, explicitly authorized; owned browser process group closed after capture."
+  }
+}

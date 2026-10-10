@@ -1,0 +1,10 @@
+{"program":"registry","instruction":"initialize","scenario":"authorized","success":true,"computeUnits":"14501","executionMs":1.443667000000005,"error":null}
+{"program":"registry","instruction":"register_market","scenario":"authorized","success":true,"computeUnits":"17602","executionMs":0.27199999999999136,"error":null}
+{"program":"registry","instruction":"update_market","scenario":"authorized","success":true,"computeUnits":"10704","executionMs":0.19387499999999136,"error":null}
+{"program":"registry","instruction":"update_positions","scenario":"authorized","success":true,"computeUnits":"10134","executionMs":0.24420799999998621,"error":null}
+{"program":"registry","instruction":"set_active","scenario":"deactivate","success":true,"computeUnits":"10076","executionMs":0.1734170000000006,"error":null}
+{"program":"registry","instruction":"set_active","scenario":"reactivate","success":true,"computeUnits":"10073","executionMs":0.17937499999999318,"error":null}
+{"program":"registry","instruction":"transfer_authority","scenario":"authorized","success":true,"computeUnits":"7538","executionMs":0.16354200000000674,"error":null}
+{"program":"registry","instruction":"set_active","scenario":"former authority rejected","success":false,"computeUnits":"8600","executionMs":0.17975000000001273,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 2001 } }"}
+{"program":"registry","instruction":"set_active","scenario":"successor authority accepted","success":true,"computeUnits":"10076","executionMs":0.2894579999999962,"error":null}
+All six registry instructions executed; account state and authority transitions verified.

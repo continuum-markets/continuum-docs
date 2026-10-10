@@ -1,0 +1,84 @@
+{
+  "config": {
+    "build": {
+      "buildEnvironment": "V3",
+      "builder": "RAILPACK"
+    },
+    "deploy": {
+      "ipv6EgressEnabled": false,
+      "multiRegionConfig": {
+        "europe-west4-drams3a": {
+          "numReplicas": 1
+        }
+      },
+      "runtime": "V2",
+      "useLegacyStacker": false
+    },
+    "networking": {
+      "customDomains": {
+        "continuum.markets": {
+          "port": 8080
+        }
+      }
+    },
+    "source": {
+      "branch": "main",
+      "checkSuites": false,
+      "repo": "nxfi777/continuum-frontend"
+    }
+  },
+  "domains": {
+    "customDomains": [
+      {
+        "domain": "continuum.markets",
+        "id": "7b649e3f-b546-47f7-b619-aaeed847ffa3",
+        "targetPort": 8080
+      }
+    ],
+    "serviceDomains": []
+  },
+  "environment": {
+    "id": "76457ef2-7675-4239-a336-f0a09f244052",
+    "name": "production"
+  },
+  "latestDeployment": {
+    "createdAt": "2026-10-09T01:22:26.922Z",
+    "id": "c4ee8279-00ac-452d-90f4-37f12a8b0c36",
+    "status": "SUCCESS",
+    "url": null
+  },
+  "service": {
+    "id": "a558e432-23f9-47b1-acd6-0e0a7ee559d0",
+    "name": "continuum-frontend",
+    "state": "live"
+  },
+  "staged": null,
+  "stagedChanges": [],
+  "tcpProxies": [],
+  "tracing": {
+    "autoInstrumentationActive": false,
+    "autoInstrumentationEnabled": false,
+    "tracingEnabled": false
+  },
+  "variableNames": [
+    "ADMIN_WALLETS",
+    "DISCORD_BOT_ID",
+    "DISCORD_BOT_TOKEN",
+    "DISCORD_WAITLIST_CHANNEL_ID",
+    "DISCORD_WAITLIST_LEGACY_WEBHOOK_ID",
+    "DISCORD_WAITLIST_WEBHOOK_URL",
+    "KEEPER_DASHBOARD_URL",
+    "NEXT_PUBLIC_CNTM_MINT",
+    "NEXT_PUBLIC_COMING_SOON",
+    "NEXT_PUBLIC_UMAMI_URL",
+    "NEXT_PUBLIC_UMAMI_WEBSITE_ID",
+    "RPC_SESSION_SECRET",
+    "SOLANA_RPC_URL_DEVNET",
+    "WAITLIST_DATA_KEY",
+    "WAITLIST_R2_ACCESS_KEY_ID",
+    "WAITLIST_R2_ACCOUNT_ID",
+    "WAITLIST_R2_BUCKET",
+    "WAITLIST_R2_SECRET_ACCESS_KEY"
+  ],
+  "volumes": []
+}

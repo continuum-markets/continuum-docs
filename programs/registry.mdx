@@ -1,0 +1,134 @@
+---
+title: registry
+description: On-chain index of markets by symbol (mints, venue, pools). Deployed and initialized on devnet, but empty and unused.
+---
+
+The registry program maps an asset symbol to its long and short mints, a venue tag and two pool addresses. It is deployed and initialized on devnet, but it holds no markets and nothing reads it. Mint-redeem and CLP derive every address from PDAs. Integrators should take addresses from [Addresses](/reference/addresses).
+
+```
+Devnet ID: Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau
+```
+
+<Note>
+  As of 10 Oct 2026 the `RegistryState` PDA (`ED8joCbjr7hnWPgmiGspQ2LNpUJGfjobZYqEHD1PWyE1`) has `market_count = 0`, and no `MarketEntry` accounts exist. The only venue type is `MeteoraDlmm`, so the registry can't yet describe the native bin books that every market trades on.
+</Note>
+
+## Accounts
+
+### `RegistryState` PDA
+
+```
+seeds = [b"registry"]
+```
+
+| Field | Type | Purpose |
+|---|---|---|
+| `authority` | Pubkey | Signer for every instruction after `initialize` |
+| `market_count` | u32 | Incremented by each `register_market` |
+| `bump` | u8 | PDA bump |
+
+### `MarketEntry` PDA
+
+```
+seeds = [b"market", symbol_bytes]
+```
+
+`symbol_bytes` is the symbol in uppercase, zero-padded to 16 bytes. `"qqq"` and `"QQQ"` both map to `b"QQQ\0\0\0\0\0\0\0\0\0\0\0\0\0"`.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `symbol` | `[u8; 16]` | Uppercase ticker, zero-padded |
+| `long_mint` / `short_mint` | Pubkey | L and S mints |
+| `venue` | `Venue` | Venue tag. The only variant is `MeteoraDlmm` |
+| `long_pool` / `short_pool` | Pubkey | Per-side pool addresses |
+| `long_position` / `short_position` | Pubkey | Liquidity position addresses (default pubkey if none) |
+| `is_active` | bool | Set to `true` by `register_market`. No program reads it |
+| `bump` | u8 | PDA bump |
+
+## Instructions
+
+Every instruction except `initialize` needs the `authority` stored in `RegistryState` as signer. Any other signer fails Anchor's `has_one` check (2001).
+
+### `initialize()`
+
+Creates `RegistryState` once and records the signer as `authority`. The signer must be the program's upgrade authority. Pass the program account as `program` and its ProgramData account as `program_data`. A ProgramData account that doesn't belong to this program fails with `InvalidProgramData`; any other signer fails with `UnauthorizedInitializer`. Accounts: `registry`, `authority`, `program`, `program_data`, `system_program`.
+
+### `register_market(symbol: String, params: MarketParams)`
+
+Creates the `MarketEntry` for `symbol`, sets `is_active = true` and increments `market_count`. `MarketParams` has seven fields: `long_mint`, `short_mint`, `venue`, `long_pool`, `short_pool`, `long_position` and `short_position`. The symbol is uppercased and must be at most 16 bytes (`SymbolTooLong`). Registering a symbol twice fails because its PDA already exists. Accounts: `registry`, `market_entry`, `authority`, `system_program`.
+
+### `update_market(symbol: String, params: MarketParams)`
+
+Overwrites all seven `MarketParams` fields of an existing entry, so pass every field, including the unchanged ones. `symbol` and `is_active` stay as they are.
+
+### `update_positions(symbol: String, long_position: Pubkey, short_position: Pubkey)`
+
+Overwrites only the two position fields.
+
+### `set_active(symbol: String, is_active: bool)`
+
+Sets the `is_active` flag. No program checks the flag, so setting it to `false` pauses nothing.
+
+### `transfer_authority(new_authority: Pubkey)`
+
+Replaces `authority`.
+
+The published IDL carries no PDA seeds and no System Program address for this program, so a client must pass every account explicitly.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `SymbolTooLong` | Symbol longer than 16 bytes after uppercasing |
+| 6001 | `UnauthorizedInitializer` | The `initialize` signer isn't the program's upgrade authority |
+| 6002 | `InvalidProgramData` | `program_data` isn't this program's ProgramData account |
+
+→ [Full error catalog](/reference/errors)
+
+## TypeScript
+
+Reading the registry works today and shows that it is empty. `provider` is set up as in [SDK setup](/build/sdk-setup), and the IDL is published in [`continuum-docs/idl`](https://github.com/continuum-markets/continuum-docs/tree/main/idl).
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import registryIdl from "./registry.json";
+
+const registry: any = new Program(registryIdl as any, provider);
+const pda = (...seeds: Buffer[]) => PublicKey.findProgramAddressSync(seeds, registry.programId)[0];
+
+const state = await registry.account.registryState.fetch(pda(Buffer.from("registry")));
+console.log("market_count:", state.marketCount);
+
+// Entry PDA: uppercase symbol, zero-padded to 16 bytes.
+const symbol = Buffer.alloc(16);
+symbol.write("QQQ");
+const entry = await registry.account.marketEntry.fetchNullable(pda(Buffer.from("market"), symbol));
+console.log("QQQ entry:", entry);
+
+const all = await registry.account.marketEntry.all();
+console.log("entries:", all.length);
+```
+
+Output on 10 Oct 2026:
+
+```
+market_count: 0
+QQQ entry: null
+entries: 0
+```
+
+## Where to get market addresses
+
+Use [Addresses](/reference/addresses) or [Live markets](/markets/live) for mints, Market PDAs and bin-book pools. You can also derive the Market, `Clp` and `Pool` PDAs from their seeds, as shown in [IDLs and PDAs](/build/idls-and-pdas).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    Every devnet market with its addresses.
+  </Card>
+  <Card title="Addresses" icon="list" href="/reference/addresses">
+    Program IDs, mints, PDAs and vaults.
+  </Card>
+</CardGroup>

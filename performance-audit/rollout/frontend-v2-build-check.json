@@ -1,0 +1,42 @@
+{
+  "deploymentId": "e9f94852-ec23-457b-a1d4-355eab9de7fd",
+  "status": "SUCCESS",
+  "evidence": [
+    {
+      "timestamp": "2026-10-09T01:58:58.723261960Z",
+      "message": "✓ Compiled successfully in 8.7s\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:58:58.726273318Z",
+      "message": "  Running TypeScript ...\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:09.311170789Z",
+      "message": "  Finished TypeScript in 10.6s ...\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:10.732444849Z",
+      "message": "  Generating static pages using 31 workers (0/159) ...\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:11.478911864Z",
+      "message": "  Generating static pages using 31 workers (39/159) \r\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:11.763852576Z",
+      "message": "  Generating static pages using 31 workers (79/159) \r\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:11.940819026Z",
+      "message": "  Generating static pages using 31 workers (119/159) \r\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:13.247247222Z",
+      "message": "✓ Generating static pages using 31 workers (159/159) in 2.5s\n"
+    },
+    {
+      "timestamp": "2026-10-09T01:59:19.167913861Z",
+      "message": "containerimage.digest: sha256:d14bab7f174ef7cc4f2fddd777028b0c6277062fae742cfb7f635bc03455d3f1"
+    }
+  ]
+}

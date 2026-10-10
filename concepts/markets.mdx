@@ -1,0 +1,167 @@
+---
+title: Markets
+description: A market is one synthetic asset. It has a Market account, a pair of SPL mints, a collateral vault, two native bin books and a per-market CLP. Here's how they're shaped and listed.
+---
+
+A **market** in Continuum is one synthetic asset. Each market has:
+
+- A `Market` PDA (mint-redeem program) holding initial prices, fees, supply, the keeper's latest price, the risk state, the buffer target and the keeper authority.
+- Two SPL mints, long (`L`) and short (`S`), both with the Market PDA as mint authority.
+- A collateral vault (a cUSDC token account) backing the outstanding L and S supply. QQQ, SPY and XAU share one unified vault. Each of the other 11 markets has its own vault, owned by its Market PDA.
+- Two native bin-book `Pool` PDAs (clp program), one per side.
+- A `Clp` PDA and CLP vault holding the protocol's trading inventory and capital for the market.
+- An `OracleConfig` PDA (oracle program), which mint and redeem take as their `oracle` account.
+
+Markets are not interchangeable. A `QQQL` token is a different mint from an `SPYL` token, even though both are long tokens.
+
+## PDA derivation
+
+```
+Market:       seeds = [b"market", asset_symbol_bytes]      (mint-redeem program)
+OracleConfig: seeds = [b"oracle_config", market_pda]       (oracle program)
+Clp:          seeds = [b"clp", market_pda]                 (clp program)
+Pool:         seeds = [b"pool", market_pda, side_byte]     (clp program; side 0 = long, 1 = short)
+```
+
+The symbol is the asset ticker as ASCII bytes (`"QQQ"`), at most 10 characters. The CLP vault and each pool's two token vaults are associated token accounts (ATAs) of their PDA. [Address registry](/reference/addresses#derive-addresses-from-a-symbol) has a sample that derives all of them.
+
+## What's stored on the Market account
+
+Public fields you'll likely read:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `asset_symbol` | string | Market ticker. |
+| `long_mint` / `short_mint` | Pubkey | L and S SPL mints. |
+| `collateral_mint` | Pubkey | cUSDC mint. |
+| `collateral_vault` | Pubkey | Token account holding the backing cUSDC. For QQQ, SPY and XAU this is the shared unified vault. |
+| `oracle_address` | Pubkey | The market's `OracleConfig` PDA, passed to mint and redeem as `oracle`. The keeper doesn't update it on devnet, so it is not a price source. |
+| `fee_recipient` | Pubkey | Owner of the cUSDC account (`devTokenAccount`) that receives the dev tax. |
+| `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees the keeper posts, `clamp(fee_mult × half-spread, 10, 100)` bps. The risk-state multiplier applies on top. |
+| `initial_l_price` / `initial_s_price` | u64 | Prices set at init, scaled by 1e6. Their product is the constant `K`. `reanchor_gamma` can fold γ into `initial_s_price`. |
+| `total_l_supply` / `total_s_supply` | u64 | Outstanding supply on each side. |
+| `total_collateral` | u64 | This market's collateral ledger figure, not a token balance. |
+| `buffer_target_bps` | u16 | Overcollateralization target posted by the keeper (200 on every market as of 10 Oct 2026). |
+| `is_active` | bool | If false, mint and redeem revert with `MarketNotActive`. |
+| `risk_state` | enum | `Normal` / `ProxyMode` / `Stress` / `Recovery`. Every devnet market runs in ProxyMode. |
+| `user_twap_price` / `twap_updated_at` | u64 / i64 | The keeper's latest reference price and when it was written. Despite the name it is a spot price, scaled by 1e6 and adjusted for corporate actions. Mint and redeem revert with `TwapNotAvailable` if it is 0 or more than 300 s old. |
+| `oracle_confidence` | u64 | Confidence band pushed with each price. On devnet it comes from a GJR-GARCH volatility model. |
+| `s_gamma_index` | u64 | γ, the short leg's volatility-decay index, scaled by 1e9 (0 reads as 1.0). |
+| `keeper_authority` | Pubkey | Signer the program requires for the keeper's price, γ and buffer-target updates. |
+| `dev_tax_pct` | u8 | Share of each fee sent to `fee_recipient` (10%). The rest stays in the vault. |
+
+Full schema in the [mint-redeem reference](/programs/mint-redeem).
+
+## Reading market state
+
+```typescript
+import { Program, type Idl } from "@coral-xyz/anchor";
+import { Connection, PublicKey } from "@solana/web3.js";
+import idl from "./mint_redeem.json"; // the published mint_redeem IDL
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const program = new Program(idl as Idl, { connection });
+
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  program.programId,
+);
+const info = await connection.getAccountInfo(marketPda);
+if (!info) throw new Error("QQQ market not found");
+const market = program.coder.accounts.decode("market", info.data);
+
+console.log("Symbol:", market.assetSymbol);
+console.log("Fees (bps):", market.mintFeeBps, market.redeemFeeBps);
+console.log("Total collateral (cUSDC):", market.totalCollateral.toNumber() / 1e6);
+console.log("Price:", market.userTwapPrice.toNumber() / 1e6);
+console.log("Price age (s):", Math.floor(Date.now() / 1000) - market.twapUpdatedAt.toNumber());
+```
+
+Run on Saturday 10 Oct 2026, it printed fees of 18 bps, 1,883,044.75 cUSDC of total collateral and a price of 751.27. The price was about 23 hours old because QQQ was closed. To read all live markets at once, batch with `getMultipleAccounts`. See [Reading state](/flows/read-state).
+
+## Live markets
+
+Fourteen markets are live on devnet. They have 28 bin books between them and about \$19.0M of total collateral (10 Oct 2026). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
+
+| Symbol | Asset | Core step × core bins | Wing step | Bins a side |
+|---|---|---|---|---|
+| `QQQ` | Nasdaq-100 ETF | 20 bps × 3 | 300 bps | 12 |
+| `SPY` | SPDR S&P 500 ETF | 15 bps × 3 | 250 bps | 12 |
+| `XAU` | Gold spot | Long 50 bps × 3, short 20 bps × 3 | 300 bps | Long 6, short 12 |
+| `XAG` | Silver spot | 20 bps × 3 | 300 bps | 12 |
+| `NVDA` | NVIDIA | 30 bps × 3 | 450 bps | 12 |
+| `AAPL` | Apple | 25 bps × 3 | 400 bps | 12 |
+| `EUR` | EUR/USD | 10 bps × 3 | 200 bps | 12 |
+| `MSFT` | Microsoft | 25 bps × 3 | 400 bps | 12 |
+| `TSLA` | Tesla | 35 bps × 3 | 500 bps | 12 |
+| `AMZN` | Amazon | 25 bps × 3 | 400 bps | 12 |
+| `GOOGL` | Alphabet | 25 bps × 3 | 400 bps | 12 |
+| `GBP` | GBP/USD | 10 bps × 3 | 200 bps | 12 |
+| `JPY` | USD/JPY | 10 bps × 3 | 200 bps | 12 |
+| `MSTR` | MicroStrategy | 50 bps × 3 | 700 bps | 12 |
+
+Fine core steps quote tight near the centre, and wide wings hold inventory for larger moves. The keeper centres each book on an inventory-shifted price rather than on NAV itself, and re-centres it as the price moves (see [Book management](/keeper/book-management)). The books charge no swap fee.
+
+During market hours the keeper targets about \$5,000 of bids per book and trims asks worth more than 1.5 times the bids. While mint and redeem are frozen, it posts a capped "free float" book instead: at most \$1,250 a side for the seven single stocks (NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, MSTR) and at most \$10,000 a side for the other seven markets.
+
+On QQQ, SPY and XAU, book trades and the CLP's instant `clp_swap` share a cap of 1,000,000 cUSDC of notional per one-hour window (`swap_guards.window_cap_usd`). The other 11 markets have no window cap set.
+
+Committed orders are on for QQQ, SPY and XAU only (10 Oct 2026), because only their `Clp` accounts have `swap_guards.enabled` set. On the other 11 markets `commit_swap` and `clp_swap` revert with `SwapDisabled`, and the app hides both routes. The bin books trade on all 14 markets. An order fills at NAV ± `max(commit_spread_bps, 10)` bps, where the keeper posts `commit_spread_bps` as `clamp(half-spread, 10, 500)`. Committed orders have no window cap; the market's CLP inventory limits the fill.
+
+→ [Live markets table with all pubkeys](/markets/live)
+
+## How a market gets listed
+
+The Continuum team lists markets as an operator process. In outline:
+
+<Steps>
+  <Step title="Create the market">
+    Create the two mints (6 decimals, Market PDA as mint authority, no freeze authority) and the market's cUSDC vault. Then call `initialize_market(params: InitMarketParams)` with the symbol, initial prices, starting fees and keeper authority.
+  </Step>
+  <Step title="Create the oracle config">
+    `initialize_oracle_config` creates the `OracleConfig` PDA, and `upsert_oracle_feed` registers Pyth price accounts as its feeds. The keeper doesn't use them on devnet.
+  </Step>
+  <Step title="Create and fund the CLP">
+    `initialize_clp(oi_cap, oracle_config)` creates the per-market `Clp`. The CLP vault and the CLP's L and S token accounts are its ATAs, and `allocate_to_market` funds the vault from the GlobalClp.
+  </Step>
+  <Step title="Open the books">
+    `init_pool(side, step_bps, num_bins)` for each side, then `configure_pool_geom(wing_step_bps, core_bins)`. After seeding the pool vaults, the first `set_pool_shape` posts the bins and enables the pool.
+  </Step>
+  <Step title="Update the keeper and the app">
+    The keeper needs code changes and a redeploy before it prices the new market, because it discovers markets only at boot. The app needs its address, taxonomy, logo and token-metadata entries.
+  </Step>
+</Steps>
+
+→ [Listing a market](/markets/listing)
+
+## Roadmap
+
+Planned markets, withdrawn markets and the path to mainnet are on the [Roadmap](/markets/roadmap).
+
+## Trading hours
+
+Mint and redeem follow the underlying's session, while the books trade around the clock. The keeper pushes a price only when its source prints a fresh quote, which happens during these sessions:
+
+| Markets | Sessions with keeper prices |
+|---|---|
+| US stocks and ETFs (QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, MSTR) | 09:30 to 16:00 ET, Monday to Friday |
+| FX (EUR, GBP, JPY) | Sunday 17:00 ET to Friday 17:00 ET |
+| Gold and silver (XAU, XAG) | Sunday 18:00 ET to Friday 17:00 ET, with a daily pause from 17:00 to 18:00 ET |
+
+- During the session, the keeper pushes prices, and mint, redeem, committed orders and the books all work.
+- When the underlying closes, the pushes stop. Once the last price is more than 300 s old, mint and redeem revert with `TwapNotAvailable`. A committed order settles only at a keeper push after it was placed, so none settle while the market is closed. After the order's 180 s TTL, the user signs `cancel_swap` to get the escrow back.
+- The bin books stay open, showing the capped free-float book centred on the last price. A guard compares other venues that keep trading off-hours and may pull bins on the side a move has made stale. It never moves the centre or adds depth.
+- At the next session's first fresh price, the 300 s clock restarts, mint and redeem reopen, and the keeper re-centres the books.
+
+See [Oracle](/concepts/oracle) for how the price itself is produced.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="Live market addresses" icon="address-book" href="/markets/live">
+    All 14 markets, every pubkey.
+  </Card>
+  <Card title="How to read market state" icon="magnifying-glass" href="/flows/read-state">
+    Batch fetch markets, derive NAV, query book depth.
+  </Card>
+</CardGroup>

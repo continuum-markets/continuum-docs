@@ -1,0 +1,30 @@
+
+Preflight deploy gate — target=devnet
+========================================================================
+
+[1/5] IDL drift (frontend/lib/idl vs programs/*/src/lib.rs)
+  warn: skipped via --skip-idl
+
+[2/5] Known-good build recipe (SBFv2)
+  Anchor:     anchor build            (syncs IDL via bun run sync:idl)
+  Raw SBFv2:  cargo build-sbf --tools-version v1.45 --arch v2
+              (real v2; do NOT rely on v1.48's relabeled v3)
+  Deploy:     via a PUBLIC RPC (e.g. api.mainnet-beta.solana.com) — Helius HANGS
+              on program deploys. No realloc in the deploy tx.
+
+[3/5] devnet cargo feature must be absent from a mainnet build
+  build cmd: cargo build-sbf --tools-version v1.45 --arch v2 --features devnet (oracle only)
+  ok:   target is devnet — devnet feature is expected/allowed
+
+[4/5] Deploy RPC sanity
+  deploy rpc: https://api.devnet.solana.com
+  ok:   deploy RPC is not Helius
+
+[5/5] Keeper collision guard
+  warn: CONFIRM the prod keeper is OFFLINE before any keeper push:
+  warn:   - pushing the keeper repo to main auto-starts prod on Railway
+  warn:   - a local keeper shares KEEPER_KEYPAIR_JSON with prod and will collide
+  warn:   (this is a manual confirmation — the gate cannot verify it for you)
+
+========================================================================
+PREFLIGHT PASSED (hard checks). Review the warn: lines above before deploying.

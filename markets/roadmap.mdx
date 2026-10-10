@@ -1,0 +1,111 @@
+---
+title: Roadmap
+description: What's live, what shipped recently, what's next, and what's not coming.
+---
+
+Continuum's MVP runs on devnet. This page covers the live markets, recent releases, the planned market roster and the path to mainnet.
+
+## What's live (devnet)
+
+| Market | Asset | Live since |
+|---|---|---|
+| **QQQ** | Nasdaq-100 ETF | Apr 2026 |
+| **SPY** | SPDR S&P 500 ETF | Apr 2026 |
+| **XAU** | Gold spot | Apr 2026 |
+| **XAG** | Silver spot | Jun 2026 |
+| **NVDA** | NVIDIA | Jun 2026 |
+| **AAPL** | Apple | Jun 2026 |
+| **EUR** | EUR/USD | Jun 2026 |
+| **MSFT** | Microsoft | 23 Aug 2026 |
+| **TSLA** | Tesla | 23 Aug 2026 |
+| **AMZN** | Amazon | 23 Aug 2026 |
+| **GOOGL** | Alphabet | 23 Aug 2026 |
+| **GBP** | GBP/USD | 23 Aug 2026 |
+| **JPY** | USD/JPY | 23 Aug 2026 |
+| **MSTR** | MicroStrategy | 25 Aug 2026 |
+
+That is 14 markets with 28 bin books and about \$19.0M of total collateral (10 Oct 2026). The books charge no swap fee. See [Live markets](/markets/live) for every address.
+
+Two markets have left the list. VXX was delisted in June 2026. OIL (WTI crude) was withdrawn on 30 Aug 2026. Its Pyth feed had stopped publishing, and the only keyless quote left was the front-month WTI future, a different instrument from the one the market tracked.
+
+## Shipped since August
+
+- Seven markets: MSFT, TSLA, AMZN, GOOGL, GBP and JPY on 23 Aug 2026, and MSTR on 25 Aug 2026.
+- Corporate-action support. `apply_corporate_action` (authority-only and time-gated) maps the raw price through `price_adjust_num / price_adjust_den`, so a stock split leaves every leg's NAV unchanged. The ratio is armed ahead of the ex-date. No action is armed today.
+- γ renewal with `reanchor_gamma`. Only the market authority can call it, and calls must be at least 14 days apart. It folds the accumulated γ into `initial_s_price` and resets γ to 1, which leaves every holder's claim the same at every price and lets γ keep charging. It does not reset the market's anchor to the spot price. No market has been re-anchored yet.
+
+## Planned markets
+
+Continuum's targeted launch is **TradFi only**. There are no crypto markets: for a crypto pair, the paired design adds nothing over an actual perp DEX.
+
+| Class | Planned |
+|---|---|
+| Indices | SPX (S&P 500 index), NDX (Nasdaq-100 index), FTSE 100, DAX, Russell 2000 |
+| Equities | GME (GameStop), AMC (AMC Entertainment), META (Meta) |
+| Commodities | BRENT (Brent crude), HG (copper) |
+| Forex | USD/CHF |
+
+Natural gas is blocked: there's no continuous feed for it, only dated futures contracts. Every listing faces the same test: the market needs a quote of the instrument it tracks, and a futures contract standing in for a spot price doesn't count.
+
+The order of rollout depends on three things. The first is price sources: on devnet, a keyless public quote of the same instrument plus Hyperliquid coverage, and on mainnet, a Pyth feed. The second is liquidity, so deep and actively traded underlyings go first. The third is operator capital. The protocol is the only LP, so the operator funds every market's books and committed-order inventory.
+
+## Mainnet path
+
+Going from devnet to mainnet is gated on:
+
+| Gate | Status |
+|---|---|
+| Security audits | Open. At least one external audit (Sec3, OtterSec or Neodyme) before launch. |
+| Devnet stability under load | Open. About 4 weeks of devnet stress testing. |
+| Bug bounty program | Open. Live before mainnet. |
+| Multisig migration of upgrade authorities | Open. Squads (at least 3-of-5) for upgrade authority, plus a separate multisig for the CLP authority. |
+| Enforced OI caps | Open. Each market's `Clp` stores an `oi_cap` (250,000 cUSDC on devnet), but nothing enforces it yet. Enforcement is planned. |
+| Pyth (Pyth Pro) feed for every listed asset | Open. Checked per market before listing. |
+| Gradual rollout | Plan agreed: one invite-only market first. |
+
+Mainnet will launch with a single invite-only market, and expansion will follow what that market shows.
+
+## Features behind feature flags
+
+Keeper features that compile but are off by default:
+
+| Feature | Flag | Notes |
+|---|---|---|
+| Idle-collateral yield | `YIELD_ENABLED=false` | The CLP can deploy idle vault balance into lending markets. Audit-gated. |
+| Legacy Meteora layer | `LEGACY_METEORA_ENABLED=false` | DLMM position management, the arbitrage loop and that loop's MarginFi or Kamino flash-loan funding. The native bin books replaced it. |
+| L/S direct pool arbitrage | `LS_POOLS` unset | Deprecated by the keeper's single-side mint and redeem. It stays disabled. |
+
+## Features under design
+
+- Governance activation, covering CNTM staking, listing votes and parameter votes. A program scaffold is deployed on devnet; the on-chain wiring is the remaining work.
+- OI cap enforcement. Today `oi_cap` is checked only in an authority-only instruction that nothing calls.
+- User-supplied LP shares. For now the protocol is the only LP.
+- Multi-keeper coordination beyond the current primary and standby pair, for higher availability.
+- Cross-market keeper coordination, with edge-weighted dispatching across operators.
+- Vol-regime auto-tuning: per-asset calibration of the volatility thresholds.
+- A public arb-bot SDK. This TypeScript and Rust library for external arb bots would package the keeper's spread-detection and execution logic.
+
+## What's explicitly not planned
+
+| Not planned | Why |
+|---|---|
+| Crypto markets | Use a real perp DEX. |
+| Funding rate | The paired design has no funding payments. The short leg's [volatility decay](/concepts/nav) charges for the pair's convexity instead. |
+| Liquidations | Paired positions are paid in full at mint. |
+| Margin or leverage | Synthetic leverage through external borrowing is fine; native leverage is out of scope. |
+
+## Tracking progress
+
+- #announcements on [Discord](https://discord.gg/U5hPCB8ufJ) for releases. It's an announcement channel, so you can follow it into your own server.
+- [X @ContinuumMkts](https://x.com/ContinuumMkts) for major announcements.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    What's live on devnet today.
+  </Card>
+  <Card title="Listing flow" icon="plus" href="/markets/listing">
+    How a market gets added.
+  </Card>
+</CardGroup>

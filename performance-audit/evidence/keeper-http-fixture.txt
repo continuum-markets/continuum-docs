@@ -1,0 +1,19 @@
+
+running 1 test
+{"bytes":32875,"fixture":"empty-network startup","median_ms":0.160875,"p95_ms":0.215209,"route":"/","samples":20,"status":200}
+{"bytes":15,"fixture":"empty-network startup","median_ms":0.158584,"p95_ms":0.234792,"route":"/api/networks","samples":20,"status":200}
+{"bytes":36,"fixture":"empty-network startup","median_ms":0.145375,"p95_ms":0.17049999999999998,"route":"/api/status/fixture","samples":20,"status":200}
+{"bytes":36,"fixture":"empty-network startup","median_ms":0.160458,"p95_ms":0.220292,"route":"/api/arb-scan/fixture","samples":20,"status":200}
+{"bytes":36,"fixture":"empty-network startup","median_ms":0.151125,"p95_ms":0.15954200000000002,"route":"/api/pool-state/fixture","samples":20,"status":200}
+{"bytes":36,"fixture":"empty-network startup","median_ms":0.15275,"p95_ms":0.316625,"route":"/api/sol-health/fixture","samples":20,"status":200}
+{"bytes":55,"fixture":"empty-network startup","median_ms":0.205708,"p95_ms":0.30541599999999997,"route":"/api/data/fixture","samples":20,"status":404}
+{"bytes":55,"fixture":"empty-network startup","median_ms":0.16674999999999998,"p95_ms":0.21175,"route":"/api/data/fixture/pools","samples":20,"status":404}
+{"bytes":43,"fixture":"empty-network startup","median_ms":0.1625,"p95_ms":0.198708,"route":"/api/data/fixture/pools/download","samples":20,"status":404}
+{"bytes":106,"fixture":"empty-network startup","median_ms":0.119041,"p95_ms":0.15125,"route":"/healthz","samples":20,"status":200}
+{"bytes":106,"fixture":"empty-network startup","median_ms":0.12675,"p95_ms":0.169875,"route":"/health","samples":20,"status":200}
+{"bytes":2,"fixture":"empty-network startup","median_ms":0.13487500000000002,"p95_ms":0.153208,"route":"/ping","samples":20,"status":200}
+{"bytes":298,"fixture":"empty-network startup","median_ms":0.192125,"p95_ms":0.242375,"route":"/api/memory","samples":20,"status":200}
+test dashboard::performance_tests::read_only_route_benchmark ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 374 filtered out; finished in 0.15s
+

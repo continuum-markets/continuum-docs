@@ -1,0 +1,5 @@
+# Preserve captured patches and raw command output byte-for-byte.
+*.patch -whitespace
+*.log -whitespace
+*.txt -whitespace
+*.csv whitespace=trailing-space,space-before-tab,cr-at-eol

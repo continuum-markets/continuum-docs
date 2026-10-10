@@ -1,0 +1,643 @@
+{
+  "scope": "local LiteSVM simulation of fresh public devnet accounts; signature verification disabled; no private key or network submission",
+  "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+  "oracleBinarySha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+  "accountReadSlot": 509016557,
+  "fetchedAt": "2026-10-09T01:43:26Z",
+  "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+  "admin": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+  "targetSize": 1781,
+  "rentExemptionLamports": "9697720",
+  "candidates": [
+    {
+      "address": "5wW4bJZ3vLtsGVDrfCuoAUBozzNgKDdp3urSRyERD6x3",
+      "market": "6vX3BNEbeem7xjiTKuMC9uMDD3hxPxo9fgM834BucH3n",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "7ed8e80b5871888e6fa914bba11d74c6ef71866cb843392d5241e401b7a0ef1b",
+      "afterDataSha256": "cdad5b976ac9b9cc97dd05bf6d1cb0ab79a97f422d15bf189bd7c8ecdde91b3c",
+      "computeUnits": "10120",
+      "executionMs": 2.3608750000000214,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "5wW4bJZ3vLtsGVDrfCuoAUBozzNgKDdp3urSRyERD6x3",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "71F1zwVKtTTTXbmpDHmF4Jg7YwxyWPY9aVvCTgQJWjKd",
+      "market": "HzCTyT5rRVUme6JugGsvnyCQ4wrsyZ6WrbX5FfaMR3Q3",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "be38a295477b7570f906f16852f0bcd04fdb6eed65b215a09e5c4afe158609f3",
+      "afterDataSha256": "685beee18fb912a0f2ac49c66ee435b7d38a6949adae0c4ab99e8c95dba9dedb",
+      "computeUnits": "10120",
+      "executionMs": 0.4354590000000087,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "71F1zwVKtTTTXbmpDHmF4Jg7YwxyWPY9aVvCTgQJWjKd",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1",
+      "market": "2hZtLxJtPeYjogUQFWeGYEKjJkWArEcf9iTtGkrChuKC",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "2d16b0df61bc34cba001a6c23ed60af44bb51b9f8d5f436bb0c2cc892c56fa82",
+      "afterDataSha256": "b94c34a390238b002fb089d4abfb8bafce8ee3b84b64a17edf88e204327de13c",
+      "computeUnits": "10120",
+      "executionMs": 0.4250419999999906,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "7YwnWSbwNxJhzKkt3WoAkJ7nxnzpcAFNBsQ7gyYgpEVe",
+      "market": "4ZunzWTX3XAhdhPvjsfFLaXXzZSgMD7CPr9moC1XKpSA",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "b8d3527b86cbcb71e8a30269f435e92f678086ba545d09517cbaad2ce20c2c94",
+      "afterDataSha256": "12418350301e3d9435ebb60251bca679c680e30c11627cf4a2e639c7dacadcd2",
+      "computeUnits": "10120",
+      "executionMs": 0.3372919999999908,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "7YwnWSbwNxJhzKkt3WoAkJ7nxnzpcAFNBsQ7gyYgpEVe",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1",
+      "market": "F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "91e568a857d420a2b205820b91e63b298050d502eee86bdddd0236ad5929e2da",
+      "afterDataSha256": "8af0e0e9c8fcd58452ce10a0bc1ebf069dca83c436f3be2fb6daf99185dc8373",
+      "computeUnits": "11719",
+      "executionMs": 0.3299999999999841,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 11569 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "8ZUofpK6Dj7Y8SDT7kiLawZjEeQ3eWiptLPZMum4W1p6",
+      "market": "tEGPdiYZFyysq6YJeASdtzs6qzHUGKS96qp7XYJjBpj",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "f2fd795f069bc6b3c2f5a2c44a9ac30c32bba0fb68781a496abf6f93907a513a",
+      "afterDataSha256": "7f2a53baf8cb9508b56606387654aad7d2b33568084699753d8e0ff7e1954765",
+      "computeUnits": "10120",
+      "executionMs": 0.4260829999999771,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "8ZUofpK6Dj7Y8SDT7kiLawZjEeQ3eWiptLPZMum4W1p6",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "BLWwgcpbAMADpaA1YVTc2jy7ScxmSa7G47Xze75kiyuv",
+      "market": "7kmfunh8gUn2h9eafmJHUP6xeR8qM6yJZVEEyRzKiXhb",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "18d057956e82d0f576ea837e37cecb81ed3d0fdbc701a35c0cd323aad9fbc6fc",
+      "afterDataSha256": "40a57c81232d54c0612aac188ecfba248124b84ed7eb0f3fa39d6ab8fa2b25b2",
+      "computeUnits": "10120",
+      "executionMs": 0.2731670000000008,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "BLWwgcpbAMADpaA1YVTc2jy7ScxmSa7G47Xze75kiyuv",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn",
+      "market": "HjpaEbyXJBqzxP6B7eNnbZvtaUPXRubc5bEywzfMePqK",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "dbc7d4e50a90f252b96812e52a3cd6af643084d40c491c7da6b8c4763c8e6170",
+      "afterDataSha256": "079a46a554ed11e08e76b6dcae24970289f0c5f71a3d6d108f24b8e12c8e51cf",
+      "computeUnits": "10120",
+      "executionMs": 0.36579100000000153,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "BtYkLGtZAh9ifwiV2pyuBFMEwFFC5zUX22HfYpajAt84",
+      "market": "66WAH37WCVp1xxSBf3gqJQB4zgQnH1JGRaFymBCSpK9Y",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "38d292fcdbe87c5c948a646e8f2e8369b9dea905c0f947a356b486adc0516870",
+      "afterDataSha256": "e3863d9b1a596c5183a08b3cbe6adf5810d9ec08bb6a687604b4eeb6e619508e",
+      "computeUnits": "10120",
+      "executionMs": 0.5072089999999889,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "BtYkLGtZAh9ifwiV2pyuBFMEwFFC5zUX22HfYpajAt84",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE",
+      "market": "GT1XPJmWNxFukQXVxCmT6c9VdLdR6Da54aU9m9QGfd8b",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "1fe4831c012ef4c240cdedca80db0292a2f1551d5c8dd0144a8c683039a141a5",
+      "afterDataSha256": "0933302e75f57d670f92ae85c584ca315486271ba41a69c19501781800ee0d13",
+      "computeUnits": "10120",
+      "executionMs": 0.8080829999999821,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "DSNRGdZUqkwH9HoYr7XLsMm2VZsY3sWXJNouAT85ghCM",
+      "market": "HvPnCkZq2z163WFxTGCgp7V13qhrNpiZvDywAgQaPTQg",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "bb418e204c0f547feafd968beddca3807eae830de619a7e41603bd0aec105532",
+      "afterDataSha256": "06620547275f8dfcc9a52ee1cd63eea9b67f00faa073afbde0231712e64d4eac",
+      "computeUnits": "10120",
+      "executionMs": 0.9844169999999792,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "DSNRGdZUqkwH9HoYr7XLsMm2VZsY3sWXJNouAT85ghCM",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "GS6nnzH89YW95KT13wi4pBbNa5rGW12dvnKpQxpfxP3q",
+      "market": "GfCCPnP6TkM5ykN6vfXSUpqt8nwqJFEXBpJp2hfaPPyZ",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "c1ccc62ef4d0188d5f4fc7d253d994745c83fa7315df3c3c743870c7696636eb",
+      "afterDataSha256": "13a12ae0be17df3755ebbf6a76f2055b147ce97bc89286d85c2281c82f3658c9",
+      "computeUnits": "10120",
+      "executionMs": 0.5911670000000129,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "GS6nnzH89YW95KT13wi4pBbNa5rGW12dvnKpQxpfxP3q",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4",
+      "market": "8HVoUTS3iNdKSCHhvhc2FNRnXjd7yHcEARD6mTFjem7b",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "4b6d7537d5079a5f9ce4cc607bc1719552a24dbb41849d33d3f3ed8e2417d2f2",
+      "afterDataSha256": "5005bbbc2a504df8802aee4131aa8d28660f67e9c7539fd1ec79167ace9916d5",
+      "computeUnits": "10120",
+      "executionMs": 0.35087500000000205,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "H3wyiSQg8BubRwEdRaHYCMVx4HMwtAYdjgqEfohJmSyd",
+      "market": "3dadTP1Wce1CBrwxhCXor4HanjioauS7Qey3TFtpriVb",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "8bc578226aa9fb1c106b9fc1af4ba50daf671e9a93f33312ec16d1fe0144c8a2",
+      "afterDataSha256": "a8cfb864da7a3b0a6bc2b0c0e482b665b5abef180f9b55b6df51d3a0ff9fcd5f",
+      "computeUnits": "10120",
+      "executionMs": 0.24100000000001387,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "H3wyiSQg8BubRwEdRaHYCMVx4HMwtAYdjgqEfohJmSyd",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    },
+    {
+      "address": "J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh",
+      "market": "CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR",
+      "beforeSize": 1765,
+      "afterSize": 1781,
+      "beforeLamports": "13175280",
+      "afterLamports": "13175280",
+      "rentTopUpLamports": "0",
+      "beforeDataSha256": "4fc6beb259f19c0bb1941bc6a8befd9b9c8ba5a14be3bd082a904b42df5fdb16",
+      "afterDataSha256": "9564226dd76ffefed03811db8cd252be8b00298bc5b27bce7a760e3b007b96b8",
+      "computeUnits": "10120",
+      "executionMs": 0.4025839999999903,
+      "instruction": {
+        "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "dataHex": "3918fac87718245a",
+        "accounts": [
+          {
+            "address": "J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh",
+            "signer": false,
+            "writable": true
+          },
+          {
+            "address": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+            "signer": true,
+            "writable": true
+          },
+          {
+            "address": "11111111111111111111111111111111",
+            "signer": false,
+            "writable": false
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC invoke [1]",
+        "Program log: Instruction: ReallocOracleConfig",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC consumed 9970 of 99850 compute units",
+        "Program 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC success"
+      ]
+    }
+  ]
+}

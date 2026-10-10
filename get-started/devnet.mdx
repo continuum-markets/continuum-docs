@@ -1,0 +1,105 @@
+---
+title: Devnet info
+description: Cluster, program IDs, the cUSDC faucet, the 14 live markets, and how prices and off-hours behave on devnet.
+---
+
+Continuum runs on Solana **devnet**. Plans for mainnet are on the [Roadmap](/markets/roadmap).
+
+## Cluster
+
+```
+RPC:     https://api.devnet.solana.com
+WS:      wss://api.devnet.solana.com
+Cluster: devnet
+```
+
+The public devnet endpoint is rate-limited. For sustained work, use a private RPC such as Helius, Triton or QuickNode.
+
+## Program IDs
+
+| Program | Devnet ID |
+|---|---|
+| `mint-redeem` | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` |
+| `oracle` | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
+| `clp` | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` |
+| `registry` | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` |
+| `faucet` | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+
+The program source is not public. IDLs generated from the deployed source are published in the [docs repo](https://github.com/continuum-markets/continuum-docs/tree/main/idl), and each one is also available raw at `https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/<name>.json`. Mainnet IDs will differ.
+
+The registry is deployed and initialized, but it holds no markets and nothing reads it yet. Take market addresses from [Addresses](/reference/addresses).
+
+## cUSDC (devnet collateral)
+
+```
+Mint:     B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE
+Decimals: 6
+```
+
+cUSDC is a test token, **not** real USDC. Its mint authority is a PDA of the faucet program, and it has no freeze authority. Mainnet will use real USDC (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`).
+
+<Warning>
+  These docs call the devnet collateral **cUSDC** to keep it apart from real USDC. Code, environment variables and account names often say "USDC"; on devnet they mean the test mint above.
+</Warning>
+
+## Faucet
+
+The [`faucet`](/programs/faucet) program drips 1,000 cUSDC to a wallet once every 24 hours. The live `FaucetState` has `drip_amount = 1000000000` and `cooldown_seconds = 86400`.
+
+In the app, click **Get 1000 cUSDC** on [/faucet](https://continuum.markets/faucet). From code, call the `drip` instruction; see [Faucet program](/programs/faucet). The recipient pays rent for its `DripRecord` account on the first drip, and a second drip inside 24 hours fails with `CooldownNotElapsed`.
+
+## Live markets
+
+Fourteen markets are live on devnet. All their addresses (mints, books, vaults) are on [Addresses](/reference/addresses).
+
+| Symbol | Asset | Long mint | Short mint |
+|---|---|---|---|
+| `QQQ` | Nasdaq-100 ETF | `E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ` | `BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG` |
+| `SPY` | SPDR S&P 500 ETF | `8mVLeXHpchLvt3WZRhRrAZYJ4oU3e2crVF1QEomgdDQ8` | `3n5x1QaXSSw5ysAK5zkMo1XSm52TwzTBK48RAfkeKJiu` |
+| `XAU` | Gold (spot) | `AoufiP54693dn9HKonVBn6W75tKe8eHq5ncTwjTz6i5c` | `9XjYivtQfhDitFJugsskP6LppL7JJzANWwc7kmybpd55` |
+| `XAG` | Silver | `VETzCeHk2mobTaUATNRBcokKE3x8YrcRyGx3Vsz4prr` | `DnHSia6WX5jYPnRkSTfu4GtbrTw2CAdLWKRmdMsWPHU3` |
+| `NVDA` | NVIDIA | `B8M3y6wHGFZidqYciVxGu27KYk2dLcqgBGNoUDXMVzNN` | `6n525VkawSkm6h1HxisHCpRssdbmazb1Q9S3Bi2f9emL` |
+| `AAPL` | Apple | `7ofckkctk9wUpTn77zFv8t8yb3iBUSkuU3vmcXbaUboS` | `438bLh6shsVHXoQwtaRP56zWuAsLJK1o2u6FyRe6crYV` |
+| `EUR` | EUR/USD | `FLDQtZ2adGWTcawQh6jziufJejkexoPA2uYimQTqA8z9` | `z5u5UYz5jWdbycMexwdYvkw56fLY1uvx5RZW3EtxRsM` |
+| `MSFT` | Microsoft | `GaGvW4zuXk84dJwmTXFYrxJaY4otHsJPasc7P5sjdCrA` | `4T1yPzWCxijyJEKiLmjfHYFNMJeiwGf2GSGuAsKwr9Fp` |
+| `TSLA` | Tesla | `4dt2EW6pNJRBup7gqxtsQF1GgNKR4RWoj5bSXuY5f1JH` | `71Mh4et7Xvf8wdQJJ3ZUk51wgyervZVdjN6A4bCkWFfG` |
+| `AMZN` | Amazon | `3vnTkSkevAJ69Vs8PFRNzF1hKvSiFbiLZJetNyqUcLZN` | `5ESabwnWACsFyDE96JNwbLkTpKyBHyNYM96PHEBvuzPc` |
+| `GOOGL` | Alphabet | `42kcUPz39qudU5qv9tgU6a3E7jmiJhKs7AoXDUcarKQ8` | `AGzVgTj53MwsJd8Ke2iyibRSyVLsqdJS3DzQWsSAxgdj` |
+| `GBP` | GBP/USD | `HSGiyJGoAMKYmEG6cZkvnTko3B3BP6nnVCYuikBxRLSJ` | `F6dZpqSCevWEUdCvv6ARaePy5RnqkcVJBm7UubjV8fSG` |
+| `JPY` | USD/JPY | `4NVo5FmKT1Z1Bid3RuRa9obpYgyusrQdxByTPLw6KtsT` | `VqgP5wUX6jZKEtWQiktmip8ntGz2eKCjdJ4ttjfo93a` |
+| `MSTR` | MicroStrategy | `4cu47GCf1uFiLFY4M4pz5fxXaQNkFjFCSGZMryHKLx2G` | `2tQ9cyCZX4vmG9rUkonKAtW8oCrgPSZn9Z6rSbrPHT7h` |
+
+OIL was withdrawn on 30 Aug 2026. Its `Market` account is still marked active, but the keeper no longer prices it, so mint and redeem on it revert. VXX was delisted in June 2026. Both left bin books on chain; ignore them.
+
+## How prices work on devnet
+
+### The keeper pushes every price
+
+Every devnet market runs in the `ProxyMode` risk state, which multiplies fees and the confidence band by 1.5. In ProxyMode the programs price from `Market.user_twap_price`, which the keeper writes with mint-redeem `update_risk_state_v2`, together with `twap_updated_at`. Despite its name, `user_twap_price` is a spot price, scaled to 1e6 and adjusted for corporate actions. The oracle program's `OracleConfig` is not updated on devnet, so do not read it for live prices.
+
+Pyth's public price endpoint now requires an API key, so the devnet keeper prices markets from a free public quote source. A GJR-GARCH volatility model sets the confidence band. Each price is checked against Hyperliquid before it is pushed, and a disagreement blocks the push. Hyperliquid can veto a price but never sets one; if it is unreachable, the price goes through unchecked. Mainnet will use Pyth (Pyth Pro).
+
+### Committed orders on three markets
+
+As of 10 Oct 2026, only the `Clp` accounts of QQQ, SPY and XAU have `swap_guards.enabled` set. On the other 11 markets, `commit_swap` and the instant oracle swap (`clp_swap`) revert with `SwapDisabled`, and the app hides both. The bin books (`pool_swap`) do not check that flag and trade on all 14 markets.
+
+### No fresh price, no mint or redeem
+
+Mint and redeem revert with `TwapNotAvailable` when `user_twap_price` is 0 or `twap_updated_at` is more than 300 s old. There is no fallback to `initial_l_price`. A keeper restart or outage longer than 300 s pauses mint and redeem in the same way.
+
+### Off-hours
+
+The keeper withholds a market's push once its source price is more than 120 s old. That happens when the underlying market closes: outside regular US trading hours for stocks and ETFs, and mainly at weekends for FX and metals. 300 s after the last push, mint and redeem freeze.
+
+The bin books keep trading. The keeper replaces each book with a free-float book anchored at the last price and capped at $10,000 per side, or $1,250 per side for single-name stocks. When other venues show the price has moved, it pulls the bins on the stale side. The first fresh push reopens mint and redeem and re-centres the books.
+
+## Explorers
+
+- [Solana Explorer](https://explorer.solana.com/?cluster=devnet)
+- [Solscan](https://solscan.io/?cluster=devnet)
+- [SolanaFM](https://solana.fm/?cluster=devnet)
+
+## Reporting issues
+
+- Discord: [join the server](https://discord.gg/U5hPCB8ufJ) and post in #help. New members can post ten minutes after joining.
+- Errors in these docs: [continuum-markets/continuum-docs](https://github.com/continuum-markets/continuum-docs).

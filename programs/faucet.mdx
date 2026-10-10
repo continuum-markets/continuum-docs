@@ -1,0 +1,144 @@
+---
+title: faucet (devnet)
+description: Drips 1,000 cUSDC per wallet every 24 hours on devnet. There is no mainnet faucet.
+---
+
+The faucet program mints cUSDC, the devnet collateral token, to any wallet that asks, at most once per cooldown. The `drip` instruction exists only in the devnet build; on mainnet the collateral is real USDC. In the app, the button reads "Get 1000 cUSDC".
+
+```
+Devnet ID: 9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY
+cUSDC mint: B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE
+```
+
+As of 10 Oct 2026 the cUSDC faucet drips 1,000 cUSDC (`drip_amount = 1_000_000_000`) with a 24 h cooldown (`cooldown_seconds = 86_400`). Amounts are in base units, and cUSDC has 6 decimals.
+
+## Accounts
+
+### `FaucetState` PDA
+
+```
+seeds = [b"faucet", mint]
+```
+
+One per mint. As of 10 Oct 2026 only cUSDC has one (`9U5jPkt46MhtqGt22yWQuKTUDKNUZXEZBekJNJuSMt1N`).
+
+| Field | Type | Purpose |
+|---|---|---|
+| `mint` | Pubkey | Token the faucet mints |
+| `authority` | Pubkey | Signer for `update_params` and `transfer_authority` |
+| `drip_amount` | u64 | Base units per drip (1,000,000,000 = 1,000 cUSDC) |
+| `cooldown_seconds` | i64 | Minimum time between two drips to one wallet |
+| `total_dripped` | u64 | Lifetime base units minted by `drip` |
+| `bump` | u8 | PDA bump |
+| `mint_authority_bump` | u8 | Bump of the `mint_authority` PDA |
+
+### `mint_authority` PDA
+
+```
+seeds = [b"mint_authority", mint]
+```
+
+Holds no data. It is the cUSDC mint authority (`HGtoCZ8VWGJvW5yiBai7VZictfrs3h7tmvFFJUoumoNw`) and signs the `mint_to` inside `drip`.
+
+### `DripRecord` PDA
+
+```
+seeds = [b"drip", mint, recipient]
+```
+
+One per wallet, created on its first drip. The recipient pays its rent (0.0007366 SOL on devnet as of 10 Oct 2026).
+
+| Field | Type | Purpose |
+|---|---|---|
+| `last_drip` | i64 | Unix time of the wallet's last drip |
+| `bump` | u8 | PDA bump |
+
+## Instructions
+
+### `initialize(drip_amount: u64, cooldown_seconds: i64)`
+
+Creates the `FaucetState` for a mint. Whoever calls it first for a mint becomes that faucet's `authority`. It doesn't touch the mint itself. Before anyone can drip, the mint's current authority must hand minting to the faucet's PDA:
+
+```bash
+spl-token authorize <MINT> mint <MINT_AUTHORITY_PDA>
+```
+
+Accounts: `mint_authority`, `faucet_state`, `mint`, `authority`, `system_program`.
+
+### `drip()` (devnet build only)
+
+Mints `drip_amount` to the signer's token account. Fails with `CooldownNotElapsed` if that wallet's last drip was less than `cooldown_seconds` ago. The cooldown is per wallet: `DripRecord` is keyed by the recipient, who must also sign. The recipient pays the transaction fee and, on a first drip, the `DripRecord` rent. `recipient_ata` must already exist, hold this mint and be owned by the recipient.
+
+Accounts, in order: `faucet_state`, `mint_authority`, `mint`, `drip_record`, `recipient_ata`, `recipient` (signer), `token_program`, `system_program`.
+
+### `update_params(drip_amount: u64, cooldown_seconds: i64)` (faucet authority)
+
+Replaces both values.
+
+### `transfer_authority(new_authority: Pubkey)` (faucet authority)
+
+Replaces `authority`.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `CooldownNotElapsed` | The recipient dripped less than `cooldown_seconds` ago |
+
+## TypeScript
+
+This drips to the provider's wallet. `provider` is set up as in [SDK setup](/build/sdk-setup), and the IDL is published in [`continuum-docs/idl`](https://github.com/continuum-markets/continuum-docs/tree/main/idl).
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import faucetIdl from "./faucet.json";
+
+const faucet: any = new Program(faucetIdl as any, provider);
+const cusdcMint = new PublicKey("B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE");
+const recipient = provider.publicKey;
+const pda = (...seeds: Buffer[]) => PublicKey.findProgramAddressSync(seeds, faucet.programId)[0];
+
+const recipientAta = getAssociatedTokenAddressSync(cusdcMint, recipient);
+
+await faucet.methods
+  .drip()
+  .accountsStrict({
+    faucetState: pda(Buffer.from("faucet"), cusdcMint.toBuffer()),
+    mintAuthority: pda(Buffer.from("mint_authority"), cusdcMint.toBuffer()),
+    mint: cusdcMint,
+    dripRecord: pda(Buffer.from("drip"), cusdcMint.toBuffer(), recipient.toBuffer()),
+    recipientAta,
+    recipient,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+  })
+  // drip needs the ATA to exist already
+  .preInstructions([
+    createAssociatedTokenAccountIdempotentInstruction(recipient, recipientAta, recipient, cusdcMint),
+  ])
+  .rpc();
+
+const balance = await provider.connection.getTokenAccountBalance(recipientAta);
+console.log("cUSDC balance:", balance.value.uiAmountString);
+```
+
+## Operator funding
+
+On devnet the operator funds the CLP from the faucet. It sets `drip_amount` to the target and `cooldown_seconds` to 0 with `update_params`, drips once, then restores both values. It then sends the cUSDC to the global vault with a plain SPL transfer. That transfer bypasses `admin_fund`, so `GlobalClp.total_deposits` stays at 0 on devnet. Mainnet has no faucet, and the admin must hold real USDC.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Devnet info" icon="circle-info" href="/get-started/devnet">
+    Cluster, RPC and faucet usage.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
+    A first mint that starts at the faucet.
+  </Card>
+</CardGroup>

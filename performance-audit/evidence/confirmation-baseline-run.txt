@@ -1,0 +1,22 @@
+37 |   const signed = transaction.serialize();
+38 |   validateSignedTransaction(bytes, signed);
+39 |   return signed;
+40 | } };
+41 | const evidence: Record<string, any> = { sample, wallet: owner, cluster: 'devnet', scope: 'One memo transaction; no token movement; automatic approval; current app confirmation and parallel bounded 250ms observer', startedAt: new Date().toISOString(), phases: [], probe: [], appReads: [] };
+42 | const save = () => { fs.writeFileSync(output + '.tmp', JSON.stringify(evidence, null, 2) + '\n'); fs.renameSync(output + '.tmp', output); };
+                                                                 ^
+TypeError: JSON.stringify cannot serialize BigInt.
+      at save (/Users/nafironato/Dev/Projects/continuum/frontend/scripts/performance-confirmation.ts:42:61)
+      at <anonymous> (/Users/nafironato/Dev/Projects/continuum/frontend/scripts/performance-confirmation.ts:65:11)
+37 |   const signed = transaction.serialize();
+38 |   validateSignedTransaction(bytes, signed);
+39 |   return signed;
+40 | } };
+41 | const evidence: Record<string, any> = { sample, wallet: owner, cluster: 'devnet', scope: 'One memo transaction; no token movement; automatic approval; current app confirmation and parallel bounded 250ms observer', startedAt: new Date().toISOString(), phases: [], probe: [], appReads: [] };
+42 | const save = () => { fs.writeFileSync(output + '.tmp', JSON.stringify(evidence, null, 2) + '\n'); fs.renameSync(output + '.tmp', output); };
+                                                                 ^
+TypeError: JSON.stringify cannot serialize BigInt.
+      at save (/Users/nafironato/Dev/Projects/continuum/frontend/scripts/performance-confirmation.ts:42:61)
+      at /Users/nafironato/Dev/Projects/continuum/frontend/scripts/performance-confirmation.ts:87:3
+
+Bun v1.3.8 (macOS arm64)

@@ -1,0 +1,34 @@
+{
+  "performance_deployment": "ea7d649c-2360-491b-a622-b0ac019c1fe5",
+  "pricing_deployment_superseding_it": "1a5f6ff6-99a3-4b60-91cb-88e0a81aee64",
+  "pricing_source": "2a7c22eea901a282070769989a8ab8863d14cd4b",
+  "performance_source_sha256": "e9bade9a697e8424018e7d1839529b76534eea9f24cb5be0e84cb037d7032216",
+  "combined_worktree": "/tmp/continuum-analytics-pricing-release",
+  "combined_branch": "analytics/posted-prices-performance-20261009",
+  "status": "Already deployed by performance session; duplicate analytics publish prevented by latest-deployment guard",
+  "performance_file_identity": {
+    "app/api/usdc-supply-apr/route.ts": true,
+    "app/pools/pools-view.tsx": false,
+    "components/providers.tsx": true,
+    "hooks/useBestUsdcSupplyApr.ts": true,
+    "hooks/useTickClock.ts": true,
+    "lib/usdc-supply-apr.test.ts": true,
+    "lib/usdc-supply-apr.ts": true,
+    "lib/wallet-storage.test.ts": true,
+    "lib/wallet-storage.ts": true,
+    "next.config.ts": true
+  },
+  "overlap": "pools-view preserves shared market/health observers and lazy details, plus nullable idle-synth valuation from pricing",
+  "live_deployment": "e9f94852-ec23-457b-a1d4-355eab9de7fd",
+  "live_commit": "ef56a4f31e2d9441ebaedf8c0f9e0d1092ed20b1",
+  "equivalent_tested_commit": "990b08944fcd167a36329a4e94ea0a1f7d1bcf4d",
+  "all_tracked_non_docs_files_byte_identical": true,
+  "validation": {
+    "tests": 45,
+    "files": 11,
+    "typecheck": "passed",
+    "lint": "passed",
+    "visual": "pending; T3 resize disconnects, then open/evaluate timeout; user browser choice pending"
+  },
+  "checked_at": "2026-10-09T02:02:56.730552+00:00"
+}

@@ -1,0 +1,260 @@
+---
+title: CPI integration
+description: Call mint-redeem from your own Anchor program with declare_program! and the published IDL, read the Market account, and check price freshness.
+---
+
+Your on-chain program can mint and redeem Continuum pairs through cross-program invocation (CPI). Typical callers:
+
+- A vault program that mints positions on its users' behalf.
+- A structured product that bundles L and S tokens across several markets.
+- A rebalancer that reads NAV and acts on it.
+
+## Before you start
+
+Most integrations don't need CPI. Bots and frontends sign transactions directly; CPI is for protocols that run on chain themselves.
+
+Only the public instructions are open to other programs. `mint_paired` and `redeem_paired` need no signer beyond the owner of the tokens. `pool_swap`, `commit_swap` and `settle_swap` in the CLP program are public too, though committed orders are enabled on QQQ, SPY and XAU only as of 10 Oct 2026. The rest check fixed signers stored on chain:
+
+- `keeper_mint_single`, `keeper_redeem_single` and the other keeper instructions require `market.keeper_authority`.
+- CLP book and inventory instructions (`set_pool_shape`, `pool_sweep_synth`, `pool_sweep_usdc`, `vault_mint_pairs`) require the CLP or pool authority.
+- Admin instructions such as `update_market` (mint-redeem) and `admin_fund` (CLP) require the market or CLP authority.
+
+No Continuum crate is published, and the program source is not public. Generate the CPI client from the published IDL with Anchor's `declare_program!` macro, available since Anchor 0.30. The programs are built with Anchor 0.32.1.
+
+## Setup
+
+```bash
+mkdir -p idls
+curl -so idls/mint_redeem.json \
+  https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/mint_redeem.json
+```
+
+`declare_program!(mint_redeem)` reads `idls/mint_redeem.json` from your crate's directory, or from the nearest parent directory that has an `idls` folder. Note the plural: the docs repository serves the files from `idl/`, and the macro reads `idls/`.
+
+```toml
+[dependencies]
+anchor-lang = "0.32.1"
+anchor-spl = "0.32.1"
+```
+
+## Declare the program
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::token::Token;
+
+// Reads idls/mint_redeem.json at compile time and generates
+// mint_redeem::{accounts, cpi, program, types, ...}.
+declare_program!(mint_redeem);
+use mint_redeem::{accounts::Market, program::MintRedeem};
+
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"); // your program ID
+
+/// mint-redeem reverts with TwapNotAvailable past this age (seconds).
+pub const MAX_PRICE_AGE: i64 = 300;
+
+pub fn check_fresh(market: &Market) -> Result<()> {
+    let age = Clock::get()?.unix_timestamp - market.twap_updated_at;
+    require!(
+        market.user_twap_price > 0 && age <= MAX_PRICE_AGE,
+        VaultError::StalePrice
+    );
+    Ok(())
+}
+
+#[error_code]
+pub enum VaultError {
+    #[msg("Continuum price is zero or older than 300 s")]
+    StalePrice,
+    #[msg("Long price is below the target")]
+    BelowTarget,
+    #[msg("Account is not owned by mint-redeem")]
+    WrongOwner,
+}
+```
+
+`check_fresh` repeats mint-redeem's own gate (`MAX_TWAP_AGE_SECS` = 300), so your instruction fails with your own error before it pays for the CPI. `mint_redeem::accounts::Market` is the complete account type, so `Account<'info, Market>` checks the owner and the 8-byte discriminator for you.
+
+## Accounts
+
+In this example a PDA of your program (`[b"vault"]`) owns the cUSDC, L and S token accounts and signs the CPI. mint-redeem checks every account against the `Market`, so your program can pass most of them through as `UncheckedAccount`. That also keeps the instruction's stack frame small.
+
+```rust
+#[derive(Accounts)]
+pub struct PairAccounts<'info> {
+    /// CHECK: PDA that owns the vault's token accounts and signs the CPI.
+    #[account(mut, seeds = [b"vault"], bump)]
+    pub vault: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub market: Box<Account<'info, Market>>,
+    /// CHECK: cUSDC account owned by `vault`; mint-redeem checks the mint.
+    #[account(mut)]
+    pub vault_collateral: UncheckedAccount<'info>,
+    /// CHECK: L token account owned by `vault`; mint-redeem checks the mint.
+    #[account(mut)]
+    pub vault_long: UncheckedAccount<'info>,
+    /// CHECK: S token account owned by `vault`; mint-redeem checks the mint.
+    #[account(mut)]
+    pub vault_short: UncheckedAccount<'info>,
+    /// CHECK: mint-redeem requires market.long_mint.
+    #[account(mut)]
+    pub long_mint: UncheckedAccount<'info>,
+    /// CHECK: mint-redeem requires market.short_mint.
+    #[account(mut)]
+    pub short_mint: UncheckedAccount<'info>,
+    /// CHECK: mint-redeem requires market.collateral_vault.
+    #[account(mut)]
+    pub collateral_vault: UncheckedAccount<'info>,
+    /// CHECK: mint-redeem requires a cUSDC account owned by market.fee_recipient.
+    #[account(mut)]
+    pub dev_token_account: UncheckedAccount<'info>,
+    /// CHECK: mint-redeem requires market.oracle_address.
+    pub oracle: UncheckedAccount<'info>,
+    /// CHECK: mint-redeem's CollateralAuthority PDA.
+    #[account(seeds = [b"collateral_authority"], bump, seeds::program = mint_redeem::ID)]
+    pub collateral_authority: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
+    pub mint_redeem_program: Program<'info, MintRedeem>,
+}
+```
+
+`collateral_authority` is the optional last account of `redeem_paired`: mint-redeem's PDA `[b"collateral_authority"]`. QQQ, SPY and XAU need it, because their collateral sits in the unified vault (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`) that this PDA owns. The other 11 markets have their own vaults, owned by their Market PDAs, and ignore it, so you can pass it for every market. `mint_paired` doesn't take it.
+
+## Mint and redeem
+
+```rust
+#[program]
+pub mod my_vault {
+    use super::*;
+
+    /// Mint a pair from cUSDC held by the vault PDA.
+    pub fn mint_from_vault(ctx: Context<PairAccounts>, amount: u64) -> Result<()> {
+        check_fresh(&ctx.accounts.market)?;
+        let a = &ctx.accounts;
+        let cpi_accounts = mint_redeem::cpi::accounts::MintPaired {
+            market: a.market.to_account_info(),
+            user: a.vault.to_account_info(),
+            user_collateral: a.vault_collateral.to_account_info(),
+            user_long_account: a.vault_long.to_account_info(),
+            user_short_account: a.vault_short.to_account_info(),
+            long_mint: a.long_mint.to_account_info(),
+            short_mint: a.short_mint.to_account_info(),
+            collateral_vault: a.collateral_vault.to_account_info(),
+            dev_token_account: a.dev_token_account.to_account_info(),
+            oracle: a.oracle.to_account_info(),
+            token_program: a.token_program.to_account_info(),
+        };
+        let seeds: &[&[u8]] = &[b"vault", &[ctx.bumps.vault]];
+        let signer = &[seeds];
+        mint_redeem::cpi::mint_paired(
+            CpiContext::new_with_signer(a.mint_redeem_program.to_account_info(), cpi_accounts, signer),
+            amount,
+        )
+    }
+
+    /// Redeem the vault's pair once the long price reaches a target.
+    pub fn redeem_from_vault(
+        ctx: Context<PairAccounts>,
+        l_amount: u64,
+        s_amount: u64,
+        min_l_price: u64, // 1e6, like Market.user_twap_price
+    ) -> Result<()> {
+        check_fresh(&ctx.accounts.market)?;
+        require!(
+            ctx.accounts.market.user_twap_price >= min_l_price,
+            VaultError::BelowTarget
+        );
+        let a = &ctx.accounts;
+        let cpi_accounts = mint_redeem::cpi::accounts::RedeemPaired {
+            market: a.market.to_account_info(),
+            user: a.vault.to_account_info(),
+            user_collateral: a.vault_collateral.to_account_info(),
+            user_long_account: a.vault_long.to_account_info(),
+            user_short_account: a.vault_short.to_account_info(),
+            long_mint: a.long_mint.to_account_info(),
+            short_mint: a.short_mint.to_account_info(),
+            collateral_vault: a.collateral_vault.to_account_info(),
+            dev_token_account: a.dev_token_account.to_account_info(),
+            oracle: a.oracle.to_account_info(),
+            token_program: a.token_program.to_account_info(),
+            // QQQ, SPY and XAU need it; the other markets ignore it.
+            collateral_authority: Some(a.collateral_authority.to_account_info()),
+        };
+        let seeds: &[&[u8]] = &[b"vault", &[ctx.bumps.vault]];
+        let signer = &[seeds];
+        mint_redeem::cpi::redeem_paired(
+            CpiContext::new_with_signer(a.mint_redeem_program.to_account_info(), cpi_accounts, signer),
+            l_amount,
+            s_amount,
+        )
+    }
+}
+```
+
+`redeem_paired` requires both amounts to be above 0 (there is no single-leg redeem) and a redeem value of at least 10 cUSDC. By default both revert in Stress, with `MintNotAllowedInStress` or `RedeemNotAllowedInStress`. After a CPI, call `ctx.accounts.market.reload()?` before you read `market` again: the deserialized struct still holds the values from before the call.
+
+### When the user signs
+
+If the user signs for their own tokens, make `user` a `Signer<'info>` in your accounts struct and call without seeds. The user's signature carries through the CPI:
+
+```rust
+mint_redeem::cpi::mint_paired(
+    CpiContext::new(a.mint_redeem_program.to_account_info(), cpi_accounts),
+    amount,
+)
+```
+
+## Reading `Market` from a raw account
+
+If you receive the market as an `AccountInfo`, deserialize the whole buffer:
+
+```rust
+/// Deserialize a Market passed as a raw AccountInfo.
+pub fn load_market(info: &AccountInfo) -> Result<Market> {
+    require_keys_eq!(*info.owner, mint_redeem::ID, VaultError::WrongOwner);
+    let data = info.try_borrow_data()?;
+    // Pass the whole buffer: try_deserialize checks the 8-byte discriminator.
+    Market::try_deserialize(&mut &data[..])
+}
+```
+
+Don't slice off the discriminator: `try_deserialize(&mut &data[8..])` fails with a discriminator mismatch. Check the owner yourself, because a raw `AccountInfo` carries no owner check. Fields after the variable-length `collateral_vaults` Vec have no fixed byte offsets, so read `Market` through the type rather than at offsets.
+
+## How the CLP program does it
+
+The CLP program calls `mint_paired` with its CLP PDA as `user` and signs with the PDA's seeds. It builds the instruction by hand and calls `invoke_signed` directly, because a `CpiContext` for this many accounts would push its stack frame past Solana's 4,096-byte limit. If your instruction hits the same limit, box your typed accounts (`Box<Account<...>>`) or pass them as `UncheckedAccount`.
+
+## Gotchas
+
+### Account order
+
+The generated CPI structs put accounts in IDL order. If you build an instruction by hand, follow the order in `mint_redeem.json` exactly, with `collateral_authority` last on `redeem_paired`.
+
+### Writable accounts
+
+mint-redeem writes `market`, `user`, the three user token accounts, both mints, `collateral_vault` and `dev_token_account`. Mark each of them `mut` in your accounts struct; passing one read-only fails the CPI with a privilege escalation error.
+
+### Compute budget
+
+Each Continuum CPI adds its compute to your instruction. If you bundle several, raise the limit in the transaction:
+
+```typescript
+import { ComputeBudgetProgram } from "@solana/web3.js";
+
+tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }));
+```
+
+### Account limits
+
+A `redeem_paired` CPI brings 13 accounts, counting the program. Bundling several pushes a legacy transaction past its size limit, so use a versioned transaction with an address lookup table.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Composability" icon="puzzle-piece" href="/build/composability">
+    Off-chain integration patterns: wrappers, bots, structured products.
+  </Card>
+  <Card title="Programs overview" icon="square-terminal" href="/programs/overview">
+    Authority model: who can call what.
+  </Card>
+</CardGroup>

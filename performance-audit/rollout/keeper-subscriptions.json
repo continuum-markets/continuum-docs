@@ -1,0 +1,10 @@
+{
+  "deploymentId": "4fabc48a-e122-4500-8116-8bc28d1b28f5",
+  "verifiedLogAt": "2026-10-09T01:50:22.756352Z",
+  "message": "confirmed Order/Market subscriptions active; polling fallback remains enabled",
+  "postStartupAnalyticsQuery": {
+    "startDate": "2026-10-09T01:51:00Z",
+    "filter": "coverage gap",
+    "matchingEntries": 0
+  }
+}

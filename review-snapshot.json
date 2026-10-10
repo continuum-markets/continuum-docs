@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-10-09T11:39:46.331590+00:00",
+  "repository": "docs",
+  "base_commit": "59eb55b1f6caebe2d6c7c284154de964796a4693",
+  "branch": "review/workspace-20261009",
+  "source_path_hash_fingerprint": "8fae4d7718299abc5b5b8265313bfd84ea212ae36b050c71518723313b52097d",
+  "source_entries": 247,
+  "deleted_paths": [],
+  "excluded": [
+    "ignored files",
+    "Python __pycache__ and .pyc",
+    "external /tmp signing keys and pending signing state"
+  ],
+  "validation": "Current review snapshot; only separately attested targeted corporate-action tests and release branches validated",
+  "publication_only_changes": [
+    "REVIEW-STATUS.md",
+    "review-snapshot.json",
+    "evidence-only Git whitespace attributes"
+  ],
+  "fingerprint_algorithm": "SHA256(compact JSON of sorted [relative path, SHA256(file bytes)] pairs; symlinks hash target bytes)",
+  "mirrored_validated_fixes": "Checked original files against prior snapshot before mirroring the isolated CA fixes. No concurrent source changes overwritten.",
+  "registry_release": "Initialized Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau; source a2ac97d; deployment509165369; initialization509165894."
+}

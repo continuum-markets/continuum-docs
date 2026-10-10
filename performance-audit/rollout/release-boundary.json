@@ -1,0 +1,19 @@
+{
+  "baseCommit": "29960efb4d9db88c2bfc2ead42f0a2b8af52b847",
+  "releaseSourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+  "patchSha256": "5f071e7a5f17cb5fca27bf5958c7cd7ca18f9d9a3111823e8f7c1d44bf56c075",
+  "changedFiles": [
+    "clp/src/clmm.rs",
+    "clp/src/lib.rs",
+    "clp/src/meteora_cpi.rs",
+    "oracle/src/lib.rs",
+    "oracle/src/state.rs"
+  ],
+  "gitDiffStat": " clp/src/clmm.rs        | 62 +++++++++++++++++++++++++++++++++++++-------------\n clp/src/lib.rs         | 30 ++++++++++++------------\n clp/src/meteora_cpi.rs | 46 ++++++++++++++++++++++++++++---------\n oracle/src/lib.rs      | 22 ++++++++++++++++++\n oracle/src/state.rs    | 50 +++++++++++++++++++++++-----------------\n 5 files changed, 146 insertions(+), 64 deletions(-)\n",
+  "cleanMintRedeemMatchesDeployedAnalytics": true,
+  "clpEventModuleSha256": "5832417132f544ed3cfcc50d0fe775622b4ca7aaf465b4c8030fea9ac540b673",
+  "oracleDeployedBackupSha256": "8fdd7d80c01e69142d8389b162a83ef56476ea03ddf8668f89b5bf01b87db955",
+  "clpDeployedBackupSha256": "4988d5e07edbba8f9ebdf890414672ffe78d338765e3d8ebec682c871d80b412",
+  "releaseCommit": "6d9d13d608aecb6350807a1d5c82a9dc6fbf523b",
+  "releaseBranch": "performance/programs-20261009"
+}

@@ -1,0 +1,5 @@
+{"kind":"controlled_scheduler","round":0,"timer_ms":10,"blocking_work_ms":100,"before_ms":101.034,"after_ms":13.174}
+{"kind":"controlled_scheduler","round":1,"timer_ms":10,"blocking_work_ms":100,"before_ms":101.114,"after_ms":12.141}
+{"kind":"controlled_scheduler","round":2,"timer_ms":10,"blocking_work_ms":100,"before_ms":102.222,"after_ms":11.643}
+{"kind":"controlled_scheduler","round":3,"timer_ms":10,"blocking_work_ms":100,"before_ms":101.137,"after_ms":11.144}
+{"kind":"controlled_scheduler","round":4,"timer_ms":10,"blocking_work_ms":100,"before_ms":105.048,"after_ms":13.837}

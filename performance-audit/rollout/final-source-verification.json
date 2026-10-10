@@ -1,0 +1,13 @@
+[
+  {
+    "manifest": "frontend-final-source-manifest.json",
+    "files": 331,
+    "mismatches": [],
+    "commit": "f97f949f6ffcd35d6831836cfaa8a89051c492be"
+  },
+  {
+    "manifest": "keeper-source-manifest.json",
+    "files": 73,
+    "mismatches": []
+  }
+]

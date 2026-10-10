@@ -1,0 +1,13 @@
+# Live Anchor confirmation regression
+
+The build-ID-checked live mint in `frontend/docs/performance-audit/rollout-live-wallet-v2/mint.json` signed successfully in 2.1 ms. Its page displayed “Minting...” and then reported an unknown outcome after the SDK's 30-second timeout. The exact transaction subsequently read at finalized commitment has no execution error: slot `509021414`, 51,839 compute units and 5,000 lamports fee. [Retained receipt](mint-timeout-reconciliation.json). The transaction was not replayed.
+
+The deployed browser used Anchor's `sendAndConfirm`, which calls web3.js `confirmTransaction(signature, 'confirmed')`. In the installed web3.js implementation, the initial HTTP status lookup waits for the signature WebSocket subscription to become subscribed. The browser derives that socket URL from the same-origin `/api/rpc` endpoint; the application route only implements HTTP POST. The wait therefore prevented the otherwise working HTTP transport from observing confirmation.
+
+The scoped fix retains Anchor and Wallet Standard. A stable shared connection class confirms legacy-signature and blockheight strategies using the existing guarded HTTP transport. It checks the requested commitment and execution error, reconciles status after observing blockheight expiry, bounds hung reads and total duration, honors cancellation, and retries only transient read failures with bounded backoff. It neither signs nor sends transactions. Durable-nonce strategies keep the existing SDK implementation and are outside this verification.
+
+The fixture first rejects the optional-chain incompatibility separately: the installed Wallet Standard adapter omits `chain` for `signTransaction`. The disposable wallet now checks the application's devnet genesis during connection, and still rejects an explicit different chain, wrong origin/account, extra signer or modified message. This fixture adjustment does not change application code. [Guard record](wallet-fixture-adjustment.json).
+
+Live verification on build `tGsBihMahyrh9iURsneoL` succeeded: mint 1.572 s, redemption 2.346 s, pool buy 1.677 s, pool sell 1.687 s, and commit acknowledgment 1.895 s. The page showed settlement by 18.508 s. These are one sample each under 4× CPU / Fast 4G, excluding human approval dwell. All six receipts are finalized with no execution error. [Exact timings, signatures and Keeper phases](wallet-final-summary.json).
+
+Final release `9585167` additionally corrects two explorer links from address to transaction URLs; it does not alter this confirmation implementation. Final page measurements identify that separate deployment explicitly.

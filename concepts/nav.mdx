@@ -1,0 +1,181 @@
+---
+title: NAV math
+description: How long and short NAVs are derived from one price, how volatility decay marks the short leg down, and how to compute a paired position's value.
+---
+
+NAV (net asset value) is what each long and short token is worth in cUSDC **at the protocol layer**. You pay it to mint, you receive it when you redeem, and the keeper centres the bin books on it.
+
+## The two formulas
+
+```
+L_NAV = P
+S_NAV = K / P × γ        K = initial_l_price × initial_s_price,   γ = s_gamma_index / 1e9
+```
+
+`P` is `market.user_twap_price`: the last price the keeper pushed with mint-redeem `update_risk_state_v2`, scaled to 1e6. Despite its name it is a spot price, and the program has already adjusted it for [corporate actions](#corporate-actions). There is no fallback price. Mint and redeem revert with `TwapNotAvailable` if `P` is 0 or the push is more than 300 s old.
+
+γ is the short leg's volatility-decay index, between 0.5 and 1.0 (an unset index of 0 reads as 1.0). It only moves down, so the product `L_NAV × S_NAV = K·γ` falls below `K` as decay accrues. See [Volatility decay](#volatility-decay).
+
+`initial_l_price` and `initial_s_price` are set when a market is created, and every live market launched with the two equal. QQQ launched at 480, so `K = 480 × 480 = 230,400`. If QQQ moves 10% to 528 with γ = 1, then `S_NAV = 230,400 / 528 = 436.36`. `initial_s_price` can change later, because `reanchor_gamma` folds γ into it.
+
+## Why constant-product
+
+The relationship `L_NAV × S_NAV = K·γ` gives the pair four properties:
+
+1. Pair value has a floor. `L_NAV + S_NAV` is lowest where `L_NAV = S_NAV = √(K·γ)`, which is the launch price before any decay, and grows as the price moves away in either direction. It can't collapse to zero.
+2. No positioning-driven funding. A perp DEX uses funding to pay whoever holds the unpopular side. Continuum issues both legs together, and the reciprocal NAV move takes the place of that payment. The short leg still pays [volatility decay](#volatility-decay) for the pair's convexity.
+3. The short side can't go negative. As `L_NAV → ∞`, `S_NAV → 0`. An S holder can lose 100% of the position but never owes more.
+4. The long side has no cap. There is no cliff and no liquidation: if the underlying rises 100×, so does `L_NAV`.
+
+## Computing paired position value
+
+For a position holding `n_L` long tokens and `n_S` short tokens:
+
+```
+position_value_cUSDC = n_L × L_NAV + n_S × S_NAV
+```
+
+For a position minted from `mint_amount` cUSDC, ignoring the worst-case markup:
+
+```
+fee_bps             = mint_fee_bps × risk-state multiplier
+mint_value_per_side = mint_amount × (1 - fee_bps / 10_000) / 2
+n_L                 = mint_value_per_side / L_NAV_at_mint
+n_S                 = mint_value_per_side / S_NAV_at_mint
+```
+
+At mint time the position is worth `mint_amount × (1 - fee_bps / 10_000)`: your deposit minus the fee.
+
+## How position value moves with the underlying
+
+Take a 100 cUSDC QQQ mint at 480, with `K = 230,400`, γ = 1, no confidence markup, and a 27 bps fee (QQQ's 18 bps posted fee × 1.5 in `ProxyMode`, as of 10 Oct 2026):
+
+```
+mint_value_per_side = 100 × 0.9973 / 2 = 49.865 cUSDC
+n_L = 49.865 / 480 = 0.103885 QQQL
+n_S = 49.865 / 480 = 0.103885 QQQS
+```
+
+When QQQ moves to a new price `P`:
+
+```
+L_NAV = P
+S_NAV = 230,400 / P
+value = 0.103885 × P + 0.103885 × 230,400 / P
+      = 0.103885 × P + 23,935 / P
+```
+
+Some sample values:
+
+| QQQ price | Position value | Note |
+|---|---|---|
+| 240 (-50%) | 124.66 cUSDC | short leg's gain dominates |
+| 384 (-20%) | 102.22 cUSDC | small gain from convexity |
+| 432 (-10%) | 100.28 cUSDC | small gain |
+| **480** (mint) | **99.73 cUSDC** | deposit minus the fee |
+| 528 (+10%) | 100.18 cUSDC | small gain |
+| 576 (+20%) | 101.39 cUSDC | small gain |
+| 720 (+50%) | 108.04 cUSDC | long leg's gain dominates |
+| 1440 (+200%) | 166.22 cUSDC | long appreciation |
+
+A paired position has **near-zero delta** around its mint price. Its value curves up in both directions, so it gains only on large moves, and decay on the short leg works against that gain while you hold it. To take a directional view, sell one leg.
+
+## Volatility decay
+
+All of the pair's convexity lives in the **short** leg. `L_NAV = P` is linear (`d²L/dP² = 0`), while `S_NAV = K/P` is convex (`d²S/dP² = 2K/P³ > 0`). The protocol is the counterparty to that convexity, so it is **short volatility** on the short side. The γ-index charges for it:
+
+```
+S_NAV = K / P × γ        γ = s_gamma_index / 1e9
+```
+
+- It is always on. The keeper posts it with `set_s_gamma_index`, and nothing turns it off: a keeper started with `CLMM_GAMMA_DECAY_ENABLED` set to any value refuses to boot. `GAMMA_DECAY_COEF` (default 1.0, which is break-even) scales the charge and must be in (0, 1], so it can't zero it either.
+- It charges realized variance and ignores direction. The keeper measures the price close to close over 30-minute windows and banks each window's squared return as decay. It charges a confirmed move of more than 1% at once, and posts when the banked total passes 2e-4. A choppy path costs decay; a smooth directional move barely does, because that payoff sits in the long leg.
+- It only ratchets down, and bad writes are rejected rather than clamped. `set_s_gamma_index` rejects a value above the current γ (`GammaMustRatchetDown`), a value outside [0.5, 1.0] (`GammaOutOfRange`), and a write computed against an old epoch (`GammaEpochMismatch`). So γ can fall by at most 50% within one epoch.
+- `reanchor_gamma` starts a new epoch. Only the market authority can call it, at least 14 days after the last one. It sets `initial_s_price` to `initial_s_price × γ` and resets γ to 1.0, which leaves every claim unchanged at every price. What it renews is the decay budget. It is not a re-anchor to the current spot price.
+- It is not a funding rate. No cash moves between holders; γ is a mark on the short token's value. An instant mint→redeem round trip at a fixed γ is unaffected, and **long positions never pay it**. The app labels it "volatility decay" on the short side.
+
+As of 10 Oct 2026 no market has been re-anchored, and γ runs from 1.0 (EUR) down to about 0.944 (MSTR).
+
+See [Solvency](/concepts/solvency) for why this covers the variance regime but leaves a directional run uncovered.
+
+## NAV in the on-chain Market account
+
+The relevant fields on the [`Market` PDA](/programs/mint-redeem#market-account), in IDL order. `collateral_vaults` is a variable-length `Vec` that comes before all of them, so none has a fixed byte offset. Decode the account with the IDL.
+
+```rust
+pub struct Market {
+    // ...
+    pub initial_l_price: u64,     // 1e6; set at creation
+    pub initial_s_price: u64,     // 1e6; reanchor_gamma folds γ into it
+    // ... fees, supplies, total_collateral, risk state ...
+    pub user_twap_price: u64,     // 1e6; last pushed spot price (L_NAV), corporate-action adjusted
+    pub twap_updated_at: i64,     // unix seconds; source publish time of that push
+    // ...
+    pub oracle_confidence: u64,   // 1e6; absolute half-width of the confidence band
+    // ... keeper authority, dev tax, yield fields, buffer_target_bps ...
+    pub s_gamma_index: u64,       // 1e9 fixed point; 0 reads as 1.0
+    // ...
+    pub gamma_epoch: u32,         // bumped by reanchor_gamma
+    // ...
+    pub price_adjust_num: u64,    // cumulative corporate-action ratio; 0/0 reads as 1/1
+    pub price_adjust_den: u64,
+    // ...
+}
+```
+
+To read NAV from a client:
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const market = await mintRedeem.account.market.fetch(marketPDA);
+
+// No fallback: mint and redeem revert with TwapNotAvailable when this is 0
+// or the push is more than 300 s old.
+const lNav = market.userTwapPrice;
+if (lNav.isZero()) throw new Error("no price pushed yet");
+
+// Short NAV includes the γ decay index (1e9 = 1.0). An unset index (0) reads as 1.0.
+const GAMMA_ONE = new BN(1_000_000_000);
+const gamma = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav).mul(gamma).div(GAMMA_ONE);
+
+const fresh = Date.now() / 1000 - market.twapUpdatedAt.toNumber() <= 300;
+```
+
+The 6-decimal scaling means `lNav.toNumber() / 1e6` gives a human-readable price. These are mid NAVs; mint and redeem quote each leg off them with the markup below.
+
+## Worst-case quoting
+
+With worst-case quoting on (`worst_case_config.enabled`, the default), mint and redeem price each leg against the user. The band is `c = oracle_confidence × m`, where `m` is the risk state's confidence multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and falling back from 3× in `Recovery`. The full table is on [Risk states](/concepts/risk-states#fee-and-confidence-multipliers).
+
+The long NAV is linear in price (`L_NAV = P`) but the short NAV is **inverse** (`S_NAV = K/P × γ`), so a single widened price can't protect both legs. Each leg is quoted at the price that moves *against* the user:
+
+| | Long leg (`L_NAV`) | Short leg (`S_NAV`) |
+|---|---|---|
+| **Mint** (user buys) | `P + c` → fewer L | `K / (P − c) × γ` is higher → fewer S |
+| **Redeem** (user sells) | `P − c` → less out | `K / (P + c) × γ` is lower → less out |
+
+A paired mint→redeem round trip therefore returns **less** than the deposit at any confidence. As of 10 Oct 2026 worst-case quoting is on for 13 markets and off for QQQ, which quotes both legs at mid NAV.
+
+## Corporate actions
+
+A stock split changes the units a price is quoted in and leaves the value of every claim alone. The market authority records one with `apply_corporate_action(params: CorporateActionParams { ratio_num, ratio_den, effective_ts })`.
+
+- The program keeps a cumulative ratio, `price_adjust_num / price_adjust_den`, and multiplies every incoming price by it before storing it. The stored price, `K` and γ don't change, so the adjusted price runs continuously through the split and no value moves between longs and shorts.
+- The action is time-gated. A future `effective_ts` arms it, and prices keep their old units until that time. Only one action can be pending, at most 400 days ahead, with a ratio of at most 1,000 either way. After the ex-date, the program rejects pushes whose source publish time is before it.
+- An action that lands late halts the market rather than repricing it whenever the post-split price moves more than 25%, because the move cap rejects that push. For a split, that means ratios above about 4:3. A gentler ratio looks like an ordinary price move, so the only control for it is arming the action ahead of the ex-date.
+
+No action is armed as of 10 Oct 2026. Every market has `price_adjust_num = price_adjust_den = 0`, which reads as 1/1.
+
+## NAV vs pool price
+
+NAV is what the protocol mints and redeems at. **Book price** is what each bin book trades at between repositions. The keeper keeps them close: it centres each book on NAV plus a small inventory shift, repositions when NAV drifts past the gate (at most 20 bps by default), and never quotes inside the oracle's confidence band.
+
+In steady state, `book_price ≈ NAV ± half_spread`, offset by the inventory shift. When pushes stop for 300 s and mint and redeem freeze, the keeper swaps each live book for a free-float book anchored at the last price, then re-anchors on the first fresh push. Pick a venue by size and urgency:
+
+- For a small, urgent trade, hit the book (`pool_swap`). It's instant, and you pay the bin ladder's spread.
+- For a large trade, commit an order where the market has them (QQQ, SPY and XAU as of 10 Oct 2026). It fills at a push after the commit, at NAV ± the committed spread.
+- If you want the pair itself, mint or redeem at NAV. You pay the fee and the worst-case markup, and no spread.
+
+→ [Trading venues](/flows/trade)

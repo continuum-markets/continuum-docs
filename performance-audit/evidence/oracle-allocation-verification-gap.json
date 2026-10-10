@@ -1,0 +1,5 @@
+{
+  "status": "GAP",
+  "at": "2026-10-09T01:16:40.268512+00:00",
+  "reason": "Additional current-layout/PDA/admin verification could not fetch: first read getGenesisHash exhausted 4 bounded HTTP 429 retries. Earlier successful public size audit retained; no missing values filled. No transactions submitted."
+}

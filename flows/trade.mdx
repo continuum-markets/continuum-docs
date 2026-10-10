@@ -1,0 +1,324 @@
+---
+title: Trade
+description: Buy and sell long or short tokens on the bin books, with committed orders, or with the instant oracle swap.
+---
+
+Continuum trades L and S tokens on its own venues in the CLP program. There are three:
+
+| Venue | Instruction | Price | Size | Latency |
+|---|---|---|---|---|
+| Bin book | `pool_swap` | Walks the book's bins, with real slippage | The standing depth, small by design | Instant |
+| Committed order | `commit_swap`, then `settle_swap` | NAV ± `max(commit_spread_bps, 10)` bps at a keeper price push after the commit | No cap; bounded by CLP inventory | The next push or later; pushes run on a 15 s cycle by default |
+| Instant oracle swap | `clp_swap` | NAV ± `spread_bps` (30 bps) | Rolling-window cap | Instant |
+
+As of 10 Oct 2026, committed orders and `clp_swap` work only on QQQ, SPY and XAU. The other 11 markets have `swap_guards.enabled` set to false in their `Clp` accounts, so both instructions revert with `SwapDisabled` there and the app doesn't offer them. The bin books ignore that flag, and all 28 are open.
+
+The instant venues carry adverse-selection risk, so their depth and spread are sized for small trades. Committed orders are the path for size.
+
+The app trades on the bin book. While the market is open, it switches to a committed order when the input amount is above 5,000 and the market's swap guards are enabled and not frozen. The input is cUSDC on a buy but tokens of the leg on a sell, so a sale switches at 5,000 tokens. You can also force a committed order at any size. While the market is closed or its price updates are paused, the app disables committed orders and fills every order instantly from the book, because no price push would arrive to settle one.
+
+<Note>
+  Mint and redeem open and close a *paired* position (see [Mint](/flows/mint) and [Redeem](/flows/redeem)). The venues on this page buy or sell one leg.
+</Note>
+
+## Bin books
+
+`pool_swap` trades against a native bin book. Each market has two, one per leg: QQQ's long book and QQQ's short book are separate `Pool` accounts. A book lives inline in its `Pool` account, with up to 16 bins and no rent per bin. `asks[i]` holds tokens of the leg for sale above the centre price `base_price_1e6`, and `bids[i]` holds cUSDC below it.
+
+The keeper sets the centre from NAV, shifted by the CLP's inventory, and reshapes the book as the price moves. Off-hours it posts a capped free-float book, and a guard lets it pull bins only on the stale side. See [Book management](/keeper/book-management).
+
+Bins use two step sizes: a fine core step (`step_bps`) for the first `core_bins` bins on each side, then a wider wing step (`wing_step_bps`). Ask bin `i`, counting from 0, sits `i + 1` steps above the centre and bid bin `i` sits `i + 1` steps below it. Each step up multiplies the price by `1 + step / 10_000`, and each step down divides by it. On 10 Oct 2026 each QQQ book had 12 bins: 3 core bins 20 bps apart, then 300 bps wing steps. A swap walks the bins outward from the centre. If the book runs out, the swap fills what it can and charges only for that, and `min_out` still applies.
+
+`pool_swap` charges no swap fee; you pay the distance from the centre. There is no pool-level kill switch. A new pool stays disabled until the keeper posts its first shape, and after that nothing disables or freezes it: no instruction sets `pool.frozen`, and `set_pool_shape` always re-enables the pool. Freezing the CLP's swap guards stops `clp_swap` and committed orders but not `pool_swap`. The keeper can still empty a book by posting all-zero bins, and the [rolling-window cap](#rolling-window-cap) can pause it.
+
+### Accounts
+
+`pool_swap` takes `PoolSwapParams { direction, amount_in, min_out }`. `direction` is 0 to buy the leg with cUSDC and 1 to sell it for cUSDC. `amount_in` is cUSDC on a buy and tokens of the leg on a sell, both with 6 decimals.
+
+| Account | Notes |
+|---|---|
+| `user` (signer) | The trader |
+| `userUsdc` (mut) | The trader's cUSDC account |
+| `userSynth` (mut) | The trader's token account for the book's leg. Must exist |
+| `pool` (mut) | Pool PDA, seeds `[b"pool", market, [side]]` under clp. `side` is 0 for long, 1 for short |
+| `clp` (mut) | The market's CLP PDA, seeds `[b"clp", market]`. Holds the swap guards and the rolling-window counter |
+| `synthVault` (mut) | The pool's token account for the leg (its ATA) |
+| `usdcVault` (mut) | The pool's cUSDC account (its ATA) |
+| `tokenProgram` | SPL Token |
+| `revenueAttribution` (mut) | PDA `[b"revenue_attribution"]` under clp (`A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4`). Must come last |
+
+### Setup
+
+Both samples on this page start from this setup.
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import mintRedeemIdl from "./mint_redeem.json"; // idl/ in the docs repo
+import clpIdl from "./clp.json";
+
+const mintRedeem = new Program(mintRedeemIdl, provider); // provider: an AnchorProvider for the trader's wallet
+const clp = new Program(clpIdl, provider);
+const user = provider.wallet.publicKey;
+
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  mintRedeem.programId,
+);
+const market = await mintRedeem.account.market.fetch(marketPda);
+const [clpPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("clp"), marketPda.toBuffer()],
+  clp.programId,
+);
+```
+
+### Quote and swap
+
+```typescript
+// Mirrors the program's bin walk, so `out` matches the fill exactly.
+function quotePoolSwap(pool: any, direction: 0 | 1, amountIn: bigint) {
+  const bins = direction === 0 ? pool.asks : pool.bids;
+  let price = BigInt(pool.basePrice1E6.toString());
+  let out = 0n;
+  let left = amountIn;
+  for (let i = 0; i < pool.numBins && left > 0n; i++) {
+    const step = BigInt(i < pool.coreBins ? pool.stepBps : pool.wingStepBps || pool.stepBps);
+    price = direction === 0
+      ? (price * (10_000n + step)) / 10_000n  // ask bin i: i + 1 steps above the centre
+      : (price * 10_000n) / (10_000n + step); // bid bin i: i + 1 steps below it
+    const reserve = BigInt(bins[i].toString());
+    if (reserve === 0n) continue;
+    const full = direction === 0
+      ? (reserve * price) / 1_000_000n  // cUSDC that empties this ask bin
+      : (reserve * 1_000_000n) / price; // tokens that empty this bid bin
+    if (left >= full && full > 0n) {
+      out += reserve;
+      left -= full;
+      continue;
+    }
+    const part = direction === 0 ? (left * 1_000_000n) / price : (left * price) / 1_000_000n;
+    out += part < reserve ? part : reserve;
+    left = 0n;
+  }
+  return { out, spent: amountIn - left }; // spent < amountIn when the book runs out
+}
+
+const side = 0;       // 0 = long leg, 1 = short leg
+const direction = 0;  // 0 = buy with cUSDC, 1 = sell for cUSDC
+const amountIn = 100_000_000n; // 100 cUSDC
+
+const [poolPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPda.toBuffer(), Buffer.from([side])],
+  clp.programId,
+);
+const [revenueAttribution] = PublicKey.findProgramAddressSync(
+  [Buffer.from("revenue_attribution")],
+  clp.programId,
+);
+
+const pool = await clp.account.pool.fetch(poolPda);
+const quote = quotePoolSwap(pool, direction, amountIn);
+const minOut = (quote.out * 9_950n) / 10_000n; // 0.5% slippage tolerance
+const userSynth = getAssociatedTokenAddressSync(pool.synthMint, user);
+
+await clp.methods
+  .poolSwap({ direction, amountIn: new BN(amountIn.toString()), minOut: new BN(minOut.toString()) })
+  .accounts({
+    user,
+    userUsdc: getAssociatedTokenAddressSync(pool.usdcMint, user),
+    userSynth,
+    pool: poolPda,
+    clp: clpPda,
+    synthVault: getAssociatedTokenAddressSync(pool.synthMint, poolPda, true),
+    usdcVault: getAssociatedTokenAddressSync(pool.usdcMint, poolPda, true),
+    tokenProgram: TOKEN_PROGRAM_ID,
+    revenueAttribution,
+  })
+  .preInstructions([
+    createAssociatedTokenAccountIdempotentInstruction(user, userSynth, user, pool.synthMint),
+  ])
+  .rpc();
+```
+
+Against an unchanged book, `quote.out` is exactly what the swap returns. On 10 Oct 2026 it quoted 0.132577 QQQL for 100 cUSDC on the QQQ long book, and a simulated `pool_swap` returned the same.
+
+Standing depth is small on purpose. It is sized to demand rather than TVL, because the losses to informed traders grow with the depth deployed. On Saturday 10 Oct 2026 the QQQ long book held 5,000 cUSDC of bids and 10.13 QQQL (about 7,600 cUSDC) of asks. The single-stock books held 1,000 to 1,250 cUSDC a side, their off-hours cap. On QQQ, SPY and XAU, larger orders belong in a committed order.
+
+## Rolling-window cap
+
+`pool_swap` and `clp_swap` share one notional cap per market, kept in the market's `Clp` account. Each fill adds its cUSDC amount to `swap_window_used`, and a fill that would take it past `window_cap_usd` reverts with `WindowCapExceeded`. The count resets once `window_secs` have passed since the window opened. As of 10 Oct 2026, QQQ, SPY and XAU are capped at 1,000,000 cUSDC per 3,600 s. The other 11 markets have no cap set, and 0 means uncapped. Committed orders don't count toward the cap.
+
+## Committed orders
+
+You put your input in escrow under an order account, and the order fills at a keeper price push after your commit, at NAV ± the commit spread:
+
+```
+spread = max(commit_spread_bps, 10)         // per market, in the Clp account
+buy:   out = amount_in / (NAV * (1 + spread / 10_000))
+sell:  out = amount_in * NAV * (1 - spread / 10_000)
+```
+
+NAV is the leg's NAV at the settling push: `P` for the long leg and `K / P * γ` for the short leg (see [Mint](/flows/mint#math)). The keeper posts `commit_spread_bps` as `clamp(half-spread, 10, 500)` from its volatility model. As of 10 Oct 2026 it was 18 bps on QQQ, 15 on SPY and 18 on XAU.
+
+The price is set after you commit, so nobody can trade against a stale quote. That is why committed orders have no size cap and skip the rolling window. They are bounded by the price checks at settle, the collateral floor and the CLP's inventory.
+
+<Steps>
+  <Step title="Commit">
+    `commit_swap(side, direction, amount_in, min_out, nonce)` moves your input (cUSDC on a buy, tokens of the leg on a sell) into an escrow token account owned by the order PDA. Your payout account must already exist. The program checks it at commit, so settlement can't fail on a missing account.
+  </Step>
+  <Step title="Settle (permissionless)">
+    `settle_swap` becomes valid once `market.twap_updated_at` is later than the commit, in a later second. It stays valid until `expires_at`. It fills at the market's current price, which may come from a later push than the first one after your commit. It also runs the CLP's price checks on age, confidence width and the move since the last accepted price (600 s, 5,000 bps and 2,500 bps on QQQ, SPY and XAU as of 10 Oct 2026). Anyone can call it, and the keeper does after its pushes. If the output misses `min_out`, the order is refunded in full and closed. If the CLP lacks inventory, settle reverts and the order stays pending. While the underlying market is closed the keeper normally withholds pushes, so an order committed then can't settle and expires.
+  </Step>
+  <Step title="Cancel (after the TTL)">
+    An order expires 180 s after the commit. After that, you sign `cancel_swap` to get the escrow back. Cancel checks nothing else (no price, keeper, freeze or market state), so escrowed funds can always be recovered after expiry. Only the order's owner can cancel.
+  </Step>
+</Steps>
+
+Settling, refunding and cancelling all close the order and escrow accounts and return their rent to you.
+
+<Note>
+  On devnet the fill price (`market.user_twap_price`) and the freshness check (`market.twap_updated_at`) both come from keeper pushes, so a committed order trusts the keeper's price.
+</Note>
+
+### Order account
+
+PDA seeds `[b"order", user, market, nonce]` under clp, with `nonce` as 8 little-endian bytes. `nonce` is any u64 you pick; a fresh one per order lets you keep several open at once. Keep it, or the order address, so you can find the order later (see [Reading state](/flows/read-state#pending-committed-orders)).
+
+```rust
+pub struct Order {
+    pub user: Pubkey,      // offset 8 (after the discriminator)
+    pub market: Pubkey,    // offset 40
+    pub side: u8,          // 0 = long, 1 = short
+    pub direction: u8,     // 0 = buy, 1 = sell
+    pub status: u8,        // offset 74; 0 = pending, the only stored state
+    pub bump: u8,
+    pub escrow_bump: u8,
+    pub amount_in: u64,
+    pub min_out: u64,      // a miss refunds in full
+    pub created_at: i64,   // settle needs twap_updated_at > created_at
+    pub expires_at: i64,   // created_at + 180; settle up to it, cancel after it
+    pub nonce: u64,
+}
+```
+
+### Accounts: `commit_swap`
+
+| Account | Notes |
+|---|---|
+| `user` (signer, mut) | Pays rent for the order and escrow, which comes back when the order closes |
+| `market` | Market PDA under mint_redeem. Fixes the leg mints |
+| `clp` | CLP PDA, seeds `[b"clp", market]` |
+| `order` (init) | Order PDA, as above |
+| `inMint` | Mint of the input: cUSDC on a buy, the leg's mint on a sell |
+| `escrow` (init) | Token account, seeds `[b"escrow", order]`, owned by the order PDA |
+| `userIn` (mut) | Your input token account |
+| `userOut` | Your payout token account. Must exist at commit |
+| `clpVault` | The CLP's cUSDC account (ATA of the CLP PDA) |
+| `tokenProgram`, `systemProgram` | |
+
+### Accounts: `settle_swap` and `cancel_swap`
+
+`settle_swap` takes `cranker` (signer: anyone, who pays the transaction fee and gets nothing), `user` (`order.user`, who receives the rent), `order`, `escrow`, `clp`, `clpVault` and `clpSynth` (the CLP's cUSDC and leg inventory), `market`, `userOut`, `userIn` and `tokenProgram`. All but `cranker`, `market` and `tokenProgram` are mutable.
+
+`cancel_swap` takes `user` (the order's owner, signer), `order`, `escrow`, `userIn` (the refund account) and `tokenProgram`. All but `tokenProgram` are mutable.
+
+### Commit and cancel
+
+This sample buys QQQ's long leg with 10,000 cUSDC, starting from the [setup](#setup) above. It works only on QQQ, SPY and XAU, the markets with swap guards enabled.
+
+```typescript
+const orderAmount = 10_000_000_000n; // 10,000 cUSDC
+const nonce = new BN(Date.now());    // any u64; keep it to find the order later
+
+const [orderPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("order"), user.toBuffer(), marketPda.toBuffer(), nonce.toArrayLike(Buffer, "le", 8)],
+  clp.programId,
+);
+const [escrowPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("escrow"), orderPda.toBuffer()],
+  clp.programId,
+);
+
+// Estimate the fill at the current price. settle_swap reprices at the settling push.
+const clpState = await clp.account.clp.fetch(clpPda);
+const spreadBps = BigInt(Math.max(clpState.commitSpreadBps, 10));
+const nav = BigInt(market.userTwapPrice.toString()); // long-leg NAV, 1e6
+const price = (nav * (10_000n + spreadBps)) / 10_000n; // a buy pays NAV * (1 + spread)
+const orderMinOut = (((orderAmount * 1_000_000n) / price) * 99n) / 100n; // 1% tolerance
+
+const userIn = getAssociatedTokenAddressSync(market.collateralMint, user);
+const userOut = getAssociatedTokenAddressSync(market.longMint, user); // must exist before the commit
+
+await clp.methods
+  .commitSwap(0 /* long */, 0 /* buy */, new BN(orderAmount.toString()), new BN(orderMinOut.toString()), nonce)
+  .accounts({
+    user,
+    market: marketPda,
+    clp: clpPda,
+    order: orderPda,
+    inMint: market.collateralMint, // the leg's mint on a sell
+    escrow: escrowPda,
+    userIn,
+    userOut,
+    clpVault: getAssociatedTokenAddressSync(market.collateralMint, clpPda, true),
+    tokenProgram: TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+  })
+  .rpc();
+
+// Wait for the keeper's settle: watch userOut or the OrderSettled event.
+// If the order is still open after expiresAt (commit time + 180 s), reclaim the escrow:
+await clp.methods
+  .cancelSwap()
+  .accounts({ user, order: orderPda, escrow: escrowPda, userIn, tokenProgram: TOKEN_PROGRAM_ID })
+  .rpc();
+```
+
+The order emits `OrderCommitted`, then one of `OrderSettled` (with `out`, `nav` and `base_price`), `OrderRefunded` (a `min_out` miss) or `OrderCancelled`. Fills on all three venues also emit `SwapExecuted`, whose `route` is 0 for `clp_swap`, 1 for `pool_swap` and 2 for a committed settlement.
+
+## Instant oracle swap
+
+`clp_swap` is the original instant path: a fill at NAV ± `spread_bps` from CLP inventory, with no book and no slippage. The app uses it only for a leg whose book isn't open, and all 28 books were open on 10 Oct 2026. An instant fill at the oracle price is what a latency arbitrageur wants, so `clp_swap` runs behind the CLP's swap guards. On QQQ, SPY and XAU (10 Oct 2026) the spread is 30 bps. The price must be at most 600 s old, its confidence band at most 5,000 bps of the price, and its move from the last accepted price at most 2,500 bps. Fills share the [rolling-window cap](#rolling-window-cap). The market's collateral must also stay at or above 5,000 bps (50%) of the value of its outstanding tokens. On the other 11 markets `swap_guards.enabled` is false, and `clp_swap` reverts with `SwapDisabled`.
+
+The accounts are `user`, `userUsdc`, `userSynth`, `clp` (PDA `[b"clp", market]`), `clpVault`, `clpSynth`, `market` and `tokenProgram`. The args are `(side, direction, amount_in, min_out)`, with the same conventions as a committed order. These swaps move tokens that already exist and are fully backed, so supply and collateral don't change; only ownership does.
+
+## Errors
+
+| Error | Code | Where | Cause |
+|---|---|---|---|
+| `SwapDisabled` | 6003 | `pool_swap` | The keeper hasn't posted the pool's first shape yet |
+| `SwapDisabled` | 6003 | `commit_swap`, `clp_swap` | The market's CLP swap guards aren't enabled (11 of 14 markets on 10 Oct 2026) |
+| `SwapFrozen` | 6004 | `commit_swap`, `settle_swap`, `clp_swap` | The CLP's swap guards are frozen |
+| `SwapAccountMismatch` | 6006 | all | An account has the wrong mint, owner or address |
+| `SlippageExceeded` | 6008 | `pool_swap`, `clp_swap` | The output is below `min_out` |
+| `OrderExpired` | 6009 | `settle_swap` | Past `expires_at`; cancel instead |
+| `OrderNotExpired` | 6010 | `cancel_swap` | Not yet past `expires_at` |
+| `NoFreshOraclePush` | 6011 | `settle_swap` | No price push since the commit |
+| `OracleStale`, `OracleConfidenceTooWide`, `OracleDeviationTooLarge` | 6012 to 6014 | `settle_swap`, `clp_swap` | A price check failed |
+| `WindowCapExceeded` | 6015 | `pool_swap`, `clp_swap` | The rolling-window cap is used up |
+| `CollateralFloorBreach` | 6016 | `settle_swap`, `clp_swap` | The market's collateral is below the floor |
+| `InsufficientFunds` | 6018 | `pool_swap`, `settle_swap`, `clp_swap` | The book has nothing on that side, or the CLP lacks the inventory |
+
+See the [full error catalog](/reference/errors).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    Books, NAV and pending orders, read from chain.
+  </Card>
+  <Card title="CLP program reference" icon="file-code" href="/programs/clp">
+    Every instruction and account.
+  </Card>
+  <Card title="Book management" icon="chart-line" href="/keeper/book-management">
+    How the keeper shapes and re-centres the books.
+  </Card>
+  <Card title="Peg maintenance" icon="route" href="/keeper/arb-paths">
+    How the keeper keeps book prices close to NAV.
+  </Card>
+</CardGroup>

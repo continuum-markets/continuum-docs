@@ -1,0 +1,56 @@
+[
+  {
+    "kind": "before",
+    "sample": 0,
+    "rpcMs": 168.2034580153413,
+    "responseBytes": 36,
+    "orders": 0,
+    "statuses": {},
+    "fetchedAt": 1791504197.5455518
+  },
+  {
+    "kind": "before",
+    "sample": 1,
+    "rpcMs": 91.33908402873203,
+    "responseBytes": 36,
+    "orders": 0,
+    "statuses": {},
+    "fetchedAt": 1791504197.6369338
+  },
+  {
+    "kind": "before",
+    "sample": 2,
+    "rpcMs": 130.89445797959343,
+    "responseBytes": 36,
+    "orders": 0,
+    "statuses": {},
+    "fetchedAt": 1791504197.7678668
+  },
+  {
+    "kind": "pending_only",
+    "sample": 0,
+    "rpcMs": 90.54912498686463,
+    "responseBytes": 36,
+    "orders": 0,
+    "statuses": {},
+    "fetchedAt": 1791504197.8584561
+  },
+  {
+    "kind": "pending_only",
+    "sample": 1,
+    "rpcMs": 178.4815420396626,
+    "responseBytes": 36,
+    "orders": 0,
+    "statuses": {},
+    "fetchedAt": 1791504198.0369742
+  },
+  {
+    "kind": "pending_only",
+    "sample": 2,
+    "rpcMs": 94.2603750154376,
+    "responseBytes": 36,
+    "orders": 0,
+    "statuses": {},
+    "fetchedAt": 1791504198.1312692
+  }
+]

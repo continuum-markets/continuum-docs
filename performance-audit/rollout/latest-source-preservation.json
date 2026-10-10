@@ -1,0 +1,16 @@
+{
+  "latestSource": "f97f949f6ffcd35d6831836cfaa8a89051c492be",
+  "latestBuild": "aNMyDW7W9BQ4QbUCLSkps",
+  "benchmarkSource": "3024aab4d8d1cf8ccbd781d4425cb02e03002648",
+  "benchmarkBuild": "IKi12OWWBM-jIGLF_59hR",
+  "changedFiles": [
+    "components/DonateToVaultPanel.tsx",
+    "components/MintRedeemView.tsx",
+    "lib/seo/fees.ts"
+  ],
+  "financialHooksAndHttpConfirmationUnchanged": true,
+  "performanceFixesPreserved": true,
+  "sourceFilesVerified": 331,
+  "mismatches": [],
+  "scope": "Concurrent product release; original benchmark measurements retain their own source/build IDs."
+}

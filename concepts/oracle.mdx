@@ -1,0 +1,109 @@
+---
+title: Oracle
+description: Where Continuum's prices come from, what the keeper pushes on-chain, and the staleness chain that freezes mint and redeem when the underlying market closes.
+---
+
+Continuum's price layer is one stored number per market. The keeper fetches a price and a confidence band for each market and writes both to its `Market` account with `mint_redeem::update_risk_state_v2`. Mint, redeem, committed-order settlement and book repositioning all read that stored price, `user_twap_price`. Despite its name it is a spot price, scaled to 1e6, and the program has already applied any [corporate-action](/concepts/nav#corporate-actions) adjustment.
+
+## Sources
+
+| Network | Price | Confidence band | How it reaches the chain |
+|---|---|---|---|
+| **Devnet** | A free public quote source that needs no API key | GJR-GARCH volatility model | Keeper pushes with `update_risk_state_v2`; every market runs in `ProxyMode` |
+| **Mainnet (planned)** | Pyth (Pyth Pro) | Pyth's interval, or the GARCH forecast if that is wider | Program reads Pyth in `Normal`; the keeper still pushes the band and risk state |
+
+Pyth's public Hermes service has required an API key since 26 Aug 2026, so the devnet keeper prices markets from a keyless public quote source. That source publishes no confidence interval, so the keeper derives one from a GJR-GARCH volatility model kept per market.
+
+The keeper checks every fresh price against Hyperliquid before pushing it. It compares the price with Hyperliquid's oracle price for the same market (SPY and QQQ go through a learned index ratio), and a disagreement beyond a per-market band blocks the push. Hyperliquid can veto a price but never sets one. If Hyperliquid is unreachable, the push goes ahead.
+
+The oracle program is not in the devnet price path. The keeper skips `update_price_observation` on devnet, so `OracleConfig` there is stale. Don't read it for live prices; read the `Market` account.
+
+`ProxyMode` means the program prices off the keeper-pushed `user_twap_price`. In `Normal`, the mainnet steady state, mint and redeem read the market's Pyth account inside the transaction instead. That read enforces its own limits: it rejects a print older than 60 s (`MAX_PYTH_AGE_SECS`) or one whose confidence is wider than 2% of the price (`MAX_PYTH_CONF_BPS`), with `OraclePriceUnavailable`. Devnet never uses this path.
+
+<Warning>
+  Committed-order settlement (`settle_swap`) prices off the keeper-written `user_twap_price`, and its freshness check uses the keeper-written `twap_updated_at`. Both come from one key; nothing on chain checks them against an independent price.
+</Warning>
+
+## What one push contains
+
+```
+update_risk_state_v2(new_risk_state, user_twap_price, oracle_confidence, source_publish_time)
+```
+
+- **`user_twap_price`** is the source price, 1e6-scaled. The program multiplies it by the market's corporate-action ratio before storing it. This is `L_NAV`.
+- **`oracle_confidence`** is the absolute half-width of the confidence band, in the same units and with the same adjustment. It drives worst-case quotes, and the keeper's spread never quotes inside it.
+- **`new_risk_state`** is the keeper's risk regime for the market. See [Risk states](/concepts/risk-states).
+- **`source_publish_time`** is when the source published the price. The program rejects a push whose publish time is in the future or more than 300 s old (`OraclePriceUnavailable`), and stores it as `twap_updated_at`. When the keeper can't verify the publish time it sends 0, and the program stores the current on-chain time instead.
+
+Two rails bound each write:
+
+- On-chain, the program rejects any price move over 25% from the stored price in one push (`MAX_TWAP_MOVE_BPS`), so a compromised keeper key can't teleport NAV. The first push to a market is exempt.
+- On mainnet only, the keeper refuses to push a price more than 10% away from the oracle program's last TWAP (`MAX_HERMES_DEVIATION_BPS`). On devnet this envelope is off on purpose: the stored price *is* the keeper's own last write, so comparing against it would be circular and would deadlock after any pause.
+
+## The staleness chain: what happens when the market closes
+
+Quote sources keep serving the **last** price after the underlying stops trading, at night and over weekends for equities. Re-pushing that frozen price would keep mint and redeem open at a stale NAV all weekend. A chain of gates stops that:
+
+```
+underlying closes
+  → the source's publish time ages past 120 s   (HERMES_STALE_SECS, applies to every source)
+    or the fetch fails
+  → keeper WITHHOLDS the push
+  → twap_updated_at ages past 300 s             (MAX_TWAP_AGE_SECS)
+  → mint and redeem revert with TwapNotAvailable
+  → keeper swaps the live books for free-float books
+```
+
+In `ProxyMode` the freeze exists only because the keeper withholds pushes. Nothing on chain knows the market is closed, and any accepted push resets the clock.
+
+While frozen:
+
+- **Mint and redeem revert** with `TwapNotAvailable`, so nothing prices off a dead feed.
+- **The bin books keep trading** against a free-float book: one per side, anchored at the last price, flat across the ladder and capped at \$10,000 per side (\$1,250 for the single-name stocks). A guard can pull bins on the side that other venues (extended-hours sessions, futures, Hyperliquid, tokenized gold and euro) show is stale. It never moves the centre or adds depth.
+- **Committed orders can't settle**, because settlement needs a push newer than the commit. After the 180 s TTL, the user signs `cancel_swap` for a refund.
+- At reopen, the first accepted push re-anchors NAV and the keeper re-posts the live books.
+
+## Confidence intervals
+
+The confidence band feeds two mechanisms:
+
+1. Mint and redeem price each leg off `P + c` or `P − c`, whichever is worse for the user, where `c = oracle_confidence` × the risk state's confidence multiplier. See [worst-case quoting](/concepts/nav#worst-case-quoting).
+2. The keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free) includes `oracle_conf + fixed` in its max-of-floors stack, so the books never quote inside the band.
+
+## Reading prices from a client
+
+Read the `Market` account. It holds the price the program will use, and reading it needs no oracle CPI.
+
+```typescript
+import { BN } from "@coral-xyz/anchor";
+
+const market = await mintRedeem.account.market.fetch(marketPDA);
+
+const lNav = market.userTwapPrice; // 1e6; 0 means no price yet
+const GAMMA_ONE = new BN(1_000_000_000);
+const gamma = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+const sNav = lNav.isZero()
+  ? new BN(0)
+  : market.initialLPrice.mul(market.initialSPrice).div(lNav).mul(gamma).div(GAMMA_ONE);
+
+// Mirrors the program's own MAX_TWAP_AGE_SECS check
+const ageSecs = Date.now() / 1000 - market.twapUpdatedAt.toNumber();
+if (lNav.isZero() || ageSecs > 300) {
+  // Underlying market closed, a veto, or a keeper outage.
+  // Mint and redeem revert with TwapNotAvailable; books float; committed orders won't settle.
+  console.warn("Price stale: mint/redeem frozen until the next push.");
+}
+```
+
+Check `twap_updated_at` before you assume a mint or redeem will go through. The protocol prices off the stored value, whatever your client computes.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="Risk states" icon="shield-check" href="/concepts/risk-states">
+    What `Normal` / `ProxyMode` / `Stress` / `Recovery` mean for your operations.
+  </Card>
+  <Card title="mint-redeem reference" icon="square-terminal" href="/programs/mint-redeem">
+    `update_risk_state_v2`, staleness gates, error catalog.
+  </Card>
+</CardGroup>

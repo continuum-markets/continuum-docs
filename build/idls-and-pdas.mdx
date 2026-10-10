@@ -1,0 +1,269 @@
+---
+title: IDLs and PDAs
+description: Download the published IDLs, derive every PDA the five programs use, and compose the mint and redeem account lists.
+---
+
+A cheat sheet: where the IDLs live, how to derive each PDA, and how to build the mint and redeem account lists.
+
+## IDL files
+
+The program source is private. The IDLs, generated from the source of the deployed programs, are published in the docs repository ([browse](https://github.com/continuum-markets/continuum-docs/tree/main/idl)).
+
+| Program | IDL | Program ID (devnet) |
+|---|---|---|
+| `mint-redeem` | [`idl/mint_redeem.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/mint_redeem.json) | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` |
+| `clp` | [`idl/clp.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/clp.json) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` |
+| `oracle` | [`idl/oracle.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/oracle.json) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
+| `registry` | [`idl/registry.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/registry.json) | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` |
+| `faucet` | [`idl/faucet.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/faucet.json) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+
+```bash
+mkdir -p idl types
+for name in mint_redeem clp oracle registry faucet; do
+  curl -fsSL -o "idl/$name.json" \
+    "https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/$name.json"
+done
+
+# Optional: TypeScript types for typed account access (Anchor CLI, no source needed)
+anchor idl type idl/mint_redeem.json -o types/mint_redeem.ts
+anchor idl type idl/clp.json -o types/clp.ts
+```
+
+Each IDL's `address` field holds the program ID, and Anchor 0.32 reads it from there. Three details trip people up:
+
+- Pass the type explicitly, as in `new Program<MintRedeem>(idl as MintRedeem, provider)`. Without it TypeScript falls back to the generic `Idl` type and `program.account.market` doesn't type-check.
+- Anchor TS decodes `base_price_1e6`, `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `basePrice1E6`, `gammaDayDecay1E9` and `shortPayoffCapC1E9`, but `anchor idl type` names them with a lowercase `e`. Read those three fields by their runtime names.
+- The registry IDL has no PDA seeds, so Anchor can't fill in `registry` or `marketEntry` for you. Pass them explicitly, using the seeds below.
+
+## PDA derivation cheatsheet
+
+Every PDA is `PublicKey.findProgramAddressSync(seeds, programId)`. This script derives them all for one market and one wallet, then checks them with a single `getMultipleAccountsInfo` call. It needs only `@solana/web3.js`. Save it as `pdas.ts`, set your wallet, and run `npx tsx pdas.ts`.
+
+```typescript
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const MINT_REDEEM = new PublicKey("5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4");
+const CLP = new PublicKey("8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES");
+const ORACLE = new PublicKey("5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC");
+const REGISTRY = new PublicKey("Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau");
+const FAUCET = new PublicKey("9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY");
+const CUSDC_MINT = new PublicKey("B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE");
+
+const SYMBOL = "QQQ";
+const wallet = new PublicKey("YOUR_WALLET_PUBKEY");
+const nonce = 1n; // the u64 nonce you pass to commit_swap
+
+const pda = (seeds: Buffer[], programId: PublicKey) =>
+  PublicKey.findProgramAddressSync(seeds, programId)[0];
+const seed = (s: string) => Buffer.from(s);
+const u64le = (n: bigint) => {
+  const b = Buffer.alloc(8);
+  b.writeBigUInt64LE(n);
+  return b;
+};
+// Registry seeds use the symbol uppercased and zero-padded to 16 bytes.
+const registrySymbol = (s: string) => {
+  const b = Buffer.alloc(16);
+  b.write(s.toUpperCase(), "ascii");
+  return b;
+};
+
+const market = pda([seed("market"), seed(SYMBOL)], MINT_REDEEM);
+const order = pda(
+  [seed("order"), wallet.toBuffer(), market.toBuffer(), u64le(nonce)],
+  CLP,
+);
+
+const addresses: Record<string, PublicKey> = {
+  // mint-redeem
+  market,
+  feeWaiver: pda([seed("fee_waiver"), wallet.toBuffer(), market.toBuffer()], MINT_REDEEM),
+  collateralAuthority: pda([seed("collateral_authority")], MINT_REDEEM),
+  unifiedVault: pda([seed("unified_vault")], MINT_REDEEM),
+  // oracle
+  oracleConfig: pda([seed("oracle_config"), market.toBuffer()], ORACLE),
+  // clp
+  globalClp: pda([seed("global_clp")], CLP),
+  clp: pda([seed("clp"), market.toBuffer()], CLP),
+  longPool: pda([seed("pool"), market.toBuffer(), Buffer.from([0])], CLP),
+  shortPool: pda([seed("pool"), market.toBuffer(), Buffer.from([1])], CLP),
+  revenueAttribution: pda([seed("revenue_attribution")], CLP),
+  order,
+  escrow: pda([seed("escrow"), order.toBuffer()], CLP),
+  // faucet
+  faucetState: pda([seed("faucet"), CUSDC_MINT.toBuffer()], FAUCET),
+  faucetMintAuthority: pda([seed("mint_authority"), CUSDC_MINT.toBuffer()], FAUCET),
+  dripRecord: pda([seed("drip"), CUSDC_MINT.toBuffer(), wallet.toBuffer()], FAUCET),
+  // registry
+  registryState: pda([seed("registry")], REGISTRY),
+  registryEntry: pda([seed("market"), registrySymbol(SYMBOL)], REGISTRY),
+};
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const names = Object.keys(addresses);
+const infos = await connection.getMultipleAccountsInfo(names.map((n) => addresses[n]));
+
+names.forEach((name, i) => {
+  const info = infos[i];
+  const status = info ? `${info.data.length} bytes` : "no account";
+  console.log(`${name.padEnd(20)} ${addresses[name].toBase58().padEnd(44)} ${status}`);
+});
+```
+
+Output for QQQ on devnet (10 Oct 2026); the wallet-specific rows depend on the wallet you pass:
+
+```
+market               F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5 891 bytes
+feeWaiver            (wallet-specific)                            no account
+collateralAuthority  7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3 41 bytes
+unifiedVault         5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8 165 bytes
+oracleConfig         7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1 1781 bytes
+globalClp            BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw 536 bytes
+clp                  EEDKqU3C4wgWQBcgFagHTqEAjKNMCV4eVYyaUt9swKHc 544 bytes
+longPool             DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr 422 bytes
+shortPool            HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB 422 bytes
+revenueAttribution   A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4 273 bytes
+order                (wallet-specific)                            no account
+escrow               (wallet-specific)                            no account
+faucetState          9U5jPkt46MhtqGt22yWQuKTUDKNUZXEZBekJNJuSMt1N 98 bytes
+faucetMintAuthority  HGtoCZ8VWGJvW5yiBai7VZictfrs3h7tmvFFJUoumoNw no account
+dripRecord           (wallet-specific)                            17 bytes
+registryState        ED8joCbjr7hnWPgmiGspQ2LNpUJGfjobZYqEHD1PWyE1 45 bytes
+registryEntry        G2QaqhBF1j1U9DA7s8sjuZJ3ysmPbEJbce9qaKRzzhX7 no account
+```
+
+Some rows can show "no account", and that is expected:
+
+- `feeWaiver` exists only after the wallet has donated to that market with `donate_to_vault`.
+- `order` and `escrow` exist only while that order is open. `settle_swap` and `cancel_swap` close both.
+- `dripRecord` exists after the wallet's first faucet drip.
+- `faucetMintAuthority` is a signing PDA that holds no data. It is the cUSDC mint's mint authority.
+- `registryEntry` is empty because the Registry holds no markets yet. Get market addresses from [Addresses](/reference/addresses).
+
+The `Market` account is allocated 891 bytes on devnet, and the struct can need up to 899. Its `collateral_vaults` list is variable-length, so read Market fields through the IDL, never at fixed offsets (see [Market account](/programs/mint-redeem#market-account)).
+
+The two `market` seeds differ. mint-redeem uses the raw symbol bytes (`QQQ`), while the Registry uses the symbol uppercased and zero-padded to 16 bytes.
+
+### Token accounts (ATAs)
+
+Associated token accounts aren't PDAs of Continuum's programs, but you derive them constantly:
+
+```typescript
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+
+const userCusdc = getAssociatedTokenAddressSync(cusdcMint, owner);
+const userLong = getAssociatedTokenAddressSync(longMint, owner);
+const userShort = getAssociatedTokenAddressSync(shortMint, owner);
+```
+
+Pass `true` as the third argument when the owner can be a PDA, as `market.feeRecipient` can. As of 10 Oct 2026 QQQ's fee recipient is the `GlobalClp` PDA, and without the flag `getAssociatedTokenAddressSync` throws `TokenOwnerOffCurveError`.
+
+## Composing a mint call
+
+`mint_paired` takes 11 accounts. You derive the Market PDA from the symbol, fetch the market once, and derive the rest from its fields:
+
+```typescript
+import { BN, Program } from "@coral-xyz/anchor";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import idl from "./idl/mint_redeem.json" with { type: "json" };
+import type { MintRedeem } from "./types/mint_redeem";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const program = new Program<MintRedeem>(idl as MintRedeem, { connection });
+const owner = new PublicKey("YOUR_WALLET_PUBKEY");
+
+// 1. Derive the market PDA from the symbol.
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  program.programId,
+);
+// 2. Fetch the market (one RPC call).
+const market = await program.account.market.fetch(marketPda);
+// 3. Derive the rest from the market's fields.
+const ata = (mint: PublicKey, holder: PublicKey) =>
+  getAssociatedTokenAddressSync(mint, holder, true); // the fee recipient can be a PDA
+
+const accounts = {
+  market: marketPda,
+  user: owner,
+  userCollateral: ata(market.collateralMint, owner),
+  userLongAccount: ata(market.longMint, owner),
+  userShortAccount: ata(market.shortMint, owner),
+  longMint: market.longMint,
+  shortMint: market.shortMint,
+  collateralVault: market.collateralVault,
+  devTokenAccount: ata(market.collateralMint, market.feeRecipient),
+  oracle: market.oracleAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+};
+
+const mintIx = await program.methods
+  .mintPaired(new BN(25_000_000)) // 25 cUSDC
+  .accountsStrict(accounts)
+  .instruction();
+
+// redeem_paired adds collateralAuthority, required when the market's
+// collateral sits in the unified vault (QQQ, SPY and XAU).
+const [collateralAuthority] = PublicKey.findProgramAddressSync(
+  [Buffer.from("collateral_authority")],
+  program.programId,
+);
+const [unifiedVault] = PublicKey.findProgramAddressSync(
+  [Buffer.from("unified_vault")],
+  program.programId,
+);
+const redeemIx = await program.methods
+  .redeemPaired(new BN(1_000_000), new BN(1_000_000)) // 1 L and 1 S
+  .accountsStrict({
+    ...accounts,
+    collateralAuthority: market.collateralVault.equals(unifiedVault)
+      ? collateralAuthority
+      : null,
+  })
+  .instruction();
+```
+
+The user's cUSDC, L and S token accounts must exist before the call; otherwise Anchor fails with `AccountNotInitialized` (3012). Add `createAssociatedTokenAccountIdempotentInstruction` for each one to the same transaction. In production, batch the market fetch with the user's token-account reads through `getMultipleAccountsInfo`.
+
+## Account-fetch helpers
+
+With `mintRedeem` and `clp` as typed `Program` instances and the PDAs from the script above:
+
+```typescript
+const market = await mintRedeem.account.market.fetch(marketPda);
+const clpAccount = await clp.account.clp.fetch(clpPda);
+const globalClp = await clp.account.globalClp.fetch(globalClpPda);
+const longBook = await clp.account.pool.fetch(longPoolPda);
+```
+
+For several markets at once:
+
+```typescript
+const markets = await mintRedeem.account.market.fetchMultiple(marketPdas);
+// (Market | null)[], in the order of marketPdas
+```
+
+Don't fetch `OracleConfig` for prices: the oracle program isn't updated on devnet. The live price is `market.userTwapPrice`.
+
+## Discriminators
+
+Every Anchor account and instruction starts with an 8-byte discriminator: the first 8 bytes of `sha256("account:<AccountName>")` for accounts and `sha256("global:<instruction_name>")` for instructions. The IDLs list them, and Anchor checks them for you. `Market`'s discriminator is `[219, 190, 213, 55, 0, 227, 198, 154]`.
+
+To decode raw account data without `fetch`, use the program's coder with the camelCase account name:
+
+```typescript
+const info = await connection.getAccountInfo(marketPda);
+const decoded = program.coder.accounts.decode("market", info!.data);
+```
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="SDK setup" icon="terminal" href="/build/sdk-setup">
+    Project bootstrap and a first read.
+  </Card>
+  <Card title="End-to-end example" icon="code" href="/build/example-mint-redeem">
+    Mint and redeem in one script.
+  </Card>
+</CardGroup>

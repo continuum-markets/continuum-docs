@@ -1,0 +1,222 @@
+---
+title: SDK setup
+description: Set up a TypeScript project for Continuum on devnet, with the published IDLs, an RPC endpoint, a wallet and a first market read.
+---
+
+You can call Continuum from any Solana client. This page sets up a small TypeScript project with Anchor's client and the published IDLs, then reads a market on devnet.
+
+The Continuum app itself uses `@solana/kit` 8.3, with program clients that Codama generates from the same IDLs (see [Kit and Codama](#kit-and-codama)). Anchor's client needs less setup for scripts, so the build pages use it.
+
+## Stack
+
+| Package | Why |
+|---|---|
+| Bun, or Node 18+ with `tsx` | Runs TypeScript. The samples use top-level `await` and the global `fetch`, so use an ES module project. |
+| `@coral-xyz/anchor` 0.32 | Anchor's TypeScript client. The programs are built with Anchor 0.32.1. |
+| `@solana/web3.js` 1.x | RPC, keypairs and transactions. |
+| `@solana/spl-token` | Associated token account (ATA) addresses and token instructions. |
+| Published IDLs | JSON descriptions of each program's instructions, accounts, events and errors. |
+
+Trading needs no AMM SDK. Each bin book is a `Pool` account in the CLP program, and `pool_swap` fills against it instantly on all 14 markets. For size, `commit_swap` and `settle_swap` handle committed orders, which are enabled on QQQ, SPY and XAU only as of 10 Oct 2026.
+
+## Minimal project
+
+```bash
+mkdir continuum-app && cd continuum-app
+bun init -y
+bun add @coral-xyz/anchor@0.32 @solana/web3.js@1 @solana/spl-token
+```
+
+Pin `@solana/web3.js` to 1.x. Anchor 0.32 depends on 1.x and `@solana/spl-token` 0.4 requires it as a peer, while npm's `next` tag for `@solana/web3.js` already points at 3.x.
+
+## The IDLs
+
+The IDLs for all five programs are published in the docs repository. Browse them at [github.com/continuum-markets/continuum-docs/tree/main/idl](https://github.com/continuum-markets/continuum-docs/tree/main/idl), or fetch the raw files:
+
+```
+https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/<name>.json
+```
+
+`<name>` is `mint_redeem`, `clp`, `oracle`, `registry` or `faucet`. The program source is not public, so these files are the reference for instruction names, arguments and account order. They use the Anchor 0.30+ IDL format, and each one carries its program ID in `address`:
+
+```bash
+curl -s https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/mint_redeem.json | jq -r .address
+# 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
+```
+
+Don't use `anchor idl fetch` for these programs. Their on-chain IDL accounts are out of date: as of 10 Oct 2026, mint-redeem's lists 14 of its 38 instructions and has no `collateral_authority` account. The devnet program IDs are in [Programs overview](/programs/overview).
+
+## Boilerplate (`client.ts`)
+
+```typescript
+// client.ts
+import { Connection, Keypair } from "@solana/web3.js";
+import { AnchorProvider, Program, Wallet, type Idl } from "@coral-xyz/anchor";
+import fs from "fs";
+import os from "os";
+import path from "path";
+
+const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
+const IDL_BASE =
+  "https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl";
+
+export async function loadIdl(name: string): Promise<Idl> {
+  const res = await fetch(`${IDL_BASE}/${name}.json`);
+  if (!res.ok) throw new Error(`IDL ${name}: HTTP ${res.status}`);
+  return (await res.json()) as Idl;
+}
+
+export function makeProvider(): AnchorProvider {
+  const connection = new Connection(RPC_URL, "confirmed");
+  const walletPath =
+    process.env.WALLET_PATH ?? path.join(os.homedir(), ".config/solana/id.json");
+  const secret = JSON.parse(fs.readFileSync(walletPath, "utf8"));
+  const wallet = new Wallet(Keypair.fromSecretKey(Uint8Array.from(secret)));
+  return new AnchorProvider(connection, wallet, { commitment: "confirmed" });
+}
+
+// A fetched IDL has no static types, so these clients are `any` to TypeScript.
+export async function loadPrograms(provider: AnchorProvider) {
+  const load = async (name: string): Promise<any> =>
+    new Program(await loadIdl(name), provider);
+  const [mintRedeem, clp, faucet] = await Promise.all(
+    ["mint_redeem", "clp", "faucet"].map(load),
+  );
+  return { mintRedeem, clp, faucet };
+}
+```
+
+`new Program(idl, provider)` takes the program ID from the IDL's `address`. Fetching at runtime always gets the current file. If you keep a copy in your repo instead, compare it with the published file after each program upgrade.
+
+## RPC choice
+
+Public devnet (`https://api.devnet.solana.com`) is fine for one-off scripts, but it rate-limits with HTTP 429. Anything that polls or runs continuously needs a private RPC, for example:
+
+```
+https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+https://solana-devnet.g.alchemy.com/v2/YOUR_KEY
+```
+
+Batch reads where you can. `program.account.market.fetchMultiple(pdas)` reads several markets in one `getMultipleAccounts` call.
+
+## Wallet and devnet funds
+
+Browser apps should sign through a Wallet Standard wallet. Scripts can load a keypair file, as `makeProvider` does. Privileged instructions check signer keys stored on chain (the keeper, CLP and market authorities). An integration only needs the user's own wallet.
+
+Fund a devnet wallet with SOL (`solana airdrop 1 --url devnet`, or `connection.requestAirdrop` in code), then drip cUSDC from the [faucet program](/programs/faucet). It sends 1,000 cUSDC per wallet every 24 hours, and the [mint and redeem example](/build/example-mint-redeem) includes the `drip` call.
+
+## First call: read a market
+
+```typescript
+// read-market.ts
+import { PublicKey } from "@solana/web3.js";
+import { makeProvider, loadPrograms } from "./client";
+
+const provider = makeProvider();
+const { mintRedeem } = await loadPrograms(provider);
+
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  mintRedeem.programId,
+);
+const market = await mintRedeem.account.market.fetch(marketPda);
+
+console.log("market     ", marketPda.toBase58());
+console.log("risk state ", Object.keys(market.riskState)[0]);
+console.log("L mint     ", market.longMint.toBase58());
+console.log("S mint     ", market.shortMint.toBase58());
+console.log("collateral ", market.totalCollateral.toNumber() / 1e6, "cUSDC");
+```
+
+`bun read-market.ts` printed this on 10 Oct 2026:
+
+```
+market      F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5
+risk state  proxyMode
+L mint      E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ
+S mint      BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG
+collateral  1883044.749247 cUSDC
+```
+
+Every devnet market runs in ProxyMode. `totalCollateral` is the market's own collateral ledger. QQQ, SPY and XAU share one vault (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`), so read this field, not the vault's token balance, for one market's share.
+
+## Typed clients
+
+To get TypeScript types, download the IDL and generate a type with the Anchor CLI (0.30 or later):
+
+```bash
+mkdir -p idl src/types
+curl -so idl/mint_redeem.json \
+  https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/mint_redeem.json
+anchor idl type idl/mint_redeem.json -o src/types/mint_redeem.ts
+```
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import type { MintRedeem } from "./src/types/mint_redeem";
+import idl from "./idl/mint_redeem.json";
+
+const mintRedeem = new Program<MintRedeem>(idl as MintRedeem, provider);
+const market = await mintRedeem.account.market.fetch(marketPda); // typed fields
+```
+
+Pass the type argument explicitly: without it, TypeScript infers a plain `Program<Idl>`. A typed `.accounts()` only accepts accounts that Anchor can't derive, so pass PDAs such as `market` through `.accountsPartial()`. Anchor can't derive the market PDA itself, because its seed is a field of the market account.
+
+## Kit and Codama
+
+To build on `@solana/kit` like the Continuum app, generate clients with Codama:
+
+```bash
+bun add @solana/kit
+bun add -d codama@1.11.0 @codama/nodes-from-anchor@1.5.6 @codama/renderers-js@2.5.0
+```
+
+```typescript
+// generate.ts
+import { createFromRoot } from "codama";
+import { rootNodeFromAnchor } from "@codama/nodes-from-anchor";
+import { renderVisitor } from "@codama/renderers-js";
+
+const IDL_BASE =
+  "https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl";
+
+for (const name of ["mint_redeem", "clp", "faucet"]) {
+  const idl = await (await fetch(`${IDL_BASE}/${name}.json`)).json();
+  if (name === "mint_redeem") {
+    // initialize_market's market seed names an argument that now sits inside
+    // `params`, which the Anchor importer rejects. Drop that seed definition.
+    const ix = idl.instructions.find((i: any) => i.name === "initialize_market");
+    delete ix.accounts.find((a: any) => a.name === "market").pda;
+  }
+  await createFromRoot(rootNodeFromAnchor(idl)).accept(
+    renderVisitor(".", { generatedFolder: `src/generated/${name}` }),
+  );
+}
+```
+
+These are the versions the app pins. The script writes one client per program under `src/generated/` and adds `@solana/kit` and `@solana/program-client-core` to `package.json`. Only `initialize_market`, an admin instruction, needs the workaround.
+
+## Common pitfalls
+
+### Wrong cluster
+
+The IDLs carry devnet program IDs. Pointed at another cluster, `fetch` fails with `Account does not exist or has no data`.
+
+### Missing token accounts
+
+Mint and redeem need the user's cUSDC, L and S token accounts and the fee recipient's cUSDC account to exist. Create them first with `createAssociatedTokenAccountIdempotentInstruction`. A missing account fails with Anchor's `AccountNotInitialized` (3012). Some fee recipients are PDAs, so pass `allowOwnerOffCurve = true` when you derive their ATA.
+
+### Decimals
+
+cUSDC, L and S use 6 decimals, and prices in `Market` are scaled to 1e6. `s_gamma_index` (γ) is scaled to 1e9, and so are the prices in the oracle program's `OracleConfig`. Divide by the right power of ten before display, and multiply by `10 ** 6` when you build token amounts.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="IDLs and PDAs" icon="key" href="/build/idls-and-pdas">
+    Where IDLs ship, PDA derivation patterns.
+  </Card>
+  <Card title="Mint and redeem example" icon="terminal" href="/build/example-mint-redeem">
+    End-to-end script: drip cUSDC, mint, redeem, verify.
+  </Card>
+</CardGroup>

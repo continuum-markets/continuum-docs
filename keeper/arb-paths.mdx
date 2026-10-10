@@ -1,0 +1,31 @@
+---
+title: Peg maintenance
+description: Why the venues stay near NAV, what bounds a stale book, and the legacy arbitrage loop that is off by default.
+---
+
+## Why the venues stay near NAV
+
+Every venue prices off the same keeper-pushed price, so there is no outside pool to drift away from:
+
+- **Committed orders** fill at NAV ± `max(commit_spread_bps, 10)` bps, at a price pushed after the commitment (any later push, not necessarily the first). The price did not exist when the order was placed, so there is no stale quote to trade against. As of 10 Oct 2026 only QQQ, SPY and XAU accept them.
+- **The instant oracle swap** (`clp_swap`) quotes NAV ± a fixed spread, on the same three markets.
+- **The bin books** are the only venue whose price floats between keeper updates. The keeper re-centres each book once its inventory-shifted centre drifts past the reposition gate: 20 bps by default, cut further so the book moves before NAV reaches its first funded bin. A trader who lifts a stale bin pays the real slippage of the bin ladder. And turning a cheap leg into cUSDC through the protocol means buying the other leg too and redeeming the pair, because `redeem_paired` needs both legs; that round trip pays the redeem fee (10 to 52 bps as posted on 10 Oct 2026, times 1.5 in ProxyMode).
+
+So any venue's mispricing is bounded by the larger of the reposition gate and the half-spread, plus that fee hurdle.
+
+## What bounds a stale book
+
+If the price gaps inside one keeper cycle, a trader can lift whichever bins went in the money. That worst case is bounded:
+
+- `pool_swap` fills only from pre-funded bins, so the loss is capped at the depth of those bins.
+- The books are lean (see [Book management](/keeper/book-management)), and the next cycle re-centres and refills them.
+- On QQQ, SPY and XAU, `pool_swap` shares a rolling notional cap with `clp_swap`: $1,000,000 per hour as of 10 Oct 2026. The other 11 markets have no such cap set.
+- While a market is closed, its books are free-float books capped at $10,000 per side, or $1,250 for single-name stocks.
+
+Capping depth this way is what makes the books safe on volatile assets, where an uncapped venue quoting at NAV could be drained.
+
+## The legacy arbitrage loop
+
+The keeper runs no arbitrage loop by default. The arbitrage scanner, the boot-time sweep of leftover L and S in the keeper wallet, and the liquidity seeder belong to the legacy Meteora layer, which runs only with `LEGACY_METEORA_ENABLED=true` (default `false`).
+
+Anyone can still trade against a drifted book without a keeper key: buy a leg on its book, buy the other leg on its own book, and redeem the pair with `redeem_paired`. Near the reposition gate that trade rarely clears the fee hurdle.

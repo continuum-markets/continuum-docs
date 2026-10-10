@@ -1,0 +1,219 @@
+{"program":"faucet","instruction":"initialize","scenario":"valid local fixture","success":true,"computeUnits":"20331","executionMs":1.2956670000000088,"error":null}
+{"program":"faucet","instruction":"drip","scenario":"first drip","success":true,"computeUnits":"32050","executionMs":0.36479200000002265,"error":null}
+{"program":"faucet","instruction":"drip","scenario":"cooldown rejects repeat","success":false,"computeUnits":"18811","executionMs":0.22412499999998658,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6000 } }"}
+{"program":"faucet","instruction":"update_params","scenario":"valid local fixture","success":true,"computeUnits":"5728","executionMs":0.1935410000000104,"error":null}
+{"program":"faucet","instruction":"transfer_authority","scenario":"valid local fixture","success":true,"computeUnits":"8097","executionMs":0.17004099999999767,"error":null}
+{"program":"faucet","instruction":"update_params","scenario":"former authority rejected","success":false,"computeUnits":"6422","executionMs":0.14491700000002083,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 2001 } }"}
+{"program":"mint_redeem","instruction":"initialize_market","scenario":"valid local fixture","success":true,"computeUnits":"32217","executionMs":0.30862500000000637,"error":null}
+{"program":"mint_redeem","instruction":"create_token_metadata","scenario":"real devnet Metaplex executable, local accounts","success":true,"computeUnits":"66995","executionMs":0.4136670000000038,"error":null}
+{"program":"oracle","instruction":"initialize_oracle_config","scenario":"valid local fixture","success":true,"computeUnits":"24536","executionMs":0.2451250000000016,"error":null}
+{"program":"oracle","instruction":"force_price","scenario":"valid local fixture","success":true,"computeUnits":"10913","executionMs":0.20408400000002302,"error":null}
+{"program":"oracle","instruction":"configure_twap_windows","scenario":"valid local fixture","success":true,"computeUnits":"10664","executionMs":0.13900000000001,"error":null}
+{"program":"oracle","instruction":"configure_health_thresholds","scenario":"valid local fixture","success":true,"computeUnits":"10685","executionMs":0.1397500000000207,"error":null}
+{"program":"oracle","instruction":"get_keeper_twap","scenario":"read current valid state","success":false,"computeUnits":"7292","executionMs":0.130375000000015,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6006 } }"}
+{"program":"oracle","instruction":"get_user_twap","scenario":"read current valid state","success":true,"computeUnits":"6288","executionMs":0.182707999999991,"error":null}
+{"program":"oracle","instruction":"get_market_state","scenario":"read current valid state","success":true,"computeUnits":"6283","executionMs":0.13937500000000114,"error":null}
+{"program":"oracle","instruction":"get_oracle_health","scenario":"read current valid state","success":true,"computeUnits":"6695","executionMs":0.13054199999999128,"error":null}
+{"program":"oracle","instruction":"get_user_price","scenario":"read current valid state","success":true,"computeUnits":"6617","executionMs":0.14045800000002373,"error":null}
+{"program":"oracle","instruction":"get_keeper_price","scenario":"read current valid state","success":true,"computeUnits":"6662","executionMs":0.13291599999999448,"error":null}
+{"program":"oracle","instruction":"get_price","scenario":"legacy getter rejects absent Pyth binding","success":false,"computeUnits":"8281","executionMs":0.171875,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6001 } }"}
+{"program":"oracle","instruction":"upsert_oracle_feed","scenario":"serialized Pyth v2 fixture","success":true,"computeUnits":"20387","executionMs":0.1993750000000034,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"ingest serialized Pyth v2 fixture","success":true,"computeUnits":"16089","executionMs":0.15812499999998408,"error":null}
+{"program":"oracle","instruction":"reset_volatility_counters","scenario":"valid local fixture","success":true,"computeUnits":"13511","executionMs":0.15641600000000722,"error":null}
+{"program":"oracle","instruction":"get_price","scenario":"registered feed bound by observation","success":true,"computeUnits":"9323","executionMs":0.1272090000000219,"error":null}
+{"program":"mint_redeem","instruction":"update_risk_state","scenario":"valid local fixture","success":true,"computeUnits":"12275","executionMs":0.1405420000000106,"error":null}
+{"program":"mint_redeem","instruction":"mint_paired","scenario":"valid local fixture","success":true,"computeUnits":"47684","executionMs":0.37566699999999287,"error":null}
+{"program":"mint_redeem","instruction":"redeem_paired","scenario":"valid local fixture","success":true,"computeUnits":"48971","executionMs":0.3478749999999877,"error":null}
+{"program":"mint_redeem","instruction":"donate_to_vault","scenario":"valid local fixture","success":true,"computeUnits":"34589","executionMs":0.27241700000001856,"error":null}
+{"program":"mint_redeem","instruction":"mint_paired_with_waiver","scenario":"valid local fixture","success":true,"computeUnits":"60937","executionMs":0.5030419999999935,"error":null}
+{"program":"mint_redeem","instruction":"redeem_paired_with_waiver","scenario":"valid local fixture","success":true,"computeUnits":"62309","executionMs":0.3986250000000098,"error":null}
+{"program":"mint_redeem","instruction":"permissionless_burn","scenario":"valid local fixture","success":true,"computeUnits":"24992","executionMs":0.20954100000000153,"error":null}
+{"program":"clp","instruction":"initialize_global_clp","scenario":"valid local fixture","success":true,"computeUnits":"11944","executionMs":0.15879199999997695,"error":null}
+{"program":"clp","instruction":"init_revenue_attribution","scenario":"valid local fixture","success":true,"computeUnits":"19826","executionMs":0.2531669999999906,"error":null}
+{"program":"clp","instruction":"configure_revenue_attribution","scenario":"valid local fixture","success":true,"computeUnits":"11736","executionMs":0.1435419999999965,"error":null}
+{"program":"clp","instruction":"initialize_clp","scenario":"valid local fixture","success":true,"computeUnits":"29618","executionMs":0.24929099999999949,"error":null}
+{"program":"clp","instruction":"admin_fund","scenario":"valid local fixture","success":true,"computeUnits":"11830","executionMs":0.16808300000002419,"error":null}
+{"program":"clp","instruction":"admin_withdraw","scenario":"reject funding cooldown","success":false,"computeUnits":"17991","executionMs":0.3191659999999956,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6033 } }"}
+{"program":"clp","instruction":"allocate_to_market","scenario":"valid local fixture","success":true,"computeUnits":"25536","executionMs":0.23250000000001592,"error":null}
+{"program":"clp","instruction":"return_to_global","scenario":"valid local fixture","success":true,"computeUnits":"25859","executionMs":0.1884589999999946,"error":null}
+{"program":"clp","instruction":"configure_swap","scenario":"valid local fixture","success":true,"computeUnits":"14364","executionMs":0.15433300000000827,"error":null}
+{"program":"clp","instruction":"set_commit_spread","scenario":"valid local fixture","success":true,"computeUnits":"13009","executionMs":0.1165420000000097,"error":null}
+{"program":"clp","instruction":"configure_inventory_budget","scenario":"valid local fixture","success":true,"computeUnits":"13444","executionMs":0.11320799999998599,"error":null}
+{"program":"clp","instruction":"update_inventory","scenario":"valid local fixture","success":true,"computeUnits":"13853","executionMs":0.11350000000001614,"error":null}
+{"program":"clp","instruction":"check_inventory_restrictions","scenario":"valid local fixture","success":true,"computeUnits":"8239","executionMs":0.08729099999999335,"error":null}
+{"program":"clp","instruction":"update_oi","scenario":"valid local fixture","success":true,"computeUnits":"14326","executionMs":0.1039169999999956,"error":null}
+{"program":"clp","instruction":"update_oi_cap","scenario":"valid local fixture","success":true,"computeUnits":"13929","executionMs":0.10329099999998448,"error":null}
+{"program":"clp","instruction":"configure_liquidity_seeder","scenario":"valid local fixture","success":true,"computeUnits":"8177","executionMs":0.09100000000000819,"error":null}
+{"program":"clp","instruction":"realloc_clp","scenario":"already current size","success":true,"computeUnits":"7630","executionMs":0.13075000000000614,"error":null}
+{"program":"mint_redeem","instruction":"init_collateral_authority","scenario":"valid local fixture","success":true,"computeUnits":"28594","executionMs":0.27308299999998553,"error":null}
+{"program":"clp","instruction":"vault_mint_pairs","scenario":"valid local fixture","success":true,"computeUnits":"93028","executionMs":0.5516660000000115,"error":null}
+{"program":"clp","instruction":"vault_redeem_pairs","scenario":"valid local fixture","success":true,"computeUnits":"98377","executionMs":0.5189589999999953,"error":null}
+{"program":"clp","instruction":"vault_redeem_single","scenario":"valid local fixture","success":true,"computeUnits":"88672","executionMs":0.5089169999999967,"error":null}
+{"program":"clp","instruction":"clp_burn_excess","scenario":"valid local fixture","success":true,"computeUnits":"52765","executionMs":0.44720900000001507,"error":null}
+{"program":"clp","instruction":"vault_record_liquidity_recall","scenario":"valid local fixture","success":true,"computeUnits":"25142","executionMs":0.18341599999999403,"error":null}
+{"program":"clp","instruction":"collect_fees","scenario":"valid local fixture","success":true,"computeUnits":"18694","executionMs":0.17370800000000486,"error":null}
+{"program":"clp","instruction":"deposit_profit","scenario":"valid local fixture","success":true,"computeUnits":"22378","executionMs":0.193916999999999,"error":null}
+{"program":"clp","instruction":"add_yield_to_buffer","scenario":"valid local fixture","success":true,"computeUnits":"12690","executionMs":0.13066699999998832,"error":null}
+{"program":"clp","instruction":"absorb_loss","scenario":"valid local fixture","success":true,"computeUnits":"10013","executionMs":0.11008300000000304,"error":null}
+{"program":"clp","instruction":"configure_yield_strategy","scenario":"valid local fixture","success":true,"computeUnits":"14068","executionMs":0.11437499999999545,"error":null}
+{"program":"clp","instruction":"record_deployment","scenario":"valid local fixture","success":true,"computeUnits":"15632","executionMs":0.188541999999984,"error":null}
+{"program":"clp","instruction":"record_harvest","scenario":"valid local fixture","success":true,"computeUnits":"20606","executionMs":0.16537499999998317,"error":null}
+{"program":"clp","instruction":"get_yield_status","scenario":"valid local fixture","success":true,"computeUnits":"10317","executionMs":0.11737500000000978,"error":null}
+{"program":"clp","instruction":"record_withdrawal","scenario":"valid local fixture","success":true,"computeUnits":"14814","executionMs":0.11166599999998539,"error":null}
+{"program":"clp","instruction":"configure_meteora_pools","scenario":"valid local fixture","success":true,"computeUnits":"20809","executionMs":0.17108400000000756,"error":null}
+{"program":"clp","instruction":"clp_set_meteora_position","scenario":"serialized ownership-prefix fixture; no Meteora CPI","success":true,"computeUnits":"18589","executionMs":0.2480419999999981,"error":null}
+{"program":"clp","instruction":"clear_meteora_positions","scenario":"valid local fixture","success":true,"computeUnits":"14913","executionMs":0.182124999999985,"error":null}
+{"program":"clp","instruction":"fixture_meteora_atas","scenario":"create pool creator token accounts","success":true,"computeUnits":"29984","executionMs":0.6033749999999714,"error":null}
+{"program":"clp","instruction":"fixture_meteora_launch_proof","scenario":"fund launch proof via real SPL transfers","success":true,"computeUnits":"302","executionMs":0.19858300000004192,"error":null}
+{"program":"clp","instruction":"fixture_meteora_pair","scenario":"real Meteora pool initialization","success":true,"computeUnits":"52213","executionMs":0.4973749999999768,"error":null}
+{"program":"oracle","instruction":"force_price","scenario":"refresh at Meteora activation","success":true,"computeUnits":"12197","executionMs":0.27841699999999037,"error":null}
+{"program":"mint_redeem","instruction":"update_risk_state","scenario":"refresh at Meteora activation","success":true,"computeUnits":"12275","executionMs":0.25166600000000017,"error":null}
+{"program":"clp","instruction":"configure_meteora_pools","scenario":"bind real local Meteora pair","success":true,"computeUnits":"20809","executionMs":0.21283399999998664,"error":null}
+{"program":"clp","instruction":"clp_init_bin_array","scenario":"real Meteora lower bin array","success":true,"computeUnits":"224501","executionMs":0.7286250000000223,"error":null}
+{"program":"clp","instruction":"clp_init_bin_array","scenario":"real Meteora upper bin array","success":true,"computeUnits":"269141","executionMs":0.7769579999999792,"error":null}
+{"program":"clp","instruction":"clp_open_meteora_position","scenario":"real Meteora CPI with fresh position signer","success":true,"computeUnits":"119476","executionMs":1.0047500000000014,"error":null}
+{"program":"clp","instruction":"clp_topup_meteora_position","scenario":"real Meteora CPI","success":true,"computeUnits":"101446","executionMs":0.6177920000000086,"error":null}
+{"program":"clp","instruction":"clp_claim_lp_fees","scenario":"real Meteora CPI, empty accrued fees","success":true,"computeUnits":"62056","executionMs":0.5243749999999636,"error":null}
+{"program":"clp","instruction":"clp_remove_meteora_liquidity","scenario":"real Meteora CPI","success":true,"computeUnits":"85312","executionMs":0.6500829999999951,"error":null}
+{"program":"clp","instruction":"clp_close_meteora_position","scenario":"real Meteora CPI","success":true,"computeUnits":"37362","executionMs":0.5009999999999764,"error":null}
+{"program":"clp","instruction":"init_pool","scenario":"side 0","success":true,"computeUnits":"30830","executionMs":0.268416000000002,"error":null}
+{"program":"clp","instruction":"configure_pool_geom","scenario":"side 0","success":true,"computeUnits":"12676","executionMs":0.14720800000003464,"error":null}
+{"program":"clp","instruction":"clp_fund_pool_synth","scenario":"side 0","success":true,"computeUnits":"24237","executionMs":0.2115000000000009,"error":null}
+{"program":"clp","instruction":"fixture_spl_transfer","scenario":"fund pool 0 bid vault","success":true,"computeUnits":"226","executionMs":0.07650000000001,"error":null}
+{"program":"clp","instruction":"set_pool_shape","scenario":"side 0","success":true,"computeUnits":"20330","executionMs":0.17537499999997408,"error":null}
+{"program":"clp","instruction":"pool_swap","scenario":"buy side 0","success":true,"computeUnits":"44650","executionMs":0.5665839999999776,"error":null}
+{"program":"clp","instruction":"pool_swap","scenario":"sell side 0","success":true,"computeUnits":"44635","executionMs":0.3424580000000219,"error":null}
+{"program":"clp","instruction":"pool_sweep_usdc","scenario":"side 0","success":true,"computeUnits":"25762","executionMs":0.21933400000000347,"error":null}
+{"program":"clp","instruction":"pool_sweep_synth","scenario":"side 0","success":true,"computeUnits":"25809","executionMs":0.20104099999997516,"error":null}
+{"program":"clp","instruction":"realloc_pool","scenario":"side 0, current size","success":true,"computeUnits":"4178","executionMs":0.08699999999998909,"error":null}
+{"program":"clp","instruction":"clp_swap","scenario":"legacy immediate buy side 0","success":true,"computeUnits":"34178","executionMs":0.23395800000002964,"error":null}
+{"program":"clp","instruction":"init_pool","scenario":"side 1","success":true,"computeUnits":"30831","executionMs":0.2827080000000137,"error":null}
+{"program":"clp","instruction":"configure_pool_geom","scenario":"side 1","success":true,"computeUnits":"12676","executionMs":0.10591600000003609,"error":null}
+{"program":"clp","instruction":"clp_fund_pool_synth","scenario":"side 1","success":true,"computeUnits":"24237","executionMs":0.17695800000001327,"error":null}
+{"program":"clp","instruction":"fixture_spl_transfer","scenario":"fund pool 1 bid vault","success":true,"computeUnits":"226","executionMs":0.13049999999998363,"error":null}
+{"program":"clp","instruction":"set_pool_shape","scenario":"side 1","success":true,"computeUnits":"20330","executionMs":0.17700000000002092,"error":null}
+{"program":"clp","instruction":"pool_swap","scenario":"buy side 1","success":true,"computeUnits":"44646","executionMs":0.36337499999996226,"error":null}
+{"program":"clp","instruction":"pool_swap","scenario":"sell side 1","success":true,"computeUnits":"44635","executionMs":0.38862499999999045,"error":null}
+{"program":"clp","instruction":"pool_sweep_usdc","scenario":"side 1","success":true,"computeUnits":"25762","executionMs":0.22562499999997954,"error":null}
+{"program":"clp","instruction":"pool_sweep_synth","scenario":"side 1","success":true,"computeUnits":"25809","executionMs":0.18175000000002228,"error":null}
+{"program":"clp","instruction":"realloc_pool","scenario":"side 1, current size","success":true,"computeUnits":"4178","executionMs":0.10529200000001993,"error":null}
+{"program":"clp","instruction":"clp_swap","scenario":"legacy immediate buy side 1","success":true,"computeUnits":"34838","executionMs":0.23937499999999545,"error":null}
+{"program":"clp","instruction":"commit_swap","scenario":"nonce 1","success":true,"computeUnits":"48036","executionMs":0.3908749999999941,"error":null}
+{"program":"clp","instruction":"settle_swap","scenario":"nonce 1, rejects unchanged oracle timestamp","success":false,"computeUnits":"26787","executionMs":0.2412079999999719,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6011 } }"}
+{"program":"mint_redeem","instruction":"update_risk_state","scenario":"fresh print for nonce 1","success":true,"computeUnits":"12275","executionMs":0.13670799999999872,"error":null}
+{"program":"clp","instruction":"settle_swap","scenario":"fill side 0, direction 0","success":true,"computeUnits":"44678","executionMs":0.29200000000003,"error":null}
+{"program":"clp","instruction":"commit_swap","scenario":"nonce 2","success":true,"computeUnits":"48023","executionMs":0.29720799999995506,"error":null}
+{"program":"clp","instruction":"settle_swap","scenario":"nonce 2, rejects unchanged oracle timestamp","success":false,"computeUnits":"26787","executionMs":0.20887500000003456,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6011 } }"}
+{"program":"mint_redeem","instruction":"update_risk_state","scenario":"fresh print for nonce 2","success":true,"computeUnits":"12275","executionMs":0.18091599999996788,"error":null}
+{"program":"clp","instruction":"settle_swap","scenario":"fill side 1, direction 1","success":true,"computeUnits":"45126","executionMs":0.36037499999997635,"error":null}
+{"program":"clp","instruction":"commit_swap","scenario":"nonce 3","success":true,"computeUnits":"45036","executionMs":0.31591600000001563,"error":null}
+{"program":"clp","instruction":"settle_swap","scenario":"nonce 3, rejects unchanged oracle timestamp","success":false,"computeUnits":"26787","executionMs":0.21549999999996317,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6011 } }"}
+{"program":"mint_redeem","instruction":"update_risk_state","scenario":"fresh print for nonce 3","success":true,"computeUnits":"12275","executionMs":0.11787500000002638,"error":null}
+{"program":"clp","instruction":"settle_swap","scenario":"min-out refund closes accounts","success":true,"computeUnits":"38614","executionMs":0.2766250000000241,"error":null}
+{"program":"clp","instruction":"commit_swap","scenario":"cancel fixture","success":true,"computeUnits":"46536","executionMs":0.4092499999999859,"error":null}
+{"program":"clp","instruction":"cancel_swap","scenario":"reject early cancel","success":false,"computeUnits":"11075","executionMs":0.14674999999999727,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6010 } }"}
+{"program":"clp","instruction":"cancel_swap","scenario":"expired cancel refunds and closes","success":true,"computeUnits":"16055","executionMs":0.15541699999999992,"error":null}
+{"program":"oracle","instruction":"force_price","scenario":"refresh after clock warp","success":true,"computeUnits":"12567","executionMs":0.13066700000001674,"error":null}
+{"program":"mint_redeem","instruction":"update_risk_state","scenario":"refresh after clock warp","success":true,"computeUnits":"12275","executionMs":0.1284170000000131,"error":null}
+{"program":"mint_redeem","instruction":"set_buffer_target","scenario":"valid local fixture","success":true,"computeUnits":"12902","executionMs":0.12795799999997826,"error":null}
+{"program":"mint_redeem","instruction":"configure_worst_case_quoting","scenario":"valid local fixture","success":true,"computeUnits":"12641","executionMs":0.18000000000000682,"error":null}
+{"program":"mint_redeem","instruction":"configure_risk_fees","scenario":"valid local fixture","success":true,"computeUnits":"12779","executionMs":0.1306250000000091,"error":null}
+{"program":"mint_redeem","instruction":"update_market","scenario":"valid local fixture","success":true,"computeUnits":"13311","executionMs":0.11912499999999682,"error":null}
+{"program":"mint_redeem","instruction":"update_market_oracle","scenario":"valid local fixture","success":true,"computeUnits":"20681","executionMs":0.15287499999999454,"error":null}
+{"program":"mint_redeem","instruction":"update_keeper_authority","scenario":"valid local fixture","success":true,"computeUnits":"13005","executionMs":0.10700000000002774,"error":null}
+{"program":"mint_redeem","instruction":"update_fee_recipient","scenario":"valid local fixture","success":true,"computeUnits":"16318","executionMs":0.11008300000003146,"error":null}
+{"program":"mint_redeem","instruction":"configure_yield_ceiling","scenario":"valid local fixture","success":true,"computeUnits":"13894","executionMs":0.11537500000002865,"error":null}
+{"program":"mint_redeem","instruction":"donate_to_vault","scenario":"fund source above target for rebalance","success":true,"computeUnits":"29723","executionMs":0.21662499999996498,"error":null}
+{"program":"mint_redeem","instruction":"initialize_market","scenario":"empty cleanup fixture","success":true,"computeUnits":"36759","executionMs":0.3249580000000378,"error":null}
+{"program":"mint_redeem","instruction":"close_market_admin","scenario":"empty market closes successfully","success":true,"computeUnits":"12014","executionMs":0.14575000000002092,"error":null}
+{"program":"mint_redeem","instruction":"initialize_market","scenario":"rebalance destination fixture","success":true,"computeUnits":"36759","executionMs":0.24041600000003882,"error":null}
+{"program":"mint_redeem","instruction":"rebalance_collateral","scenario":"valid local fixture","success":true,"computeUnits":"31023","executionMs":0.22895799999997735,"error":null}
+{"program":"mint_redeem","instruction":"withdraw_excess_to_clp","scenario":"valid local fixture","success":true,"computeUnits":"31837","executionMs":0.20570800000001555,"error":null}
+{"program":"mint_redeem","instruction":"keeper_mint_single","scenario":"valid local fixture","success":true,"computeUnits":"40792","executionMs":0.28345899999999347,"error":null}
+{"program":"mint_redeem","instruction":"keeper_redeem_single","scenario":"valid local fixture","success":true,"computeUnits":"39790","executionMs":0.633624999999995,"error":null}
+{"program":"mint_redeem","instruction":"keeper_burn_single","scenario":"valid local fixture","success":true,"computeUnits":"20445","executionMs":0.29545799999999645,"error":null}
+{"program":"mint_redeem","instruction":"deploy_collateral_to_yield","scenario":"valid local fixture","success":true,"computeUnits":"23575","executionMs":0.2011669999999981,"error":null}
+{"program":"mint_redeem","instruction":"mark_yield_impairment","scenario":"valid local fixture","success":true,"computeUnits":"13885","executionMs":0.11991699999998673,"error":null}
+{"program":"mint_redeem","instruction":"recall_collateral_from_yield","scenario":"valid local fixture","success":true,"computeUnits":"19279","executionMs":0.15337499999998272,"error":null}
+{"program":"mint_redeem","instruction":"harvest_collateral_yield","scenario":"valid local fixture","success":true,"computeUnits":"18920","executionMs":0.1452920000000404,"error":null}
+{"program":"mint_redeem","instruction":"set_s_gamma_index","scenario":"valid local fixture","success":true,"computeUnits":"14238","executionMs":0.20804199999997763,"error":null}
+{"program":"mint_redeem","instruction":"reanchor_gamma","scenario":"valid local fixture","success":true,"computeUnits":"14962","executionMs":0.13912500000003547,"error":null}
+{"program":"mint_redeem","instruction":"set_s_gamma_index","scenario":"reject stale gamma epoch","success":false,"computeUnits":"10175","executionMs":0.12016700000003766,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6031 } }"}
+{"program":"mint_redeem","instruction":"enable_multi_collateral","scenario":"valid local fixture","success":true,"computeUnits":"12773","executionMs":0.11866600000001881,"error":null}
+{"program":"mint_redeem","instruction":"add_collateral_vault","scenario":"valid local fixture","success":true,"computeUnits":"16686","executionMs":0.16016700000000128,"error":null}
+{"program":"mint_redeem","instruction":"update_collateral_vault","scenario":"valid local fixture","success":true,"computeUnits":"17884","executionMs":0.12554199999999582,"error":null}
+{"program":"mint_redeem","instruction":"close_market_admin","scenario":"reject closing live claims and collateral","success":false,"computeUnits":"10690","executionMs":0.11658400000004576,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6038 } }"}
+{"program":"mint_redeem","instruction":"update_market","scenario":"pause before vault migration","success":true,"computeUnits":"15259","executionMs":0.12179200000002766,"error":null}
+{"program":"mint_redeem","instruction":"migrate_to_unified_vault","scenario":"valid local fixture","success":true,"computeUnits":"24375","executionMs":0.196124999999995,"error":null}
+{"program":"mint_redeem","instruction":"update_market","scenario":"resume after vault migration","success":true,"computeUnits":"15259","executionMs":0.5806670000000054,"error":null}
+{"program":"mint_redeem","instruction":"redeem_paired","scenario":"unified-vault redemption","success":true,"computeUnits":"55419","executionMs":0.43095800000003237,"error":null}
+{"program":"mint_redeem","instruction":"realloc_market","scenario":"already current size","success":true,"computeUnits":"4023","executionMs":0.11975000000001046,"error":null}
+{"program":"oracle","instruction":"emergency_pause","scenario":"valid local fixture","success":true,"computeUnits":"11353","executionMs":0.13591700000000628,"error":null}
+{"program":"oracle","instruction":"update_oracle_config","scenario":"valid local fixture","success":true,"computeUnits":"12089","executionMs":0.11974999999995362,"error":null}
+{"program":"clp","instruction":"admin_withdraw","scenario":"after hold period","success":true,"computeUnits":"21696","executionMs":0.2207499999999527,"error":null}
+{"program":"clp","instruction":"realloc_clp","scenario":"legacy prefix grows with rent top-up","success":true,"computeUnits":"10433","executionMs":0.14766700000001265,"error":null}
+{"program":"clp","instruction":"realloc_pool","scenario":"legacy prefix grows with rent top-up","success":true,"computeUnits":"7375","executionMs":0.2244580000000269,"error":null}
+{"program":"mint_redeem","instruction":"realloc_market","scenario":"legacy prefix grows with rent top-up","success":true,"computeUnits":"6934","executionMs":0.15954199999998764,"error":null}
+{"program":"oracle","instruction":"realloc_oracle_config","scenario":"already current size","success":true,"computeUnits":"11702","executionMs":0.163833000000011,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"17527","executionMs":0.17591700000002675,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"18094","executionMs":0.16724999999996726,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"18660","executionMs":0.1531659999999988,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"19226","executionMs":0.1579590000000053,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"19792","executionMs":0.2240419999999972,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"20294","executionMs":0.14895899999999074,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"20796","executionMs":0.1350840000000062,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"21298","executionMs":0.13404199999996536,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"21800","executionMs":0.14458300000001145,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"22302","executionMs":0.13266699999996945,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"22804","executionMs":0.13974999999999227,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"23306","executionMs":0.23441600000001017,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"23808","executionMs":0.17283300000002555,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"24310","executionMs":0.16137500000002092,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"24812","executionMs":0.1491659999999797,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"25314","executionMs":0.15354200000001583,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"25816","executionMs":0.1459169999999972,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"26318","executionMs":0.15383400000001757,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"26820","executionMs":0.14683400000001257,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"27322","executionMs":0.24650000000002592,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"27824","executionMs":0.17337499999996453,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"28326","executionMs":0.15204099999999698,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"28828","executionMs":0.14883300000002464,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"29330","executionMs":0.16599999999999682,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"29832","executionMs":0.17445800000001555,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"30334","executionMs":0.24579199999999446,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"30836","executionMs":0.18070799999998144,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"31338","executionMs":0.3454999999999586,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"31840","executionMs":0.2688330000000292,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"32342","executionMs":0.20191699999998036,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"32844","executionMs":0.17641700000001492,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"33346","executionMs":0.16895800000003192,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"33848","executionMs":0.17024999999995316,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"34350","executionMs":0.25200000000000955,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"34852","executionMs":0.18762500000002547,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"35354","executionMs":0.17145800000002964,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"35856","executionMs":0.2551249999999641,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"36358","executionMs":0.183791000000042,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"36860","executionMs":0.186916999999994,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"37362","executionMs":0.23829200000000128,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"37864","executionMs":0.19350000000002865,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"38366","executionMs":0.18200000000001637,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"38868","executionMs":0.17466699999999946,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"39370","executionMs":0.1921660000000429,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"39872","executionMs":0.18500000000000227,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"40374","executionMs":0.19020799999998417,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"40876","executionMs":0.18787500000001955,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"41378","executionMs":0.43574999999998454,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"41880","executionMs":0.19679099999996197,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"42382","executionMs":0.18712499999998045,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"42884","executionMs":0.18816699999996445,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"43386","executionMs":0.18412499999999454,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"43888","executionMs":0.19420800000000327,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"44390","executionMs":0.22362500000002683,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"fill legacy observation ring","success":true,"computeUnits":"44892","executionMs":0.18904100000003154,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"undersized legacy account rejects 60th observation","success":false,"computeUnits":"47347","executionMs":0.2249580000000151,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 3004 } }"}
+{"program":"oracle","instruction":"realloc_oracle_config","scenario":"wrong authority rejected","success":false,"computeUnits":"27694","executionMs":0.3422909999999888,"error":"TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6010 } }"}
+{"program":"oracle","instruction":"realloc_oracle_config","scenario":"legacy account grows with rent top-up","success":true,"computeUnits":"41710","executionMs":0.25774999999998727,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"60th observation after legacy resize","success":true,"computeUnits":"45330","executionMs":0.22558300000002873,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"61st observation after legacy resize","success":true,"computeUnits":"45434","executionMs":0.2086659999999938,"error":null}
+{"program":"oracle","instruction":"update_price_observation","scenario":"full 60-observation ring","success":true,"computeUnits":"45435","executionMs":0.21100000000001273,"error":null}
+Native fixture checkpoint complete. All actions ran only inside LiteSVM.

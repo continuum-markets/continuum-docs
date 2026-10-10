@@ -1,0 +1,199 @@
+---
+title: oracle
+description: Per-market store of Pyth observations with an Active/Passive health flag. The devnet keeper does not update it.
+---
+
+The oracle program keeps one `OracleConfig` account per market. It records the latest Pyth observation, a short time-weighted average that feeds a volatility estimate, and an `Active`/`Passive` health flag. Prices and confidence values here are scaled to 1e9: \$562.33 is stored as `562_330_000_000`.
+
+```
+Devnet ID: 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC
+```
+
+<Warning>
+  Don't read `OracleConfig` for live prices. On devnet the keeper never calls `update_price_observation`. QQQ's config was last written on 4 Apr 2026, and the other 13 markets' configs have never been written (`last_price` is 0). Live prices are on the mint-redeem Market account: the keeper writes `Market.user_twap_price` with `update_risk_state_v2`. Despite its name, that field is a spot price, scaled to 1e6 and adjusted for corporate actions. Mainnet will price from Pyth (Pyth Pro).
+</Warning>
+
+## How mint-redeem uses it
+
+Mint-redeem reads `OracleConfig` only for a market whose `oracle_type` is `Continuum`, and only in the Normal risk state. It takes `last_price / 1_000` as the 1e6 price. It reverts with `OraclePriceUnavailable` if the config is paused or `Passive`, if `last_price` is 0, or if `last_update_time` is more than `max_staleness` seconds old. In every other risk state it prices from `Market.user_twap_price`. All 14 devnet markets are `Continuum` markets running in ProxyMode, so mint-redeem reads this account for none of them.
+
+## Accounts
+
+### `OracleConfig` PDA
+
+```
+seeds = [b"oracle_config", market]
+```
+
+One per market, 1,781 bytes. For a `Continuum` market, `Market.oracle_address` holds this PDA. Fields in account order:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `market_id` | Pubkey | Bound mint-redeem Market PDA |
+| `admin_authority` | Pubkey | Signs configuration, feed, pause and realloc instructions |
+| `pyth_oracle` | Pubkey | Pyth price account used by the latest update (default pubkey before the first one) |
+| `switchboard_oracle` | Pubkey | Reserved, unused |
+| `max_confidence_interval` | u64 | `get_price` rejects a wider Pyth confidence (1e9) |
+| `max_staleness` | i64 | Seconds. `get_price` rejects an older Pyth print; mint-redeem rejects an older `last_update_time` |
+| `is_paused` | bool | Emergency stop |
+| `last_price` | u64 | Latest observed price (1e9) |
+| `last_confidence` | u64 | Latest confidence (1e9) |
+| `last_update_time` | i64 | Unix time the latest observation was written |
+| `bump` | u8 | PDA bump |
+| `keeper_authority` | Pubkey | Signs `update_price_observation` and `reset_volatility_counters` |
+| `keeper_twap` | `TwapState` | Time-weighted average over the keeper window (60 s by default) |
+| `user_twap` | `TwapState` | Legacy name: `last_twap` holds the latest spot price, not an average |
+| `market_state` | `MarketState` | `Active` or `Passive` |
+| `state_changed_at` | i64 | Unix time of the last state change |
+| `health_config` | `OracleHealthConfig` | Thresholds for the health flag |
+| `recent_volatility_bps` | u16 | Gap between the latest price and `keeper_twap.last_twap`, in bps (at most 10,000) |
+| `recent_move_count` | u8 | Updates that moved the price by 50 bps or more (stops at 255) |
+| `observation_index` | u8 | Next ring slot to overwrite |
+| `observations` | `Vec<PriceObservation>` | Ring of the last 60 observations |
+
+`TwapState` holds `cumulative_price` (u128), `cumulative_time` (u64), `last_twap` (u64), `last_update` (i64) and `window_seconds` (u32). `PriceObservation` holds `price` (u64, 1e9), `confidence` (u64, 1e9) and `timestamp` (i64). `OracleHealthConfig` holds `max_staleness_seconds` (i64, default 60), `max_confidence_bps` (u16, default 200) and `_reserved` (`[u8; 16]`); the first 8 bytes of `_reserved` store the Pyth publish time of the latest observation.
+
+### `OracleFeed` PDA
+
+```
+seeds = [b"oracle_feed", oracle_config, pyth_oracle]
+```
+
+One per registered Pyth price account. `update_price_observation` accepts only a registered, active feed.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `oracle_config` | Pubkey | Bound config |
+| `pyth_oracle` | Pubkey | Pyth price account |
+| `priority` | u16 | Within a feed kind, lower values are tried first |
+| `kind` | `OracleFeedKind` | `Primary`, `PreMarket`, `PostMarket`, `Overnight`, `Fallback` or `Custom` |
+| `is_active` | bool | Inactive feeds are rejected (`InactiveOracleFeed`) |
+| `bump` | u8 | PDA bump |
+
+On any cluster other than devnet, the keeper picks a feed on each update. It tries `Primary` first, then the kind for the current US session (`Overnight` when the market is closed), then `Fallback`, `PreMarket`, `PostMarket`, `Overnight` and `Custom`. It uses the first feed that is trading, no older than `max_staleness` and within `health_config.max_confidence_bps`. If that feed isn't `Primary`, or the config is `Passive`, the keeper puts the market in ProxyMode rather than Normal. On devnet the keeper skips feed selection entirely.
+
+## Instructions
+
+### Setup (admin)
+
+#### `initialize_oracle_config(max_confidence_interval: u64, max_staleness: i64, keeper_authority: Pubkey)`
+
+Creates the `OracleConfig` for a mint-redeem Market. The signer must be the Market's `authority` (else `UnauthorizedAdmin`) and becomes `admin_authority`. The config starts `Active`, with a 60 s keeper window, a 300 s user window and the default health thresholds. Accounts: `oracle_config`, `market`, `authority`, `system_program`.
+
+#### `upsert_oracle_feed(priority: u16, kind: OracleFeedKind, is_active: bool)`
+
+Creates or updates the `OracleFeed` for one Pyth price account. The handler first parses the account as a Pyth price feed (`InvalidPythAccount` if it isn't one). `admin_authority` signs and pays. Accounts: `oracle_config`, `oracle_feed`, `pyth_oracle`, `admin_authority`, `system_program`.
+
+#### `realloc_oracle_config()`
+
+Grows a config to 1,781 bytes with zero fill and changes no data; `admin_authority` signs and pays. Configs created before the 9 Oct 2026 upgrade were 16 bytes short of a full observation ring. All 14 devnet configs have been grown.
+
+### Updates (keeper)
+
+#### `update_price_observation()`
+
+Takes no arguments. Accounts: `oracle_config`, `oracle_feed`, `pyth_oracle`, and `keeper`, which must equal `keeper_authority` (else `UnauthorizedKeeper`). The instruction:
+
+1. Fails with `OraclePaused` when paused. A second call in the same second returns without writing.
+2. Reads the Pyth account with `get_price_unchecked` and rescales price and confidence to 1e9. It applies no staleness, confidence or move-size limit.
+3. Stores the Pyth account in `pyth_oracle` and counts a move of 50 bps or more in `recent_move_count`.
+4. Sets `market_state` to `Active` if the Pyth print is at most `health_config.max_staleness_seconds` old and its confidence, in bps of the previous `last_price`, is at most `max_confidence_bps`. Otherwise it sets `Passive`.
+5. Appends the observation to the ring, recomputes `keeper_twap` and `recent_volatility_bps`, and copies the spot price into `user_twap.last_twap`.
+6. Writes `last_price`, `last_confidence` and `last_update_time`, and stores the Pyth publish time in `health_config._reserved`.
+
+It makes no CPI and doesn't touch the Market account.
+
+#### `reset_volatility_counters()`
+
+Keeper-signed, with the same accounts as `update_price_observation`, so it also needs a registered, active feed. It zeroes `recent_move_count` only and leaves `recent_volatility_bps` as is.
+
+### Configuration (admin)
+
+Each of these takes `oracle_config` and an `authority` signer that must equal `admin_authority`.
+
+- `configure_twap_windows(keeper_window_seconds: Option<u32>, user_window_seconds: Option<u32>)` sets the keeper window (30 to 120 s) and the user window (300 to 600 s). A value outside its range fails with `InvalidTwapWindow`. The user window no longer affects anything.
+- `configure_health_thresholds(max_staleness_seconds: Option<i64>, max_confidence_bps: Option<u16>)` sets the `Active`/`Passive` thresholds.
+- `update_oracle_config(max_confidence_interval: Option<u64>, max_staleness: Option<i64>, is_paused: Option<bool>, keeper_authority: Option<Pubkey>)` changes any subset; `None` leaves a field unchanged. It is the only way to unpause.
+- `emergency_pause()` sets `is_paused = true`.
+
+While paused, `update_price_observation`, `get_price`, `get_user_twap`, `get_user_price` and `get_keeper_price` fail with `OraclePaused`. Mint-redeem honours the pause only in the Normal risk state, so it has no effect on a market in ProxyMode.
+
+### Read-only helpers
+
+These return their value as Anchor return data, so another program can call them by CPI. All take only `oracle_config`, except `get_price`.
+
+| Instruction | Returns |
+|---|---|
+| `get_price()` | The live Pyth price (1e9) from `pyth_oracle`, which must be the stored `pyth_oracle`. Fails on a confidence above `max_confidence_interval` (`ConfidenceTooHigh`), a print older than `max_staleness` (`PriceStale`) or a move of more than 20% from `last_price` (`PriceMovementTooLarge`). Writes nothing |
+| `get_user_twap()`, `get_user_price()` | `user_twap.last_twap`, the latest spot price (`TwapNotReady` if 0) |
+| `get_keeper_price()` | `keeper_twap.last_twap` (`TwapNotReady` if 0) |
+| `get_keeper_twap()` | Deprecated; always fails with `TwapNotReady` |
+| `get_market_state()` | `MarketState` |
+| `get_oracle_health()` | `(MarketState, u16, u8, i64)`: state, `recent_volatility_bps`, `recent_move_count` and seconds since `last_update_time`. The IDL lists no return type for it, so decode the 12 bytes of return data yourself (little-endian) |
+
+The deployed devnet program has no `force_price` instruction.
+
+## Errors
+
+| Code | Name | Cause |
+|---|---|---|
+| 6000 | `OraclePaused` | `is_paused` is true |
+| 6001 | `InvalidPythAccount` | The account doesn't parse as a Pyth price feed |
+| 6002 | `PriceUnavailable` | The Pyth price is zero or negative |
+| 6003 | `ConfidenceTooHigh` | `get_price`: confidence above `max_confidence_interval` |
+| 6004 | `PriceStale` | `get_price`: Pyth print older than `max_staleness` |
+| 6005 | `PriceMovementTooLarge` | `get_price`: more than 20% from `last_price` |
+| 6006 | `TwapNotReady` | The requested value is 0; `get_keeper_twap` always |
+| 6007 | `InvalidTwapWindow` | Keeper window outside 30-120 s or user window outside 300-600 s |
+| 6008 | `MarketStateRestriction` | Defined but never raised |
+| 6009 | `UnauthorizedKeeper` | Signer isn't `keeper_authority` |
+| 6010 | `UnauthorizedAdmin` | Signer isn't `admin_authority`, or isn't the Market's `authority` at initialization |
+| 6011 | `InvalidRegisteredFeed` | The feed account doesn't match the config or the Pyth account |
+| 6012 | `InactiveOracleFeed` | The feed has `is_active = false` |
+| 6013 | `MathOverflow` | Arithmetic overflow |
+
+→ [Full error catalog](/reference/errors)
+
+## TypeScript
+
+This compares QQQ's `OracleConfig` with the live price on its Market account. `provider` is set up as in [SDK setup](/build/sdk-setup), and the IDLs are published in [`continuum-docs/idl`](https://github.com/continuum-markets/continuum-docs/tree/main/idl).
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import oracleIdl from "./oracle.json";
+import mintRedeemIdl from "./mint_redeem.json";
+
+const oracle: any = new Program(oracleIdl as any, provider);
+const mintRedeem: any = new Program(mintRedeemIdl as any, provider);
+
+const market = await mintRedeem.account.market.fetch(
+  new PublicKey("F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5"), // QQQ
+);
+// A Continuum-type market stores its OracleConfig PDA in oracleAddress.
+const cfg = await oracle.account.oracleConfig.fetch(market.oracleAddress);
+const iso = (t: { toNumber(): number }) => new Date(t.toNumber() * 1000).toISOString();
+
+console.log("OracleConfig price:", cfg.lastPrice.toNumber() / 1e9, "written", iso(cfg.lastUpdateTime));
+console.log("OracleConfig state:", Object.keys(cfg.marketState)[0]);
+console.log("Market price:", market.userTwapPrice.toNumber() / 1e6, "written", iso(market.twapUpdatedAt));
+```
+
+Output on Saturday 10 Oct 2026, when the latest Market price was Friday's last push:
+
+```
+OracleConfig price: 562.33 written 2026-04-04T16:03:39.000Z
+OracleConfig state: active
+Market price: 751.27 written 2026-10-09T20:15:00.000Z
+```
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Oracle concept" icon="book" href="/concepts/oracle">
+    How the keeper prices markets and checks each print.
+  </Card>
+  <Card title="Risk states" icon="shield-check" href="/concepts/risk-states">
+    How ProxyMode, Stress and Recovery change fees and quotes.
+  </Card>
+</CardGroup>

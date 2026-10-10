@@ -1,0 +1,217 @@
+---
+title: Error catalog
+description: Every custom error code of the five programs, generated from the published IDLs, with causes checked against the program source.
+---
+
+Anchor numbers each program's custom errors from 6000, so one code means different things in different programs. Always read a code together with the program ID that raised it. Wallets and RPC errors often show the code in hex: `custom program error: 0x177c` is 6012.
+
+The tables are generated from the [published IDLs](/build/idls-and-pdas#idl-files), so the codes match the deployed programs. The Message column is the program's own text, as it appears in transaction logs. A cause is given where it was checked against the program source.
+
+## mint-redeem
+
+Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
+
+Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported were removed, and the codes stay so that later codes keep their numbers.
+
+| Code | Hex | Name | Message | Cause and fix |
+|---|---|---|---|---|
+| 6000 | `0x1770` | `MarketNotActive` | `Market is not active` | `Market.is_active` is false. Wait for the operator to reactivate the market. |
+| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. |
+| 6002 | `0x1772` | `InsufficientCollateral` | `Insufficient collateral in vault` | A keeper single-side redeem would leave the market under 100%, or a withdrawal or rebalance would take it below its target ratio. User mint and redeem don't raise it. |
+| 6003 | `0x1773` | `InvalidOracle` | `Invalid oracle account` | At setup or on a Normal-state read: the oracle account isn't the market's `OracleConfig` PDA (`Continuum`) or doesn't parse as a Pyth feed. A wrong `oracle` on mint or redeem fails Anchor's address check (2012) instead. |
+| 6004 | `0x1774` | `UnsupportedOracleType` | `Unsupported oracle type` | `oracle_type` is `Switchboard`. Only `Pyth` and `Continuum` are accepted. |
+| 6005 | `0x1775` | `OraclePriceUnavailable` | `Oracle price unavailable` | No usable price: a Normal-state oracle read failed (Pyth older than 60 s, or confidence over 2% of price), the confidence band is as wide as the price, or a keeper write carried a rejected source timestamp. |
+| 6006 | `0x1776` | `MathOverflow` | `Math overflow` | Arithmetic overflow. Not expected in normal use. |
+| 6007 | `0x1777` | `SymbolTooLong` | `Asset symbol too long` | `initialize_market` symbol over 10 bytes, or `create_token_metadata` name over 32, symbol over 10 or URI over 200 bytes. |
+| 6008 | `0x1778` | `FeeTooHigh` | `Fee too high (max 10%)` | A mint or redeem fee above 1,000 bps, or `dev_tax_pct` above 25. |
+| 6009 | `0x1779` | `MintNotAllowedInStress` | `Minting not allowed during Stress mode` | The market is in `Stress` and `allow_mint_in_stress` is false (the default, and the setting on every live market). Use the bin book. |
+| 6010 | `0x177a` | `RedeemNotAllowedInStress` | `Redeeming not allowed during Stress mode` | The market is in `Stress` and `allow_redeem_in_stress` is false (the default, and the setting on every live market). Use the bin book. |
+| 6011 | `0x177b` | `ExceedsStressMintCap` | `Amount exceeds stress mode mint cap` | Stress only, when minting is allowed and `stress_mint_cap` is non-zero: the deposit is above the cap. Live markets block mint in Stress, so this can't fire today. |
+| 6012 | `0x177c` | `TwapNotAvailable` | `TWAP price not available - keeper has not updated` | The market price is 0 or more than 300 s old. The keeper stops pushing while the underlying market is closed, so mint and redeem revert until it reopens. Trade on the bin book meanwhile. |
+| 6013 | `0x177d` | `AlreadyEnabled` | `Multi-collateral mode already enabled` | `enable_multi_collateral` on a market where it is already on. |
+| 6014 | `0x177e` | `MultiCollateralNotEnabled` | `Multi-collateral mode not enabled` | `add_collateral_vault` before `enable_multi_collateral`. |
+| 6015 | `0x177f` | `MaxCollateralTypesExceeded` | `Maximum number of collateral types exceeded` | A sixth `collateral_vaults` entry. The limit is 5. |
+| 6016 | `0x1780` | `InvalidWeight` | `Invalid weight - must be between 1 and 10000` | A collateral weight of 0 or above 10,000 bps. |
+| 6017 | `0x1781` | `CollateralAlreadyExists` | `Collateral type already exists` | `add_collateral_vault` with a mint that is already listed. |
+| 6018 | `0x1782` | `CollateralNotFound` | `Collateral type not found` | `update_collateral_vault` with a mint that isn't listed. |
+| 6019 | `0x1783` | `BelowMinimum` | `Amount below minimum ($10)` | A mint deposit under 10 cUSDC (`10_000_000` base units), or a redeem worth under 10 cUSDC at the quoted NAV. |
+| 6020 | `0x1784` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `market.keeper_authority`, `redeem_single_for_vault` wasn't signed by the market's CLP PDA, or `realloc_market` wasn't signed by `market.authority`. |
+| 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. Admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
+| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. |
+| 6023 | `0x1787` | `ExceedsYieldCeiling` | `Deployment would exceed yield ceiling` | A yield deployment above `yield_ceiling_bps` of `total_collateral`, or a ceiling above 9,000 bps. |
+| 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false, as it is on every live market. |
+| 6025 | `0x1789` | `RecallExceedsDeployed` | `Recall amount exceeds deployed_to_yield balance` | A recall or impairment larger than `deployed_to_yield`. |
+| 6026 | `0x178a` | `SingleSideMintStressFloor` | `Single-side mint would leave the vault under-collateralized under an adverse NAV shock` | `keeper_mint_single` would leave the market's collateral ratio below the lower of its pre-trade ratio and 100%. |
+| 6027 | `0x178b` | `GammaMustRatchetDown` | `s_gamma_index may only ratchet down; raising the short decay scalar is rejected` | `set_s_gamma_index` with a value above the current γ. |
+| 6028 | `0x178c` | `GammaOutOfRange` | `s_gamma_index is outside [GAMMA_FLOOR, GAMMA_ONE]; out-of-range writes are rejected, not clamped` | `set_s_gamma_index` outside 0.5 to 1.0 (`500_000_000` to `1_000_000_000`). Out-of-range values are rejected, not clamped. |
+| 6029 | `0x178d` | `GammaStepTooLarge` | `unused (γ per-transaction rate cap removed)` | Reserved placeholder. The per-transaction γ cap was removed and this code is never raised; it stays so later codes don't shift. |
+| 6030 | `0x178e` | `GammaDailyCapExceeded` | `unused (γ per-day rate cap removed)` | Reserved placeholder. The per-day γ cap was removed and this code is never raised; it stays so later codes don't shift. |
+| 6031 | `0x178f` | `GammaEpochMismatch` | `γ epoch mismatch: this post was computed against a different epoch (a re-anchor landed in between)` | `expected_epoch` doesn't match `gamma_epoch`: a re-anchor landed after the keeper computed the write. |
+| 6032 | `0x1790` | `InvalidMarketAccount` | `Account is not a Market owned by this program (bad owner, discriminator, or length)` | `realloc_market` on an account that isn't a mint-redeem `Market` (wrong owner, too short, or wrong discriminator). |
+| 6033 | `0x1791` | `ReanchorNoDecay` | `Nothing to re-anchor: γ is already 1.0 (or unset)` | `reanchor_gamma` while γ is already 1.0 (or unset). |
+| 6034 | `0x1792` | `ReanchorTooSoon` | `Re-anchor is inside the minimum interval since the last one` | `reanchor_gamma` less than 14 days after the previous one. |
+| 6035 | `0x1793` | `ReanchorPrecisionFloor` | `Re-anchor would leave the short anchor without enough precision to price against` | The folded `initial_s_price` would drop below 1,000 (0.001 cUSDC) or below 1/10,000 of its genesis value. |
+| 6036 | `0x1794` | `ReanchorNotValueConserving` | `Re-anchor failed its value-conservation invariant and was rejected` | The fold would change `initial_l_price × initial_s_price × γ` by more than rounding. |
+| 6037 | `0x1795` | `ReanchorBadState` | `Market is in a degenerate state (zero anchor) and cannot be re-anchored` | `initial_l_price` or `initial_s_price` is 0. |
+| 6038 | `0x1796` | `MarketNotEmpty` | `Cannot close a market that still has outstanding supply or collateral` | `close_market_admin` while L or S supply, `total_collateral` or `deployed_to_yield` is non-zero. |
+| 6039 | `0x1797` | `CorporateActionBadRatio` | `Corporate-action ratio has a zero term` | `ratio_num` or `ratio_den` is 0. |
+| 6040 | `0x1798` | `CorporateActionNoOp` | `Corporate-action ratio is 1:1 — nothing to apply` | `ratio_num` equals `ratio_den`. |
+| 6041 | `0x1799` | `CorporateActionRatioOutOfRange` | `Corporate-action ratio is implausibly large (fat-finger guard)` | A ratio beyond 1,000:1 in either direction. |
+| 6042 | `0x179a` | `CorporateActionPrecisionExhausted` | `Cumulative corporate-action ratio would exceed its precision budget (cash dividends are deliberately out of scope)` | The reduced cumulative ratio would have a term above 1,000,000,000. |
+| 6043 | `0x179b` | `PriceAdjustOverflow` | `Oracle price could not be mapped into genesis share units (corporate-action adjustment overflowed)` | Applying `price_adjust_num / price_adjust_den` to a price overflowed or truncated it to 0. |
+| 6044 | `0x179c` | `CorporateActionEffectiveTooFarAhead` | `Corporate-action effective_ts is implausibly far ahead — check the unit (seconds, not milliseconds)` | `effective_ts` more than 400 days ahead, usually milliseconds passed as seconds. |
+| 6045 | `0x179d` | `CorporateActionPendingExists` | `A future corporate action is already pending; wait until it takes effect` | Another action is armed and hasn't taken effect yet. |
+
+## clp
+
+Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
+
+Codes 6003 to 6016 are swap errors from `pool_swap`, `clp_swap` and the committed-order instructions. 6031 and 6032 come only from the legacy Meteora instructions, which the live bin books don't use.
+
+| Code | Hex | Name | Message | Cause and fix |
+|---|---|---|---|---|
+| 6000 | `0x1770` | `Unauthorized` | `Unauthorized` | The signer isn't the required authority (`clp.authority`, `pool.authority` or `GlobalClp.authority`), or `deposit_profit`'s admin token account isn't owned by `GlobalClp.admin_wallet`. |
+| 6001 | `0x1771` | `WithdrawalLocked` | `Withdrawal locked for 7 days after deposit` | Never raised. |
+| 6002 | `0x1772` | `InvalidAmount` | `Invalid amount` | A zero amount, or out-of-range pool or book parameters. |
+| 6003 | `0x1773` | `SwapDisabled` | `Swap path disabled (configure_swap enabled=true)` | `pool_swap` on a book that isn't `enabled` or is `frozen`, or `clp_swap` / `commit_swap` on a market whose swap path is off in `configure_swap`. As of 10 Oct 2026 the swap path is on only for QQQ, SPY and XAU, so committed orders and `clp_swap` revert on the other 11 markets. `pool_swap` works on all 14. |
+| 6004 | `0x1774` | `SwapFrozen` | `Swaps frozen (circuit breaker)` | `commit_swap`, `clp_swap` or a settlement while the market's swap guards are frozen. |
+| 6005 | `0x1775` | `InvalidSide` | `Invalid swap side/direction` | `side` or `direction` isn't 0 or 1. |
+| 6006 | `0x1776` | `SwapAccountMismatch` | `Swap account mismatch (mint/owner)` | A token account's mint or owner doesn't match the pool, market or order, or the pool or CLP account belongs to another market. |
+| 6007 | `0x1777` | `MarketInactive` | `Market inactive` | `clp_swap` or `commit_swap` on a market with `is_active` false. |
+| 6008 | `0x1778` | `SlippageExceeded` | `Slippage exceeded (output below min_out)` | The fill is below `min_out` (`pool_swap`, `clp_swap`). A committed order that misses `min_out` is refunded at settlement instead. |
+| 6009 | `0x1779` | `OrderExpired` | `Order expired — use cancel_swap to refund` | `settle_swap` after the 180 s TTL. Sign `cancel_swap` to get the escrow back. |
+| 6010 | `0x177a` | `OrderNotExpired` | `Order not yet expired — wait for settlement or the TTL` | `cancel_swap` before the 180 s TTL has passed. |
+| 6011 | `0x177b` | `NoFreshOraclePush` | `No oracle push strictly newer than the commit yet` | `settle_swap` before a keeper price push newer than the commit. Retry after the next push. |
+| 6012 | `0x177c` | `OracleStale` | `Oracle/TWAP stale` | `pool_swap` on a book with no posted price, or `clp_swap` / `settle_swap` with a price older than the market's `max_staleness_secs`. |
+| 6013 | `0x177d` | `OracleConfidenceTooWide` | `Oracle confidence too wide` | `clp_swap` / `settle_swap` with confidence wider than `max_confidence_bps` of the price. |
+| 6014 | `0x177e` | `OracleDeviationTooLarge` | `Oracle deviation too large` | `clp_swap` / `settle_swap` with a price more than `max_deviation_bps` from the last accepted price. |
+| 6015 | `0x177f` | `WindowCapExceeded` | `Swap window notional cap exceeded` | The trade would push the market's rolling notional total past `window_cap_usd` for the current `window_secs`. `pool_swap` and `clp_swap` share the window. |
+| 6016 | `0x1780` | `CollateralFloorBreach` | `Collateral floor breach` | `clp_swap` / `settle_swap` while the market's collateral is below `collateral_floor_bps` of its liability at NAV. |
+| 6017 | `0x1781` | `InsufficientShares` | `Insufficient LP shares` | Never raised. |
+| 6018 | `0x1782` | `InsufficientFunds` | `Insufficient clp funds` | The book or CLP inventory can't fill the order (zero output or a short balance), or an operator transfer exceeds a vault balance. |
+| 6019 | `0x1783` | `InsufficientLiquidFunds` | `Insufficient liquid funds in vault. Wait for keeper to rebalance or perform forced DEX liquidation.` | `admin_withdraw` above the global vault's liquid balance. |
+| 6020 | `0x1784` | `OICapExceeded` | `OI cap exceeded` | Raised only by `update_oi`, which nothing calls. The OI cap is stored but not enforced. |
+| 6021 | `0x1785` | `MathOverflow` | `Math overflow` | Arithmetic overflow. Not expected in normal use. |
+| 6022 | `0x1786` | `InsufficientBuffer` | `Insufficient protocol buffer` | `absorb_loss` larger than the protocol buffer. |
+| 6023 | `0x1787` | `HardBoundBreach` | `Hard inventory bound breached - operations restricted` | Never raised. |
+| 6024 | `0x1788` | `YieldStrategyDisabled` | `Yield strategy is disabled` | `record_deployment` while the market's yield strategy is disabled. |
+| 6025 | `0x1789` | `ExceedsMaxDeployment` | `Deployment exceeds maximum allowed for current risk state` | `record_deployment` above the deployment share allowed in the current risk state. |
+| 6026 | `0x178a` | `MaxDeploymentsExceeded` | `Maximum number of yield deployments reached` | `allocate_to_market` when `GlobalClp.market_allocations` already holds 10 markets, or `record_deployment` with a full deployment list. |
+| 6027 | `0x178b` | `DeploymentNotFound` | `Deployment not found` | `record_harvest` or `record_withdrawal` for a protocol with no recorded deployment. |
+| 6028 | `0x178c` | `InsufficientDeployment` | `Insufficient deployment balance` | A withdrawal or recall larger than the recorded deployment. |
+| 6029 | `0x178d` | `DeploymentTooHigh` | `Deployment percentage too high` | `configure_yield_strategy` with a deployment share out of range. |
+| 6030 | `0x178e` | `OracleReadError` | `Could not read oracle account data` | The `oracle_config` account passed to a yield instruction is too short to read. |
+| 6031 | `0x178f` | `InvalidPool` | `Pool address does not match configured Meteora pool` | Legacy Meteora instructions only: the pool isn't the configured Meteora pool. |
+| 6032 | `0x1790` | `PoolNotConfigured` | `Meteora pool not configured — run configure_meteora_pools first` | Legacy Meteora instructions only: `configure_meteora_pools` hasn't run. |
+| 6033 | `0x1791` | `AdminWithdrawCapExceeded` | `Admin withdrawal would exceed the 24h cap of $100K — wait for window to roll or rotate authority if attack is suspected` | `admin_withdraw` above 10% of `GlobalClp.total_deposits` in a rolling 24 h window, or within 1 h of the last `admin_fund`. The fixed 100K cap in the message is out of date. |
+| 6034 | `0x1792` | `InvalidPosition` | `Position address does not match stored Meteora position` | A legacy Meteora position mismatch, or a wrong market, token account or mint passed to `clp_burn_excess`. |
+| 6035 | `0x1793` | `InvalidAccountData` | `Account data too small for operation` | Never raised. |
+
+## oracle
+
+Program ID (devnet): `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC`
+
+The oracle program isn't updated on devnet, so these errors come only from operator instructions and the oracle's own view instructions. Mint and redeem report price problems with mint-redeem errors.
+
+| Code | Hex | Name | Message | Cause and fix |
+|---|---|---|---|---|
+| 6000 | `0x1770` | `OraclePaused` | `Oracle is paused` | `is_paused` is set on the `OracleConfig`. |
+| 6001 | `0x1771` | `InvalidPythAccount` | `Invalid Pyth account` | The `pyth_oracle` account doesn't parse as a Pyth price feed. |
+| 6002 | `0x1772` | `PriceUnavailable` | `Price unavailable` | The Pyth price is zero or negative. |
+| 6003 | `0x1773` | `ConfidenceTooHigh` | `Confidence interval too high` | `get_price`: confidence above `max_confidence_interval`. |
+| 6004 | `0x1774` | `PriceStale` | `Price is stale` | `get_price`: the Pyth publish time is older than `max_staleness`. |
+| 6005 | `0x1775` | `PriceMovementTooLarge` | `Price movement too large (>20% in one update)` | `get_price`: more than 20% away from `last_price`. |
+| 6006 | `0x1776` | `TwapNotReady` | `TWAP not ready - insufficient observations` | `get_keeper_twap` always (deprecated); `get_user_twap`, `get_user_price` or `get_keeper_price` before a value is stored. |
+| 6007 | `0x1777` | `InvalidTwapWindow` | `Invalid TWAP window duration` | `configure_twap_windows` with a keeper window outside 30 to 120 s or a user window outside 300 to 600 s. |
+| 6008 | `0x1778` | `MarketStateRestriction` | `Operation not allowed in current market state` | Never raised. |
+| 6009 | `0x1779` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `OracleConfig.keeper_authority`. |
+| 6010 | `0x177a` | `UnauthorizedAdmin` | `Unauthorized admin` | The signer isn't `OracleConfig.admin_authority`, or `initialize_oracle_config` isn't signed by `market.authority`. |
+| 6011 | `0x177b` | `InvalidRegisteredFeed` | `Invalid registered oracle feed` | The `OracleFeed` doesn't belong to this config and Pyth account. |
+| 6012 | `0x177c` | `InactiveOracleFeed` | `Registered oracle feed is inactive` | The `OracleFeed` has `is_active` false. |
+| 6013 | `0x177d` | `MathOverflow` | `Math Overflow` | Arithmetic overflow. Not expected in normal use. |
+
+## registry
+
+Program ID (devnet): `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau`
+
+| Code | Hex | Name | Message | Cause and fix |
+|---|---|---|---|---|
+| 6000 | `0x1770` | `SymbolTooLong` | `Symbol must be 16 characters or fewer` | `register_market` with a symbol over 16 bytes after uppercasing. |
+| 6001 | `0x1771` | `UnauthorizedInitializer` | `Registry initialization requires the program upgrade authority` | `initialize` isn't signed by the registry program's upgrade authority. |
+| 6002 | `0x1772` | `InvalidProgramData` | `Registry initialization requires this program's ProgramData account` | `initialize` was given a `program_data` account that isn't this program's ProgramData. |
+
+## faucet
+
+Program ID (devnet): `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY`
+
+| Code | Hex | Name | Message | Cause and fix |
+|---|---|---|---|---|
+| 6000 | `0x1770` | `CooldownNotElapsed` | `Cooldown period has not elapsed yet` | Less than `cooldown_seconds` (86,400 s on devnet) since this wallet's last drip. |
+
+## Anchor errors below 6000
+
+Anchor raises its own errors during account validation, before the program's code runs. The common ones on mint and redeem:
+
+| Code | Name | Cause and fix |
+|---|---|---|
+| 2001 | `ConstraintHasOne` | An admin instruction signed by a key other than `market.authority`. |
+| 2012 | `ConstraintAddress` | The `oracle` account isn't `market.oracleAddress`. Wrong `longMint`, `shortMint` or `collateralVault` accounts raise `InvalidAmount` (6001) instead. |
+| 3012 | `AccountNotInitialized` | A user token account (cUSDC, L or S) doesn't exist yet. Create the ATA first. |
+
+## How errors surface in clients
+
+Anchor turns a failed transaction into an `AnchorError` that carries the code, its name and the program that raised it:
+
+```typescript
+import { AnchorError } from "@coral-xyz/anchor";
+
+try {
+  await program.methods.mintPaired(amount).accountsStrict(accounts).rpc();
+} catch (e) {
+  if (e instanceof AnchorError) {
+    console.log(e.error.errorCode.code);   // "TwapNotAvailable"
+    console.log(e.error.errorCode.number); // 6012
+    console.log(e.program.toBase58());     // the program that raised it
+  }
+  throw e;
+}
+```
+
+When you simulate with `@solana/web3.js`, `AnchorError.parse(logs)` reads the same fields from the logs. The raw log line looks like this:
+
+```
+Program log: AnchorError thrown in programs/mint-redeem/src/lib.rs:2581. Error Code: TwapNotAvailable. Error Number: 6012. Error Message: TWAP price not available - keeper has not updated.
+```
+
+## Common error sequences
+
+### Mint or redeem fails with `TwapNotAvailable` (6012)
+
+The market's price is 0 or more than 300 s old. The keeper doesn't push prices while the underlying market is closed (for equities, nights and weekends), so mint and redeem stay closed until it reopens. The bin books keep trading in the meantime. If it happens during market hours and persists, check #announcements on [Discord](https://discord.gg/U5hPCB8ufJ), where the team posts outages, or ask in #help.
+
+### Mint or redeem fails with `MintNotAllowedInStress` or `RedeemNotAllowedInStress`
+
+The market is in `Stress`, which blocks both mint and redeem on every live market. Read `market.riskState` and surface it to the user as "mint and redeem paused". The bin books stay open.
+
+### Redeem fails with `InvalidAmount` (6001)
+
+Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. Sell a lone leg on its bin book, or through a committed order on QQQ, SPY and XAU. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
+
+### Mint or redeem fails with `BelowMinimum` (6019)
+
+A mint needs a deposit of at least 10 cUSDC (`10_000_000` base units). A redeem needs both legs together to be worth at least 10 cUSDC at the redeem NAVs.
+
+### Mint or redeem fails with `Unauthorized` (6021)
+
+`devTokenAccount` must be a cUSDC token account owned by `market.feeRecipient`. Derive it with `getAssociatedTokenAddressSync(cusdcMint, market.feeRecipient, true)`; the `true` matters because a fee recipient can be a PDA.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="FAQ" icon="circle-question" href="/reference/faq">
+    Common questions, including error symptoms.
+  </Card>
+  <Card title="Glossary" icon="book" href="/reference/glossary">
+    What the terms in error names mean.
+  </Card>
+</CardGroup>

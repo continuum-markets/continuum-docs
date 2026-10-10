@@ -1,0 +1,9 @@
+{
+  "excluded": [
+    {
+      "file": "frontend/docs/performance-audit/rollout-live-after/pools?analytics_qa=performance-rollout-0.json",
+      "reason": "First post-deployment response still used baseline bundle 2ewf-4bm4nmac.js during edge propagation. Retained as rollout evidence; excluded from candidate before/after performance statistics.",
+      "replacementSample": 3
+    }
+  ]
+}

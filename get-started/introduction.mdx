@@ -1,0 +1,89 @@
+---
+title: Introduction
+description: Continuum is a Solana-native protocol for 24/7 synthetic exposure to real-world assets. Here's the mental model.
+---
+
+Continuum is a Solana protocol for **24/7 synthetic exposure to real-world assets**: stocks, indices, commodities and FX. You deposit collateral (cUSDC on devnet, USDC on mainnet) and receive paired long and short tokens priced from the asset's NAV. You can trade either leg on Continuum's own bin books, hold it with no expiry, or redeem both legs together for collateral.
+
+There is no funding rate, no liquidation and no leverage. The position **is** an SPL token, paid for in full. The short leg carries a [volatility decay](/concepts/nav#volatility-decay) instead of funding. It is charged on realized volatility rather than positioning, and longs carry no holding cost.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/get-started/quickstart">
+    Mint your first paired position on devnet in five minutes.
+  </Card>
+  <Card title="Concepts" icon="book" href="/concepts/overview">
+    The mental model: paired tokens, NAV, oracle, keeper, CLP.
+  </Card>
+  <Card title="Build" icon="code" href="/build/sdk-setup">
+    TypeScript SDK setup, IDLs, PDAs, end-to-end examples.
+  </Card>
+  <Card title="Programs" icon="square-terminal" href="/programs/overview">
+    On-chain instruction and account reference.
+  </Card>
+</CardGroup>
+
+## What you can build
+
+Long and short tokens are standard SPL tokens, so other programs and apps can use them directly. Some examples:
+
+- **Wrapper UIs** that offer long-only or short-only flows on top of the paired primitive.
+- **Structured products**, such as delta-neutral baskets or dispersion trades, that combine several markets.
+- **Trading bots** that trade the bin books when they drift from NAV.
+- **Portfolio analytics** that value positions from on-chain NAV, with no off-chain feed.
+- **CPI integrations** where another Solana program holds, mints or redeems Continuum positions as part of a larger flow.
+
+## How it works
+
+A user calls `mint_paired(collateral_amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the price that the keeper last pushed to the `Market` account and takes the mint fee. It sends the deposit to the market's collateral vault, except for a dev tax of 10% of the fee. Then it mints long (`L`) and short (`S`) tokens, each worth half of the deposit after the fee.
+
+The long leg is priced at the asset price P, adjusted for any corporate action. The short leg is priced at `K / P × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index. So `L × S = K × γ`, and as one leg rises the other falls. Mint and redeem also quote each leg against the user by the oracle confidence band. This worst-case quoting is on for every market except QQQ (as of 10 Oct 2026).
+
+To exit, the user calls `redeem_paired(l_amount, s_amount)` with both amounts above zero and receives collateral at NAV, less the redeem fee. In between, both tokens trade on Continuum's own venues: a bin book per leg for instant trades and, on QQQ, SPY and XAU as of 10 Oct 2026, committed orders. A committed order fills at NAV ± the posted commit spread (at least 10 bps), at a price pushed after the order was placed.
+
+A keeper run by the protocol pushes prices and re-centres the books. Mint and redeem need a price pushed in the last 300 s, so they pause while the underlying market is closed or the keeper is down. The books keep trading.
+
+## Where this doc lives in the stack
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       You (developer)                        │
+│  Frontend / bot / structured product / CPI program           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ TypeScript SDK / Anchor / web3.js
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Continuum on-chain programs                 │
+│   mint-redeem · oracle · clp · registry · faucet (devnet)    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Solana base layer                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The keeper runs off-chain. It signs price pushes as each market's `keeper_authority` and book updates as the CLP authority. Your transactions go directly to the programs and never need its keys, but mint and redeem rely on its recent price push.
+
+## Core invariants you can rely on
+
+1. **Paired mint and redeem.** User mints always create both legs, and user redeems always burn both. The single-leg mint and redeem instructions require the keeper authority.
+2. **NAV on chain.** `L = P` and `S = K / P × γ`. γ starts at 1, and `set_s_gamma_index` rejects any write that raises it.
+3. **Fresh-price gate.** Mint and redeem revert with `TwapNotAvailable` when the pushed price is 0 or more than 300 s old. In the `Stress` risk state both are blocked by default.
+4. **No redemption race.** If a vault ever falls below 100% collateralized, redeem pays each holder their NAV claim times the collateral ratio, so early redeemers cannot drain it.
+
+See [Solvency invariants](/concepts/solvency) for the complete list.
+
+## What's not here
+
+- **No funding rate.** Nobody pays for being on the crowded side. The short leg's volatility decay charges realized volatility instead, and never touches longs.
+- **No liquidations.** Nothing can close your position; you hold the token.
+- **No leverage.** You pay the full value of both legs when you mint.
+- **No outside venues.** Trading happens on Continuum's own bin books and committed orders, not on an external AMM.
+- **No user yield vaults.** The protocol funds the CLP's capital itself, and there are no user LP shares.
+
+## Get oriented
+
+- Just want to interact? → [Quickstart](/get-started/quickstart)
+- Want the mental model first? → [How Continuum works](/concepts/overview)
+- Want to start building? → [SDK setup](/build/sdk-setup)
+- Want the on-chain instruction reference? → [Programs overview](/programs/overview)

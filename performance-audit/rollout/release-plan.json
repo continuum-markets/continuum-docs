@@ -1,0 +1,96 @@
+{
+  "status": "verified_finalized: clean Oracle/CLP upgrades and15selected migrations complete;4excluded configs unchanged",
+  "target": "devnet",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "baseCommit": "29960efb4d9db88c2bfc2ead42f0a2b8af52b847",
+  "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+  "sourceRoot": "/tmp/continuum-performance-release-source",
+  "signerPath": "/Users/nafironato/.config/solana/id.json",
+  "signerPublicKey": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+  "verifiedLamports": 7435820120,
+  "verificationSlot": 509015415,
+  "changedFiles": [
+    "clp/src/clmm.rs",
+    "clp/src/lib.rs",
+    "clp/src/meteora_cpi.rs",
+    "oracle/src/lib.rs",
+    "oracle/src/state.rs"
+  ],
+  "scope": "only reviewed performance fixes on deployed analytics source; no corporate-action sources, no mint-redeem/registry/faucet deployment",
+  "buffers": [
+    {
+      "name": "clp-buffer",
+      "file": "/tmp/continuum-performance-rollout/private/clp-buffer.json",
+      "publicKey": "AWPytPRPiw8ep2RN9vL13M9GkJZJdCoTmtrM53XsGyXr",
+      "mode": "0600",
+      "status": "prepared locally; no funded buffer created",
+      "plannedNewAccount": true
+    },
+    {
+      "name": "oracle-buffer",
+      "file": "/tmp/continuum-performance-rollout/private/oracle-buffer.json",
+      "publicKey": "EcLrN9u6pymWVdaoJBhD4goexAEtdkpxtx79TGoV7fhx",
+      "mode": "0600",
+      "status": "prepared locally; no funded buffer created",
+      "plannedNewAccount": true
+    }
+  ],
+  "programs": {
+    "oracle": {
+      "pubkey": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+      "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "programData": "D7kw1vq3EmzNpwopZUnFgrPV1hr9U3jtAWZ4khBJf741",
+      "lastUpgradeSlot": 458990884,
+      "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+      "programDataBytes": 295733,
+      "allocatedProgramBytes": 295688,
+      "programDataLamports": 2059192560,
+      "backup": "/tmp/continuum-performance-rollout/oracle-before.so",
+      "backupSha256": "8fdd7d80c01e69142d8389b162a83ef56476ea03ddf8668f89b5bf01b87db955",
+      "newBinary": "/tmp/continuum-performance-release-sbf/optimized/oracle.so",
+      "newBinaryBytes": 307680,
+      "newBinarySha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+      "idl": "/tmp/continuum-performance-release-sbf/idl/oracle.json",
+      "idlSha256": "a93027db20132006eafe52cae42e7338dd069687c54aad4af3026566e1192324",
+      "devnetFeature": true,
+      "requiredAdditionalProgramBytes": 11992,
+      "estimatedBufferRentLamports": 1563852600,
+      "rentEstimateBasis": "fresh observed Rent sysvar:2540 lamports/byte/year, exemption threshold2; verify again immediately before sends"
+    },
+    "clp": {
+      "pubkey": "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES",
+      "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "programData": "8RUVZAsiXQS1yRvxjrWWmHKtmSV3TgjEJxA6XiVzezVq",
+      "lastUpgradeSlot": 509011058,
+      "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+      "programDataBytes": 828293,
+      "allocatedProgramBytes": 828248,
+      "programDataLamports": 4208378680,
+      "backup": "/tmp/continuum-performance-rollout/clp-before.so",
+      "backupSha256": "4988d5e07edbba8f9ebdf890414672ffe78d338765e3d8ebec682c871d80b412",
+      "newBinary": "/tmp/continuum-performance-release-sbf/optimized/clp.so",
+      "newBinaryBytes": 807384,
+      "newBinarySha256": "0830f8c0acba63aa6fd26090462d5ba7e82922362dffd72c2ce3a57b01a5c56e",
+      "idl": "/tmp/continuum-performance-release-sbf/idl/clp.json",
+      "idlSha256": "8cf9d2f066e74d664b7b9f813a5d9e756b4a5bee611fa6cb90e92925675246f0",
+      "devnetFeature": false,
+      "requiredAdditionalProgramBytes": 0,
+      "estimatedBufferRentLamports": 4102348920,
+      "rentEstimateBasis": "fresh observed Rent sysvar:2540 lamports/byte/year, exemption threshold2; verify again immediately before sends"
+    }
+  },
+  "migration": {
+    "count": 15,
+    "canaryThenRemaining": true,
+    "plan": "oracle-migration-plan.json",
+    "freshAccountReadSlot": 509016557,
+    "localSimulationSignatureVerification": false,
+    "totalRentTopUpLamports": 0,
+    "excluded": {
+      "missingMarket": 3,
+      "unknown1733ByteSchema": 1
+    }
+  },
+  "sourceCommit": "6d9d13d608aecb6350807a1d5c82a9dc6fbf523b",
+  "sourceBranch": "performance/programs-20261009"
+}

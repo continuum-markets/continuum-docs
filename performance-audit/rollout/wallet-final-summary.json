@@ -1,0 +1,208 @@
+{
+  "buildId": "tGsBihMahyrh9iURsneoL",
+  "commit": "3dfb35c647a3fb49a61efe34de4a236ee0dba462",
+  "finalReleaseDifference": "Two receipt URLs request transaction pages; later descendant3024aab changes three presentation lines in chart grid/history warning. No transaction execution or confirmation behavior changed. Latest descendant f97f949 retires the donation offer and clarifies existing-waiver messaging; financial hooks and HTTP confirmation remain unchanged.",
+  "method": "One live sample per action, disposable devnet wallet with automatic approval, 4x CPU and Fast 4G; excludes human approval dwell.",
+  "actions": [
+    {
+      "action": "mint",
+      "events": [
+        {
+          "status": "Minting...",
+          "ms": 59.8
+        },
+        {
+          "status": "Paired tokens minted successfully",
+          "ms": 1571.8
+        }
+      ],
+      "source": "frontend/docs/performance-audit/rollout-wallet-final/mint.json"
+    },
+    {
+      "action": "redeem",
+      "events": [
+        {
+          "status": "Redeeming...",
+          "ms": 40.0
+        },
+        {
+          "status": "Paired tokens redeemed successfully",
+          "ms": 2346.2
+        }
+      ],
+      "source": "frontend/docs/performance-audit/rollout-wallet-final/redeem.json"
+    },
+    {
+      "action": "pool_buy",
+      "events": [
+        {
+          "status": "Swapping\u2026",
+          "ms": 35.3
+        },
+        {
+          "status": "Swap confirmed",
+          "ms": 1677.4
+        }
+      ],
+      "source": "frontend/docs/performance-audit/rollout-wallet-final/pool_buy.json"
+    },
+    {
+      "action": "pool_sell",
+      "events": [
+        {
+          "status": "Swapping\u2026",
+          "ms": 63.0
+        },
+        {
+          "status": "Swap confirmed",
+          "ms": 1686.5
+        }
+      ],
+      "source": "frontend/docs/performance-audit/rollout-wallet-final/pool_sell.json"
+    },
+    {
+      "action": "commit",
+      "events": [
+        {
+          "status": "",
+          "ms": 52.5
+        },
+        {
+          "status": "Swapping\u2026",
+          "ms": 244.1
+        },
+        {
+          "status": "Order committed \u2014 fills at next oracle print",
+          "ms": 1895.4
+        }
+      ],
+      "source": "frontend/docs/performance-audit/rollout-wallet-final/commit.json"
+    }
+  ],
+  "settlementObservedByMs": 18507.6,
+  "settlementOrder": "3zHHqBR8nmsHQKbKRf1czb8pMJRi1qCc8Y3ySuCzkj4b",
+  "keeperPhases": [
+    {
+      "commit_age_ms": 1475,
+      "commit_created_at": 1791511947,
+      "market": "XAU",
+      "observed_at_ms": 1791511948475,
+      "oracle_updated_at": 1791511943,
+      "order": "3zHHqBR8nmsHQKbKRf1czb8pMJRi1qCc8Y3ySuCzkj4b",
+      "phase": "eligibility",
+      "ts": 1791511948,
+      "v": "unknown",
+      "waiting_for_oracle": true
+    },
+    {
+      "commit_age_ms": 2445,
+      "commit_created_at": 1791511947,
+      "market": "XAU",
+      "observed_at_ms": 1791511949445,
+      "oracle_updated_at": 1791511943,
+      "order": "3zHHqBR8nmsHQKbKRf1czb8pMJRi1qCc8Y3ySuCzkj4b",
+      "phase": "eligibility",
+      "ts": 1791511949,
+      "v": "unknown",
+      "waiting_for_oracle": true
+    },
+    {
+      "commit_age_ms": 7815,
+      "commit_created_at": 1791511947,
+      "market": "XAU",
+      "observed_at_ms": 1791511954815,
+      "oracle_updated_at": 1791511943,
+      "order": "3zHHqBR8nmsHQKbKRf1czb8pMJRi1qCc8Y3ySuCzkj4b",
+      "phase": "eligibility",
+      "ts": 1791511954,
+      "v": "unknown",
+      "waiting_for_oracle": true
+    },
+    {
+      "commit_age_ms": 12232,
+      "commit_created_at": 1791511947,
+      "market": "XAU",
+      "observed_at_ms": 1791511959232,
+      "oracle_updated_at": 1791511958,
+      "order": "3zHHqBR8nmsHQKbKRf1czb8pMJRi1qCc8Y3ySuCzkj4b",
+      "phase": "eligibility",
+      "ts": 1791511959,
+      "v": "unknown",
+      "waiting_for_oracle": false
+    },
+    {
+      "commit_age_ms": 14372,
+      "confirmed": true,
+      "eligible_to_submit_ms": 311.65342400000003,
+      "market": "XAU",
+      "order": "3zHHqBR8nmsHQKbKRf1czb8pMJRi1qCc8Y3ySuCzkj4b",
+      "phase": "settle",
+      "submit_confirm_ms": 1827.403527,
+      "ts": 1791511961,
+      "v": "unknown"
+    }
+  ],
+  "receipts": [
+    {
+      "signature": "38Lo9iCWnTvdxkTvCHobQewEBYGAZffaYAjtCxVeH9Hy3TBA7YYo5zTYEFynYynStTuLmYZywQnMcNwUXrfWF1gj",
+      "slot": 509023788,
+      "blockTime": 1791511931,
+      "err": null,
+      "cu": 52228,
+      "instructions": [
+        "Program log: Instruction: PoolSwap"
+      ]
+    },
+    {
+      "signature": "3pZ5uAedaYg6oVToJxpknhTAo9hUjcCHDpkrRgykkVj9BsjKrQTBvjweHyXxQk2LMUKTtyetjyczozkpB6M8LSwX",
+      "slot": 509023709,
+      "blockTime": 1791511913,
+      "err": null,
+      "cu": 51839,
+      "instructions": [
+        "Program log: Instruction: MintPaired"
+      ]
+    },
+    {
+      "signature": "4Ln2E48oEoshdKk66MFyTQ1dN6HwkkXfrACZi3RDp8vCFCyHzFDgJdTSdjVvq78KntUdqckwQUauNkXgfszfxGZ",
+      "slot": 509023818,
+      "blockTime": 1791511938,
+      "err": null,
+      "cu": 52186,
+      "instructions": [
+        "Program log: Instruction: PoolSwap"
+      ]
+    },
+    {
+      "signature": "5KAaTzCe9dppKDaJSKSesNt2yiCGoYBvhYXr9sYV5WHT6gPN3vZmmNEXXbio9KmARos5t97sdcZb4gQoZxiVXPEi",
+      "slot": 509023905,
+      "blockTime": 1791511959,
+      "err": null,
+      "cu": 43481,
+      "instructions": [
+        "Program log: Instruction: SettleSwap"
+      ]
+    },
+    {
+      "signature": "5tyVtcsjrgVFLU5LHsA6h7G2vemwjJTWxJRwsL9o2CnEEW1S44zfnDQqNagJqsawJjdDbqqpjrfJTbqJRrEahqaY",
+      "slot": 509023739,
+      "blockTime": 1791511920,
+      "err": null,
+      "cu": 46870,
+      "instructions": [
+        "Program log: Instruction: RedeemPaired"
+      ]
+    },
+    {
+      "signature": "S9Ah5c3itunSUSUqnAYAmwBwmhusGigW3wtxfpKJdBYSWdEQ3KXTSdZwQ2GZoSqWoHXpwnrSgBFPie47us6Komw",
+      "slot": 509023852,
+      "blockTime": 1791511947,
+      "err": null,
+      "cu": 52981,
+      "instructions": [
+        "Program log: Instruction: CommitSwap"
+      ]
+    }
+  ],
+  "excludedEvents": "A pre-input Swap confirmed event in commit.json is the prior pool-sell state and excluded."
+}

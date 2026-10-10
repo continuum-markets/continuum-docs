@@ -1,0 +1,297 @@
+---
+title: mint-redeem
+description: The Market account, paired mint and redeem at NAV, the keeper's price and γ writes, and market administration, grouped by who can call each instruction.
+---
+
+The mint-redeem program holds one `Market` account per synthetic asset, mints and burns its L and S tokens, and keeps the market's collateral ledger. Users call `mint_paired` and `redeem_paired`. The keeper writes the price, the confidence band, γ and the buffer target. The market authority configures and maintains the market.
+
+```
+Devnet ID: 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
+```
+
+## Accounts
+
+### Market account
+
+```
+seeds = [b"market", asset_symbol]   // raw symbol bytes, e.g. "QQQ"
+```
+
+The account is at most 899 bytes: an 8-byte discriminator plus `Market::INIT_SPACE`, which reserves room for a 10-byte symbol and five `collateral_vaults` entries. `collateral_vaults` is a variable-length `Vec` (empty on every live market), so the fields after it have no fixed byte offsets. Decode the account with the IDL rather than reading at offsets. Devnet markets are allocated 891 bytes (10 Oct 2026); the data fits because the list is empty.
+
+Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
+
+| Field | Type | Meaning |
+|---|---|---|
+| `authority` | Pubkey | Market authority. Signs the admin instructions; set to the `initialize_market` signer. |
+| `fee_recipient` | Pubkey | Owner of the cUSDC account that receives the dev tax (`devTokenAccount`). |
+| `asset_symbol` | String | Ticker, at most 10 bytes. The PDA seed. |
+| `oracle_address` | Pubkey | Account that mint and redeem require as `oracle`. On devnet it is the market's `OracleConfig` PDA. |
+| `oracle_type` | OracleType | `Pyth`, `Switchboard` or `Continuum`. `Switchboard` is rejected; live markets use `Continuum`. |
+| `long_mint` | Pubkey | L token mint. |
+| `short_mint` | Pubkey | S token mint. |
+| `collateral_mint` | Pubkey | Collateral mint (cUSDC on devnet). |
+| `collateral_vault` | Pubkey | Token account that holds the collateral: the unified vault for QQQ, SPY and XAU, a per-market vault owned by the Market PDA for the other 11 markets. |
+| `multi_collateral_enabled` | bool | Multi-collateral list switched on. False on every live market. |
+| `collateral_vault_count` | u8 | Number of `collateral_vaults` entries. |
+| `collateral_vaults` | Vec\<CollateralVault\> | Extra collateral types, at most 5. Mint and redeem don't read it. |
+| `initial_l_price` | u64 | Genesis L price. With `initial_s_price` it sets K. |
+| `initial_s_price` | u64 | Short anchor. `reanchor_gamma` folds γ into it. |
+| `mint_fee_bps` | u16 | Base mint fee, at most 1,000. Posted by the keeper. |
+| `redeem_fee_bps` | u16 | Base redeem fee, at most 1,000. Posted by the keeper. |
+| `total_l_supply` | u64 | L supply ledger. |
+| `total_s_supply` | u64 | S supply ledger. Paired flow keeps it equal to L supply; keeper single-side instructions let the two differ. |
+| `total_collateral` | u64 | This market's collateral ledger and its solvency source of truth. On a shared vault it is the market's share, not the vault balance. |
+| `is_active` | bool | False blocks mint, redeem, donations and keeper single-side instructions. |
+| `bump` | u8 | PDA bump. |
+| `risk_state` | RiskState | `Normal`, `ProxyMode`, `Stress` or `Recovery`. Every devnet market is in `ProxyMode`. |
+| `risk_state_updated_at` | i64 | Chain time of the last keeper price write. Every write sets it, not only a change of state. |
+| `risk_fee_config` | RiskFeeConfig | `proxy_fee_multiplier` (150), `stress_fee_multiplier` (300), `stress_mint_cap` (0), `allow_mint_in_stress` and `allow_redeem_in_stress` (both false). Values are the defaults and the live settings. |
+| `user_twap_price` | u64 | The price P, written by the keeper. A spot price despite the name, adjusted for corporate actions. |
+| `twap_updated_at` | i64 | Source publish time of that price. Mint and redeem need it to be at most 300 s old. |
+| `worst_case_config` | WorstCaseQuotingConfig | `enabled`, plus confidence multipliers for `Normal`, `ProxyMode` and `Stress` (100, 150, 300). |
+| `oracle_confidence` | u64 | Confidence band c, adjusted like the price. |
+| `keeper_authority` | Pubkey | Keeper signer. |
+| `dev_tax_pct` | u8 | Percent of each fee sent to the fee recipient (10 on every market). |
+| `yield_ceiling_bps` | u16 | Largest share of `total_collateral` that may be deployed to yield. 0 until `configure_yield_ceiling` sets it. |
+| `deployed_to_yield` | u64 | Collateral deployed to yield. |
+| `total_yield_harvested` | u64 | Cumulative harvested yield. |
+| `yield_enabled` | bool | False on every live market. |
+| `buffer_target_bps` | u16 | Keeper-posted buffer over parity. The target ratio is 10,000 plus this value clamped to 100 to 5,000 bps; 0 reads as 200 (a 102% target). |
+| `s_gamma_index` | u64 | γ at 1e9 scale. 0 reads as 1.0. Moves only down, never below 0.5. |
+| `gamma_day_start_ts` | i64 | Start of the current γ day bucket (telemetry). |
+| `gamma_day_decay_1e9` | u64 | γ decay inside the current day bucket. Telemetry only; no cap is enforced. |
+| `gamma_last_write_ts` | i64 | Time of the last accepted γ write. |
+| `gamma_epoch` | u32 | Incremented by `reanchor_gamma`. `set_s_gamma_index` must quote it. |
+| `reanchor_count` | u32 | Re-anchors so far. |
+| `genesis_s_price` | u64 | `initial_s_price` before the first re-anchor; 0 until one happens. |
+| `last_reanchor_ts` | i64 | Time of the last re-anchor; 0 if none. |
+| `short_payoff_cap_c_1e9` | u64 | Reserved. No instruction reads or writes it. |
+| `price_adjust_num` | u64 | Cumulative corporate-action ratio, numerator. 0/0 reads as 1/1. |
+| `price_adjust_den` | u64 | Cumulative corporate-action ratio, denominator. |
+| `price_adjust_pending_num` | u64 | Armed ratio waiting for its ex-date, numerator. |
+| `price_adjust_pending_den` | u64 | Armed ratio, denominator. |
+| `price_adjust_effective_ts` | i64 | When the armed ratio takes effect; 0 if none is armed. |
+| `price_adjust_last_effective_ts` | i64 | Most recent units boundary. Keeper prices with an earlier source time are rejected. |
+
+Anchor TS decodes `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `gammaDayDecay1E9` and `shortPayoffCapC1E9`; every other field is plain camelCase (`userTwapPrice`).
+
+### FeeWaiver
+
+```
+seeds = [b"fee_waiver", donor, market]
+```
+
+Created by the donor's first `donate_to_vault` on a market and read by the `_with_waiver` instructions. Fields: `donor`, `market`, `waiver_end_at` (unix seconds), `total_donated`, `total_gap_closed_bps` and `bump`.
+
+### CollateralAuthority
+
+```
+seeds = [b"collateral_authority"]   // 7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3 on devnet
+```
+
+One global account with two fields, `unified_vault` and `bump`. It owns the unified cUSDC vault, a token account at PDA `[b"unified_vault"]` (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`). QQQ, SPY and XAU keep their collateral there, so any instruction that pays out of their vault needs the optional `collateral_authority` account. The other 11 markets have per-market vaults owned by their Market PDA.
+
+## Pricing and fees
+
+### Price source
+
+In `ProxyMode`, `Stress` and `Recovery`, mint and redeem price from `user_twap_price` and revert with `TwapNotAvailable` when it is 0 or `twap_updated_at` is more than 300 s old. The keeper doesn't push while the underlying market is closed, so mint and redeem revert until it reopens. In `Normal` the program reads the oracle account itself. A Pyth feed must then be at most 60 s old, with a confidence interval within 2% of the price; a `Continuum` `OracleConfig` must be unpaused, `Active` and fresh. No market runs in `Normal` today.
+
+### NAV and worst-case quotes
+
+With P the price above, L = P and S = K / P × γ, where K = `initial_l_price × initial_s_price` and γ = `s_gamma_index` / 1e9.
+
+Mint and redeem quote each leg against the user. Let c be `oracle_confidence` times the state's confidence multiplier: 1.5× in `ProxyMode`, 3× in `Stress`, 1× in `Normal`, and in `Recovery` 3× falling to 1× over the hour after `risk_state_updated_at`. A mint prices L at P + c and S at K / (P − c) × γ. A redeem prices L at P − c and S at K / (P + c) × γ. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 10 Oct 2026 it is off on QQQ.
+
+### Fees
+
+The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after `risk_state_updated_at`. The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31, MSTR 52 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
+
+The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account. The rest stays in the vault and counts in `total_collateral`.
+
+### Limits
+
+Mint and redeem each need at least 10 cUSDC of value (`BelowMinimum`). `Stress` blocks both by default, and every live market keeps that default. `stress_mint_cap` applies only in `Stress` and is 0 (no cap).
+
+## Instructions
+
+Grouped by the signer the program checks. Anchor TS account names are camelCase versions of the IDL names (`user_long_account` becomes `userLongAccount`).
+
+### Anyone
+
+#### `mint_paired(collateral_amount: u64)`
+
+Deposits `collateral_amount` cUSDC (at least 10 cUSDC) and mints L and S to the user, half of the net value to each leg at the mint NAVs. Accounts: `market`, `user`, `userCollateral`, `userLongAccount`, `userShortAccount`, `longMint`, `shortMint`, `collateralVault`, `devTokenAccount`, `oracle`, `tokenProgram`. The three user token accounts must already exist. See the [mint flow](/flows/mint).
+
+#### `redeem_paired(l_amount: u64, s_amount: u64)`
+
+Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus the optional `collateralAuthority`, which QQQ, SPY and XAU need. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. See the [redeem flow](/flows/redeem).
+
+#### `mint_paired_with_waiver` and `redeem_paired_with_waiver`
+
+Same arguments as `mint_paired` and `redeem_paired`. The accounts are the base accounts nested under `base`, plus the caller's `feeWaiver`. The fee is 0 when the waiver hasn't expired, the price is at most 300 s old and the market's collateral ratio is at or above its target ratio (102% on every market as of 10 Oct 2026). Otherwise the normal fee applies.
+
+#### `donate_to_vault(amount: u64)`
+
+Adds cUSDC to a market's collateral without minting anything, and extends the donor's `FeeWaiver` by 6 s for each basis point of the gap to the target ratio that the donation closes. A donation to a market already at or above target extends nothing. It needs a price at most 300 s old. The instruction is still on-chain, but the app stopped offering it on 9 Oct 2026.
+
+#### `permissionless_burn(is_long: bool, amount: u64)`
+
+Burns L or S from the signer's own token account with no payout, which lowers the supply ledger. A delegate can't call it on someone else's account. The CLP's `clp_burn_excess` uses it to retire inventory.
+
+### Setup
+
+#### `initialize_market(params: InitMarketParams)`
+
+`InitMarketParams { asset_symbol, oracle_type, initial_l_price, initial_s_price, mint_fee_bps, redeem_fee_bps, keeper_authority }`. The Continuum team calls it when listing a market, and the signer becomes `market.authority` and `fee_recipient`. The symbol must be at most 10 bytes, both fees at most 1,000 bps, and both prices above 0. `oracle_type` must be `Pyth` or `Continuum`, and for `Continuum` the `oracle` account must be the market's `OracleConfig` PDA. The instruction doesn't create the L and S mints or the vault: they must already exist, with the Market PDA as mint authority of both mints. A new market starts in `Normal` with `user_twap_price = initial_l_price`, `dev_tax_pct` 10, the default risk-fee and worst-case settings, and a 1/1 price adjustment. The full sequence is in [listing a market](/programs/overview#listing-a-market-operator-process).
+
+#### `init_collateral_authority()`
+
+Creates the global `CollateralAuthority` and the unified vault it owns. It takes any signer but can succeed only once, and it has already run on devnet.
+
+### Keeper (signer = `market.keeper_authority`)
+
+#### `update_risk_state_v2(new_risk_state: RiskState, user_twap_price: u64, oracle_confidence: u64, source_publish_time: i64)`
+
+The keeper's price write. It maps the price and the confidence through the corporate-action ratio, then stores them with the risk state and sets `twap_updated_at` to `source_publish_time`. It rejects a source time in the future, more than 300 s old or before the latest corporate-action boundary. It also rejects a price of 0, a move of more than 25% from the stored price, and any move out of `Stress` except to `Recovery`. `update_risk_state(new_risk_state, user_twap_price, oracle_confidence)` does the same without a source time and stamps `twap_updated_at` with the chain time.
+
+#### `set_s_gamma_index(params: SetGammaParams)`
+
+`SetGammaParams { s_gamma_index: u64, expected_epoch: u32 }` posts γ at 1e9 scale. Bad writes are rejected, never clamped: a value outside 0.5 to 1.0 (`GammaOutOfRange`), a value above the current γ (`GammaMustRatchetDown`), or an `expected_epoch` other than `gamma_epoch` (`GammaEpochMismatch`). There is no per-write or per-day cap. γ is always on; the keeper refuses to boot if `CLMM_GAMMA_DECAY_ENABLED` is set.
+
+#### `set_buffer_target(buffer_target_bps: u16)`
+
+Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The target gates fee waivers, donations, excess withdrawals and rebalances.
+
+#### `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`
+
+`(is_long: bool, collateral_amount: u64)` for the mint and `(is_long: bool, token_amount: u64)` for the other two. They are a fee-free single-leg mint and redeem at the base NAV, with no worst-case band and no minimum, and a burn with no payout. The mint must leave the collateral ratio at or above the lower of its pre-trade value and 100% (`SingleSideMintStressFloor`). The redeem must leave it at or above 100%. Users have no single-leg redeem.
+
+#### `rebalance_collateral(amount: u64)`
+
+Moves collateral from one market to another; the signer must be the keeper of both. The source must stay at or above its own target ratio with a price at most 300 s old, and only liquid collateral moves. Between two markets on the unified vault the move is a ledger change with no token transfer.
+
+#### `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`
+
+`(amount: u64, _protocol: u8)` for deploy and recall, `(yield_amount: u64)` for harvest. They move collateral to and from a lending venue through the keeper's token account. Yield is disabled on every market, so these revert today.
+
+### CLP PDA (CPI only)
+
+#### `redeem_single_for_vault(is_long: bool, token_amount: u64)`
+
+Like `keeper_redeem_single`, but it burns from CLP-owned token accounts and pays the market's CLP vault. The signer must be the CLP PDA `[b"clp", market]`, so it runs only through the CLP program's `vault_redeem_single`.
+
+### Market authority (signer = `market.authority`)
+
+#### `update_market(mint_fee_bps?, redeem_fee_bps?, is_active?, dev_tax_pct?)`
+
+Fees at most 1,000 bps each; `dev_tax_pct` at most 25. The keeper posts fees through this instruction.
+
+#### `update_keeper_authority(new_keeper_authority)`, `update_market_oracle(oracle_type)`, `update_fee_recipient(new_recipient)`
+
+Rotate the keeper signer, repoint the oracle account (validated like `initialize_market`), or change the fee recipient.
+
+#### `configure_risk_fees(proxy_fee_multiplier?, stress_fee_multiplier?, stress_mint_cap?, allow_mint_in_stress?, allow_redeem_in_stress?)`
+
+Sets the fields of `risk_fee_config`. Multipliers use 100 = 1×.
+
+#### `configure_worst_case_quoting(enabled?, normal_multiplier?, proxy_multiplier?, stress_multiplier?)`
+
+Sets `worst_case_config`. Multipliers use 100 = 1×.
+
+#### `configure_yield_ceiling(ceiling_bps?, enabled?)`
+
+Sets `yield_ceiling_bps` (at most 9,000) and `yield_enabled`.
+
+#### `reanchor_gamma()`
+
+Folds γ into the short anchor: `initial_s_price` becomes `floor(initial_s_price × γ)`, γ resets to 1.0 and `gamma_epoch` goes up by one. Every holder's claim stays the same at every price; the fold only resets how far γ can still fall. It does not reset the anchor to the spot price. Calls must be at least 14 days apart. Emits `GammaReanchored`. As of 10 Oct 2026 no market has been re-anchored.
+
+#### `apply_corporate_action(params: CorporateActionParams)`
+
+`CorporateActionParams { ratio_num, ratio_den, effective_ts }`, as new shares to old shares (a 2-for-1 split is 2:1). It folds the ratio into `price_adjust_num` and `price_adjust_den` and touches no price, supply or collateral. From then on each incoming keeper price is multiplied by the ratio before it is stored, which keeps P continuous across the split. An `effective_ts` at or before now applies immediately. A later time, up to 400 days ahead, arms the ratio for the ex-date; only one action can be armed at a time. Ratios beyond 1,000:1 are rejected. Emits `CorporateActionApplied`. As of 10 Oct 2026 no action is armed.
+
+#### `withdraw_excess_to_clp(amount: u64)`
+
+Moves collateral above the market's target ratio into the market's CLP vault. It needs a price at most 300 s old and moves only liquid collateral.
+
+#### `mark_yield_impairment(amount: u64)`
+
+Writes down a lost yield deployment by reducing both `deployed_to_yield` and `total_collateral`, so the redeem haircut sees the loss.
+
+#### `create_token_metadata(name, symbol, uri)`
+
+Creates Metaplex metadata for the market's L or S mint. The Market PDA signs as mint authority; the signer pays and becomes update authority. Limits: name 32 bytes, symbol 10, URI 200.
+
+#### `realloc_market()`
+
+Grows a `Market` account to 899 bytes after an upgrade that adds fields, with the signer paying the extra rent. It checks the owner, the discriminator and the `authority` stored at bytes 8 to 40. An account that is already large enough is left alone.
+
+#### `close_market_admin()`
+
+Zero-fills a market account and returns its lamports to the signer. For an account in the current `Market` layout it fails with `MarketNotEmpty` unless L supply, S supply, `total_collateral` and `deployed_to_yield` are all 0.
+
+#### `migrate_to_unified_vault()`
+
+Moves a per-market vault's balance into the unified vault and points `collateral_vault` at it. It does nothing on a market that has already moved; QQQ, SPY and XAU have.
+
+#### `enable_multi_collateral()`, `add_collateral_vault(collateral_type, weight_bps)`, `update_collateral_vault(collateral_mint, is_active?, weight_bps?)`
+
+Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is empty on every market.
+
+## Events
+
+| Event | Emitted by | Fields |
+|---|---|---|
+| `PairedActionExecuted` | every paired mint and redeem, including the waiver variants and the CLP's CPI calls | `user`, `market`, `collateral_mint`, `long_mint`, `short_mint`, `action` (0 mint, 1 redeem), `is_keeper`, `collateral_amount` (paid in or out), `gross_collateral_amount` (before the fee), `long_amount`, `short_amount`, `fee_amount`, `dev_tax`, `long_decimals`, `short_decimals` |
+| `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
+| `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
+
+`is_keeper` is true when the user is the market authority, the keeper or the market's CLP PDA.
+
+## Errors
+
+mint-redeem errors run from 6000 to 6045. Codes 6029 and 6030 are reserved placeholders that are never raised. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
+
+## TypeScript
+
+Read a market's price, NAV and freshness. The IDL and its generated type come from [IDL files](/build/idls-and-pdas#idl-files).
+
+```typescript
+import { Program } from "@coral-xyz/anchor";
+import { Connection, PublicKey } from "@solana/web3.js";
+import idl from "./idl/mint_redeem.json" with { type: "json" };
+import type { MintRedeem } from "./types/mint_redeem";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const program = new Program<MintRedeem>(idl as MintRedeem, { connection });
+
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  program.programId,
+);
+const market = await program.account.market.fetch(marketPda);
+
+const p = market.userTwapPrice.toNumber() / 1e6; // L NAV in cUSDC
+const k = (market.initialLPrice.toNumber() / 1e6) * (market.initialSPrice.toNumber() / 1e6);
+const gamma = market.sGammaIndex.isZero() ? 1 : market.sGammaIndex.toNumber() / 1e9;
+const age = Math.floor(Date.now() / 1000) - market.twapUpdatedAt.toNumber();
+
+console.log("risk state:", Object.keys(market.riskState)[0]);
+console.log("L NAV:", p, "S NAV:", (k / p) * gamma);
+console.log("price age:", age, "s", age > 300 ? "(mint and redeem revert)" : "");
+```
+
+These are base NAVs. Mint and redeem quote each leg against the user by the confidence band described in [pricing and fees](#pricing-and-fees). For a full mint and redeem script, see the [example](/build/example-mint-redeem).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Mint flow" icon="circle-plus" href="/flows/mint">
+    Step-by-step `mint_paired` walkthrough.
+  </Card>
+  <Card title="Redeem flow" icon="arrow-rotate-left" href="/flows/redeem">
+    Step-by-step `redeem_paired` walkthrough.
+  </Card>
+</CardGroup>

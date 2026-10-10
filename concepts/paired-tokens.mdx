@@ -1,0 +1,131 @@
+---
+title: Paired L+S tokens
+description: Mint produces matched long and short tokens. Here's why, and how the two settle against the underlying.
+---
+
+A Continuum position is a pair of SPL tokens: one long (`L`) and one short (`S`). They are minted and redeemed at the protocol's NAV, and each leg trades on its own: on its bin book, or through a committed order on markets that have them.
+
+## What "paired" means
+
+When you call `mint_paired(collateral_amount)`, the program:
+
+1. Reads the price `P`, which is `L_NAV`, from the market's last keeper push (`user_twap_price`). In `Normal` mode it reads Pyth instead.
+2. Derives `S_NAV = K / P × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index.
+3. Takes the mint fee, then splits the rest into two halves of equal **value**.
+4. Mints `(net / 2) / L_NAV` long tokens and `(net / 2) / S_NAV` short tokens. With worst-case quoting on, each leg is priced slightly against you; see [NAV math](/concepts/nav#worst-case-quoting).
+
+Every live market launched with `initial_l_price` equal to `initial_s_price`, so the two legs are worth the same at the launch price. QQQ launched at 480, which makes `K = 480 × 480 = 230,400`. At `P = 480`, a 100 cUSDC mint gives about 0.104 QQQL and 0.104 QQQS before fees. At `P = 750`, `S_NAV = 230,400 / 750 = 307.2` (with γ = 1), and the same mint gives about 0.067 QQQL and 0.163 QQQS.
+
+Either way the two legs carry the same **value** at mint time: 50 cUSDC each, before fees. As the price moves, the long leg's value rises while the short leg's falls reciprocally.
+
+## Why pairs, not single sides
+
+A user-facing single-sided mint would be unsafe. Minting only L, with no offsetting S, leaves the vault holding collateral against a one-way bet. If 1,000 users minted L-only at NAV and the price rose, the vault would owe more than it holds, and nothing on the short side would offset it.
+
+Paired mint avoids that: each mint deposits exactly the NAV value of the tokens it creates, plus the fee. After that the deposit stays fixed while the claims move with the price. A pair's value is convex in `P`, so any move away from the mint price raises it. Fees, volatility decay and a collateral buffer cover that gap; if collateral still falls short, redeem pays pro rata. See [Solvency](/concepts/solvency).
+
+Single-sided instructions do exist, but only for privileged signers. `keeper_mint_single` and `keeper_redeem_single` check `market.keeper_authority`, and `redeem_single_for_vault` accepts only the market's CLP PDA. Users can't call them.
+
+## The constant-product invariant
+
+```
+L_NAV × S_NAV = K × γ        K = initial_l_price × initial_s_price,  γ ≤ 1
+```
+
+γ only ratchets down between re-anchors. `reanchor_gamma` folds γ into `initial_s_price` and resets γ to 1, which leaves the product unchanged. The invariant means:
+
+- As `L_NAV` rises, `S_NAV` falls **reciprocally**, in proportion to `1 / L_NAV`.
+- One L plus one S is worth `L_NAV + S_NAV`. That sum is lowest where `L_NAV = S_NAV = √(K·γ)`, which is the launch price before any decay, and grows as the price moves away in either direction.
+- The short side approaches zero but never goes below it, so short holders never owe more than they paid.
+- The long side has no cap, and the short side's offsetting value shrinks as it rises.
+
+→ [Full NAV math](/concepts/nav)
+
+## P&L of a paired position
+
+Suppose you mint 100 cUSDC of QQQ at 480 (`L = S = 480`, γ = 1, fees ignored):
+
+```
+Mint: 100 cUSDC → 0.10417 QQQL @ 480 + 0.10417 QQQS @ 480
+```
+
+If QQQ rises 10% to 528:
+
+```
+L_NAV = 528
+S_NAV = 230,400 / 528 = 436.36
+Position value = 0.10417 × 528 + 0.10417 × 436.36
+               = 55.00 + 45.45
+               = 100.45 cUSDC
+```
+
+If QQQ falls 10% to 432:
+
+```
+L_NAV = 432
+S_NAV = 230,400 / 432 = 533.33
+Position value = 0.10417 × 432 + 0.10417 × 533.33
+               = 45.00 + 55.56
+               = 100.56 cUSDC
+```
+
+The paired position has **near-zero net delta**. The small gain either way is the curvature of `K / P`, and holding the short leg pays volatility decay, which works against that gain. To take a directional view, sell one of the legs.
+
+## Selling a leg
+
+Each leg has its own bin book (`QQQL/cUSDC` and `QQQS/cUSDC`):
+
+- Sell QQQL (or buy QQQS) to express a bearish view; buy QQQL (or sell QQQS) for a bullish one.
+- Small amounts hit the book instantly. Large amounts can go through a committed order where the market has one (QQQ, SPY and XAU as of 10 Oct 2026). It fills at a keeper push after the commit, at NAV ± the committed spread (10 bps floor).
+
+A common flow:
+
+```
+1. mint_paired(100 cUSDC) at QQQ = 480  → 0.104 QQQL + 0.104 QQQS
+2. sell the S leg: 0.104 QQQS            → about 50 cUSDC, less the book's spread
+                                         → net: 0.104 QQQL + about 50 cUSDC
+                                           (long-only exposure, fully funded)
+```
+
+You started with 100 cUSDC. You now hold about 50 cUSDC of long QQQ exposure and about 50 cUSDC in hand, minus fees and the spread. The cUSDC came from selling the short leg into the protocol's standing bid.
+
+The reverse (sell QQQL, hold QQQS) gives you short-only exposure.
+
+## What if NAV and book price disagree?
+
+They can't drift far apart. Committed orders and the oracle swap price off NAV directly. The keeper centres each book on NAV plus a small inventory shift, and repositions it once NAV drifts past the gate (at most 20 bps by default). The shift is one dollar amount, added to one leg's centre and subtracted from the other's, so the pair still trades at NAV and no mint/redeem arbitrage opens. See [Peg maintenance](/keeper/arb-paths).
+
+If a fast move leaves a book stale for one keeper cycle, a trader can lift the in-the-money bins. The loss is capped at those bins' deliberately lean depth, and the next cycle repositions the book. The books charge real bin-ladder slippage, so near NAV there is rarely anything to take.
+
+## Decimals and minimums
+
+| Token | Decimals | Minimum |
+|---|---|---|
+| cUSDC (collateral) | 6 | `10_000_000` base units = 10 cUSDC per mint |
+| L tokens | 6 | n/a (set by the cUSDC amount) |
+| S tokens | 6 | n/a (set by the cUSDC amount) |
+
+The program enforces the minimum on both sides: a mint must deposit at least 10 cUSDC, and a redeem must be worth at least 10 cUSDC (`BelowMinimum`).
+
+## Token metadata
+
+Long and short SPL mints have **Metaplex token metadata** (name, symbol, image). Wallets and explorers show them as, for example, "QQQ Long" / "QQQS" with the Continuum logo.
+
+→ [Live markets table](/markets/live) lists every long/short mint pubkey.
+
+## Common questions
+
+**Q: Do paired tokens need ERC-20-style approvals?**
+No. They are SPL tokens. Solana uses Associated Token Accounts (ATAs); there is no `approve` step.
+
+**Q: Can I transfer the paired position to another wallet?**
+Yes. Both L and S are standard SPL tokens, so you transfer them like any other Solana token. The receiver can redeem them at NAV.
+
+**Q: Do I have to redeem in pairs?**
+Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` and `s_amount` must be above zero. The amounts don't have to match, because redemption is **value-weighted**: you receive the NAV value of whatever you burn.
+
+**Q: What happens if I lose access to half the pair?**
+The program won't redeem one leg alone. Sell it on its bin book (or through a committed order on QQQ, SPY and XAU), or get some of the other leg and redeem the two together.
+
+**Q: Are there fees on transfers?**
+No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`). The keeper posts the same value for both, 10 to 52 bps across markets as of 10 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.

@@ -1,0 +1,230 @@
+---
+title: Address registry
+description: Every devnet address Continuum uses, in one place. Programs, mints, markets, vaults, CLP accounts and bin books, checked on chain on 10 Oct 2026.
+---
+
+This is the public lookup table for Continuum's devnet deployment. Every address on this page was derived from its seeds or read from its Market account. Each one was checked on devnet on 10 Oct 2026: the account exists and is owned by the program shown.
+
+<Note>
+  Mainnet addresses will be added when mainnet launches. Until then, all addresses on this page are **devnet only**.
+</Note>
+
+## Programs
+
+| Program | Devnet ID |
+|---|---|
+| `mint-redeem` | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` |
+| `oracle` | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
+| `clp` | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` |
+| `registry` | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` |
+| `faucet` | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+| `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` |
+
+The IDLs for the five protocol programs are published in the [docs repository](https://github.com/continuum-markets/continuum-docs/tree/main/idl).
+
+The registry's state account (`ED8joCbjr7hnWPgmiGspQ2LNpUJGfjobZYqEHD1PWyE1`, PDA `[b"registry"]`) is initialized but holds no markets, and nothing reads it yet. Take addresses from this page instead.
+
+## Tokens
+
+| Token | Mint | Decimals |
+|---|---|---|
+| **cUSDC** (devnet collateral) | `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE` | 6 |
+
+Every long and short mint is a classic SPL Token mint with 6 decimals. Its mint authority is the market's Market PDA, and it has no freeze authority. The token symbols are the market symbol plus `L` or `S` (`QQQL`, `QQQS`).
+
+| Market | Long mint | Short mint |
+|---|---|---|
+| QQQ | `E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ` | `BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG` |
+| SPY | `8mVLeXHpchLvt3WZRhRrAZYJ4oU3e2crVF1QEomgdDQ8` | `3n5x1QaXSSw5ysAK5zkMo1XSm52TwzTBK48RAfkeKJiu` |
+| XAU | `AoufiP54693dn9HKonVBn6W75tKe8eHq5ncTwjTz6i5c` | `9XjYivtQfhDitFJugsskP6LppL7JJzANWwc7kmybpd55` |
+| XAG | `VETzCeHk2mobTaUATNRBcokKE3x8YrcRyGx3Vsz4prr` | `DnHSia6WX5jYPnRkSTfu4GtbrTw2CAdLWKRmdMsWPHU3` |
+| NVDA | `B8M3y6wHGFZidqYciVxGu27KYk2dLcqgBGNoUDXMVzNN` | `6n525VkawSkm6h1HxisHCpRssdbmazb1Q9S3Bi2f9emL` |
+| AAPL | `7ofckkctk9wUpTn77zFv8t8yb3iBUSkuU3vmcXbaUboS` | `438bLh6shsVHXoQwtaRP56zWuAsLJK1o2u6FyRe6crYV` |
+| EUR | `FLDQtZ2adGWTcawQh6jziufJejkexoPA2uYimQTqA8z9` | `z5u5UYz5jWdbycMexwdYvkw56fLY1uvx5RZW3EtxRsM` |
+| MSFT | `GaGvW4zuXk84dJwmTXFYrxJaY4otHsJPasc7P5sjdCrA` | `4T1yPzWCxijyJEKiLmjfHYFNMJeiwGf2GSGuAsKwr9Fp` |
+| TSLA | `4dt2EW6pNJRBup7gqxtsQF1GgNKR4RWoj5bSXuY5f1JH` | `71Mh4et7Xvf8wdQJJ3ZUk51wgyervZVdjN6A4bCkWFfG` |
+| AMZN | `3vnTkSkevAJ69Vs8PFRNzF1hKvSiFbiLZJetNyqUcLZN` | `5ESabwnWACsFyDE96JNwbLkTpKyBHyNYM96PHEBvuzPc` |
+| GOOGL | `42kcUPz39qudU5qv9tgU6a3E7jmiJhKs7AoXDUcarKQ8` | `AGzVgTj53MwsJd8Ke2iyibRSyVLsqdJS3DzQWsSAxgdj` |
+| GBP | `HSGiyJGoAMKYmEG6cZkvnTko3B3BP6nnVCYuikBxRLSJ` | `F6dZpqSCevWEUdCvv6ARaePy5RnqkcVJBm7UubjV8fSG` |
+| JPY | `4NVo5FmKT1Z1Bid3RuRa9obpYgyusrQdxByTPLw6KtsT` | `VqgP5wUX6jZKEtWQiktmip8ntGz2eKCjdJ4ttjfo93a` |
+| MSTR | `4cu47GCf1uFiLFY4M4pz5fxXaQNkFjFCSGZMryHKLx2G` | `2tQ9cyCZX4vmG9rUkonKAtW8oCrgPSZn9Z6rSbrPHT7h` |
+
+## Market and oracle config PDAs
+
+The Market PDA uses seeds `[b"market", symbol]` on mint-redeem. The `OracleConfig` PDA uses `[b"oracle_config", market]` on the oracle program. Mint and redeem take the `OracleConfig` as their `oracle` account, and the program checks it against `Market.oracle_address`. On devnet the keeper doesn't update `OracleConfig`, so don't read prices from it. The live price is `Market.user_twap_price` (see [Oracle](/concepts/oracle)).
+
+| Market | Market PDA | `OracleConfig` PDA |
+|---|---|---|
+| QQQ | `F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5` | `7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1` |
+| SPY | `GT1XPJmWNxFukQXVxCmT6c9VdLdR6Da54aU9m9QGfd8b` | `CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE` |
+| XAU | `8HVoUTS3iNdKSCHhvhc2FNRnXjd7yHcEARD6mTFjem7b` | `H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4` |
+| XAG | `6vX3BNEbeem7xjiTKuMC9uMDD3hxPxo9fgM834BucH3n` | `5wW4bJZ3vLtsGVDrfCuoAUBozzNgKDdp3urSRyERD6x3` |
+| NVDA | `3dadTP1Wce1CBrwxhCXor4HanjioauS7Qey3TFtpriVb` | `H3wyiSQg8BubRwEdRaHYCMVx4HMwtAYdjgqEfohJmSyd` |
+| AAPL | `4ZunzWTX3XAhdhPvjsfFLaXXzZSgMD7CPr9moC1XKpSA` | `7YwnWSbwNxJhzKkt3WoAkJ7nxnzpcAFNBsQ7gyYgpEVe` |
+| EUR | `CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR` | `J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh` |
+| MSFT | `HzCTyT5rRVUme6JugGsvnyCQ4wrsyZ6WrbX5FfaMR3Q3` | `71F1zwVKtTTTXbmpDHmF4Jg7YwxyWPY9aVvCTgQJWjKd` |
+| TSLA | `HvPnCkZq2z163WFxTGCgp7V13qhrNpiZvDywAgQaPTQg` | `DSNRGdZUqkwH9HoYr7XLsMm2VZsY3sWXJNouAT85ghCM` |
+| AMZN | `tEGPdiYZFyysq6YJeASdtzs6qzHUGKS96qp7XYJjBpj` | `8ZUofpK6Dj7Y8SDT7kiLawZjEeQ3eWiptLPZMum4W1p6` |
+| GOOGL | `7kmfunh8gUn2h9eafmJHUP6xeR8qM6yJZVEEyRzKiXhb` | `BLWwgcpbAMADpaA1YVTc2jy7ScxmSa7G47Xze75kiyuv` |
+| GBP | `HjpaEbyXJBqzxP6B7eNnbZvtaUPXRubc5bEywzfMePqK` | `BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn` |
+| JPY | `2hZtLxJtPeYjogUQFWeGYEKjJkWArEcf9iTtGkrChuKC` | `7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1` |
+| MSTR | `66WAH37WCVp1xxSBf3gqJQB4zgQnH1JGRaFymBCSpK9Y` | `BtYkLGtZAh9ifwiV2pyuBFMEwFFC5zUX22HfYpajAt84` |
+
+OIL (withdrawn 30 Aug 2026) and VXX (delisted June 2026) are not on this page. Don't integrate against their accounts.
+
+## Collateral vaults
+
+QQQ, SPY and XAU share the unified collateral vault. It is a PDA with seeds `[b"unified_vault"]` on mint-redeem, and its token-account owner is the `CollateralAuthority` PDA (`[b"collateral_authority"]`). Redeems on these three markets must pass `collateralAuthority`.
+
+| | Address |
+|---|---|
+| Unified collateral vault (QQQ, SPY, XAU) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
+| `CollateralAuthority` PDA | `7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3` |
+
+The other 11 markets each have their own vault: the cUSDC associated token account (ATA) of the Market PDA.
+
+| Market | Collateral vault |
+|---|---|
+| XAG | `2Gy5SFgx7uV7ybuVR9DmbD5921z8iJrrEVDMfo5XqRFQ` |
+| NVDA | `2rJ26he3T7VjjXVYoJRanx15pqWSERxHQCfSqh71uWMK` |
+| AAPL | `2qsaxGmZEBgh8WUcJisMb4pejMdAQJT6X8HD2VT3FMaD` |
+| EUR | `C7Ur9siuwWB1MYkEyMQWE347jUxue8Xz1fvLfcnWguC5` |
+| MSFT | `6p6HP29C4yaKCg3NaK62RfMpFccu6ja8HSS13BC4nVGE` |
+| TSLA | `2kiAUxgp9UsTtLFyZySAT6vihc2dDfH23jKmiStiEYWu` |
+| AMZN | `125Emh8gbBitA7h9PTwkSzLULZinA1GhvSPztZrgk9eT` |
+| GOOGL | `7NHs4FXpKdtB41Z5LdYkCq3qTmCi6JG2j6eaA8nmNToX` |
+| GBP | `3gtGoZTrWbCVdD6vfwz2614aFwvS2JzgQmENadfR8gkF` |
+| JPY | `F78vUS2GfNgn2NC41bLJSPCb2wZaPoGGGDFYfxhoLGfA` |
+| MSTR | `HKStxHs4kWPqHWWN1fkcSCZ6n6QHvbafwcURV6LTQ3Ju` |
+
+`Market.total_collateral` is each market's own ledger figure, not a token balance. The unified vault's balance backs three markets, so it doesn't match any one market's figure.
+
+## Fee recipient
+
+Mint and redeem take a `devTokenAccount`, which must be a cUSDC account owned by `Market.fee_recipient`. It receives the dev tax (10% of each fee). Read `fee_recipient` from the Market account rather than hard-coding it. As of 10 Oct 2026:
+
+| Markets | `fee_recipient` | Its cUSDC ATA |
+|---|---|---|
+| QQQ | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` (GlobalClp PDA) | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| The other 13 | `8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni` | `GB5Jqotcc27fHYXQy3VdAsbQ4NxaquQti3kZShSC2vmh` |
+
+## CLP accounts
+
+| | Seeds (clp program) | Address |
+|---|---|---|
+| GlobalClp PDA | `[b"global_clp"]` | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` |
+| GlobalClp vault | cUSDC ATA of the GlobalClp PDA | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| `RevenueAttribution` PDA | `[b"revenue_attribution"]` | `A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` |
+
+`pool_swap` takes the `RevenueAttribution` PDA as its last account.
+
+Every market has its own `Clp` PDA (seeds `[b"clp", market]`), including the four markets added in June 2026. Its vault is the cUSDC ATA of the `Clp` PDA. Each `Clp` stores an OI cap of 250,000 cUSDC, which nothing enforces yet.
+
+| Market | `Clp` PDA | CLP vault |
+|---|---|---|
+| QQQ | `EEDKqU3C4wgWQBcgFagHTqEAjKNMCV4eVYyaUt9swKHc` | `8Doh7uAU95RkqZDx66C1643Q8xJeg4T8eYKMak6ac1En` |
+| SPY | `F4eAvoAd2tUnpDz7dSqj2d4eCBzHLHYTvPmiwHNe1nnX` | `J5cj2Ba1bMsgK4qk2uis6asL6hUSwAd53kYepteBG94B` |
+| XAU | `DdUuCiNzv5A3XZJk5jj4vY8zGS1avcrcMu1MuR4J65BA` | `C6X4VEBggnwdC6Ju5tBMm8wxRiFekRZQrWSeX5Ja2kVn` |
+| XAG | `DKnAJi6m98Z9521tAQ7XbGFrxBsrnnmMXqfQSDLfxPk2` | `C6ne1mYqN5CKkgBMnV83q9yDv9RLDZdosZaavWzJp5X7` |
+| NVDA | `HkyqDQ55Mhz3pHDMzeRVtiZBEwVQfz2yoVZ3e8cKJC7H` | `BupGi5KavHSB8bVHPzG4hnq7ZXRJySe7d8zAq1R4KpP4` |
+| AAPL | `JAF3WYJGRA5aLofT1NEKG7Tzr5XWa4vH8mtaccc9K8VJ` | `AAwyDwCH4uXhRzAHfnLfVfMv4RncSXzt8RXXgFmPMVTR` |
+| EUR | `Esd4RB9qMfcmH8AAtiGgLLBXskZZ4xkcBExPGGTQPZj2` | `6LFwtV47WzjFQc86wigXUYVxECBwCmNt8LpRJanLJyNd` |
+| MSFT | `3LFUK62KWYe5nz8Uhz4EbyTDpSZTmksMiFhMpBCJge6z` | `481HdR4j6EvhLGMsN6KvvfTPvEHG2pqEbyLVz5rmrJnj` |
+| TSLA | `8B8a7fqBdgq2DQgiNdN3cQhHJda6pNJykh3DSt5EN4jB` | `HS2DhzxvtKTF432dMT93Tu7oto7mWGGJNQ5kAQVqnnrQ` |
+| AMZN | `3S1RWBt4X4GW5Q9tvmZetgUrrbKDxwWoaFwGT1fFeKGS` | `F3VjE6jt47zRyVqGfHmiet2kVKd7gKh3NLNS3xrb5tPB` |
+| GOOGL | `HRo8q96iUnTP8Secf7eqYfADkNVokLvfy4eg7DjpkqrN` | `6qe3HfoWrC2g7k8URTDrAJYVreCieQGZA8LBZZByoqEM` |
+| GBP | `4gskdJfMfv6sCPqyWErXayUdzJBPLg5GyiZ6jSJ4EB8J` | `5rfH9Er5GFHGcK4wHvga8JRRCS1EAqJsWcnGWMJMVDB5` |
+| JPY | `HKzUKzNyHDyC5AgEYFFscE3PETBB3SfrfCKnt1hGLE1K` | `8PVXUQ6VuuYor9PH7vew3sY35civX2YSJH1jgCXEsaXU` |
+| MSTR | `vR53HxPcBUkjuVzsLYofMGU4GKhy5QgTaJZMBDzjU7n` | `Gs5TSSLFRAriH27zXNy7WrKXzSwcFbJCTKnC7kqb7Qs4` |
+
+## Bin books
+
+Each market has one `Pool` PDA per side, with seeds `[b"pool", market, [side]]` on the clp program. Side 0 is the long book (L against cUSDC) and side 1 is the short book (S against cUSDC). A pool's `synthVault` and `usdcVault` are the pool PDA's ATAs for its synth mint and for cUSDC.
+
+| Market | Long book (side 0) | Short book (side 1) |
+|---|---|---|
+| QQQ | `DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr` | `HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB` |
+| SPY | `4UZmmZYrRfffQmjq2iEaNgkit72s8VS5cnhK5GeuKSt8` | `4JoXbxzAAeAWsQgTYXgWAvRqdR1RU2Tb3ywm2FNLKjAB` |
+| XAU | `5rEH7sYUS7kuqNiLZmCiQGwQLmQ1qqogRPavT9csKmHL` | `CW8nvKYPi7xgRtimCk1Gj4Db6bbXdqXngdDMxDA6rLHT` |
+| XAG | `EVPrpQiPPXwDorKPrSop36WFg53wTujdGyFFb6j8VM9j` | `DsiYTmZcTSq3i4NfBfMFJBST7Kyess73yjVcRNJ8m5Fw` |
+| NVDA | `6oBYXyw6bQqySqEEXdkYGtZxzBN2VXd8RR66sf9z7Wh4` | `8evyJuf3b6g3x8DHSXHjQYBvXFBHmyDEyycRpQ183mUn` |
+| AAPL | `DPFt4A1hGeaCWh8c8mVqT1JNG8vGUTqKsMejVmXVkfaE` | `6v9KZZY4uXaNHkmq2JSJHcbuntCCrXkCyrz8WZD3pGef` |
+| EUR | `CSpjyN6YkFkhbLKux47pnw4KeWQAtWNgu6yBHTn7SsGe` | `8QJiubkx3xWxNGXrPSUjTsaTss6TcNBiMNT5xzrByZfp` |
+| MSFT | `CZPtcyprVZNTQYMfCoV7NyZM8LKyfBeA8c1Lk5NoKmEq` | `7aDvEwdSFtHyknZ2hc6fwnhnhgFMDp36U4fJEDX9gh7T` |
+| TSLA | `BQcoDb7XfwYtnugVcRfW6VmigAGpW7dGBtgwQNLHPqGY` | `BHnZ49UvLUJokEpdJyXM8gAZgonCBCFoYfvVAx5Mj75n` |
+| AMZN | `CHvNFzHqHbhT9BdinSBhww3CF4bMepL3zF2vLDUKTkDi` | `CZV1NDMVX8BPiKKTXSZsgS1VgahQDo1PXtsZdPB2tMGW` |
+| GOOGL | `82RWToVd47PC7kd3ScNM4BwAiascY82oAcu4e4NhStvp` | `6CVRNQPruyE8LLQvdfiVwp6uEiqxcRYjCTD7wU9a2DS1` |
+| GBP | `3e59vEqzQJasUiBHstdCHRKh9KJTtG83w3Mo5W1ASHDw` | `B1UyrycWcxpV9DPTnEhKLf1zfeomnJVVriST7TdKRBtR` |
+| JPY | `NyL2zCi4am2Kiofr6NfNcVCyf23rmcnsqVgNaZPj7mf` | `FsDgk3EkBJbdqEP2C9uyh86qdjy4KpYpg1PTytW86FY4` |
+| MSTR | `G9xCpYdpCwyXw9Y5z2aMddDbVVvj1iy87RRozaAoY9LK` | `TS4njAZnRctsppgdTiHptAUNitoY6FjFMkXjqHKLQU7` |
+
+The books charge no swap fee. As of 10 Oct 2026 the core steps run from 10 to 50 bps and the wing steps from 200 to 700 bps. Every book has 12 bid bins and 12 ask bins, and the first 3 on each side are core bins. The XAU long book is the exception, with 6 a side. Per-market geometry is on [Markets](/concepts/markets#live-markets).
+
+## Derive addresses from a symbol
+
+Every PDA above comes from the market symbol. The mints aren't PDAs, so pass them in from the table above or read them from the Market account (`longMint`, `shortMint`). The same goes for `collateralVault` and `feeRecipient`.
+
+```typescript
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+
+const MINT_REDEEM = new PublicKey("5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4");
+const CLP = new PublicKey("8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES");
+const ORACLE = new PublicKey("5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC");
+const CUSDC = new PublicKey("B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE");
+
+const pda = (seeds: Buffer[], programId: PublicKey) =>
+  PublicKey.findProgramAddressSync(seeds, programId)[0];
+
+export function marketAddresses(symbol: string, longMint: PublicKey, shortMint: PublicKey) {
+  const market = pda([Buffer.from("market"), Buffer.from(symbol)], MINT_REDEEM);
+  const clp = pda([Buffer.from("clp"), market.toBuffer()], CLP);
+  const pool = (side: number, synthMint: PublicKey) => {
+    const address = pda([Buffer.from("pool"), market.toBuffer(), Buffer.from([side])], CLP);
+    return {
+      address,
+      synthVault: getAssociatedTokenAddressSync(synthMint, address, true),
+      usdcVault: getAssociatedTokenAddressSync(CUSDC, address, true),
+    };
+  };
+  return {
+    market,
+    oracle: pda([Buffer.from("oracle_config"), market.toBuffer()], ORACLE),
+    clp,
+    clpVault: getAssociatedTokenAddressSync(CUSDC, clp, true),
+    longPool: pool(0, longMint),
+    shortPool: pool(1, shortMint),
+  };
+}
+
+// marketAddresses("XAU", xauLongMint, xauShortMint).longPool.address
+//   => 5rEH7sYUS7kuqNiLZmCiQGwQLmQ1qqogRPavT9csKmHL
+```
+
+## External program IDs
+
+| Program | ID |
+|---|---|
+| SPL Token | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Associated Token | `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL` |
+| Metaplex Token Metadata | `metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s` |
+
+## RPC endpoints
+
+| Cluster | Public endpoint |
+|---|---|
+| **Devnet** | `https://api.devnet.solana.com` |
+| Mainnet (when launched) | `https://api.mainnet-beta.solana.com` |
+
+For production, use a private RPC (Helius, Triton, QuickNode, Alchemy).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="chart-line" href="/markets/live">
+    Per-market detail, fees and collateral.
+  </Card>
+  <Card title="Programs overview" icon="square-terminal" href="/programs/overview">
+    What each program does.
+  </Card>
+</CardGroup>

@@ -1,0 +1,188 @@
+---
+title: Keeper configuration
+description: What the protocol's keeper needs, the environment variables it reads with their defaults, logging, and common failure modes.
+---
+
+The keeper's source and binary are not published. This page documents how the protocol's keeper is configured: what it needs, the environment variables it reads and their defaults, its logs, and how it fails. Integrators do not need any of it; mint, redeem and trades go straight to the programs.
+
+## What it needs
+
+- **Two funded keypairs.** The keeper wallet must be `market.keeper_authority` on every market it operates, and pays for price pushes and settlements. The CLP authority signs book shapes and inventory moves and pays rent for new pool accounts. On devnet it is also each market's admin `authority`, which fee posting needs.
+- **RPC endpoints.** Market discovery uses `getAccountInfo`. The commit settler uses a filtered `getProgramAccounts` and websocket subscriptions, which some paid RPC tiers disable, so at least one endpoint must allow them.
+- **The mint-redeem program ID.** Without `DEVNET_MINT_REDEEM_PROGRAM_ID` or `MINT_REDEEM_PROGRAM_ID`, market discovery fails and the keeper runs QQQ only, with a warning.
+- **Storage for the transaction journal.** Every transaction that moves funds is journaled first, in Cloudflare R2 or under a persistent `DATA_DIR`. Without a working journal the keeper disables those transactions; price pushes still go out.
+
+The protocol deploys the keeper as a Docker image built with Rust 1.88. The image sets `RUST_LOG=info` and `UPDATE_INTERVAL_MS=5000` and exposes port 8484. The process exits as soon as any of its loops returns, so it runs under a supervisor that restarts it.
+
+## Environment variables
+
+The keeper loads `.env` from its working directory, or the file named by `KEEPER_ENV_FILE` (which must come from the process environment). Per-network settings, such as the RPC URL, collateral mint and program IDs, are read with a `DEVNET_` or `MAINNET_` prefix first, then without it.
+
+### Networks and keys
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEVNET_RPC_URL`, `MAINNET_RPC_URL` | unset | Comma-separated endpoints, first one primary. Set either or both; one process serves each. The official cluster URL is appended as the last fallback. |
+| `RPC_URL` | `https://api.devnet.solana.com` | Single-network mode, used only when neither of the above is set. |
+| `KEEPER_KEYPAIR_JSON`, `KEEPER_KEYPAIR` | unset, `~/.config/solana/id.json` | Keeper wallet as a JSON byte array (preferred) or a file path. If no key loads, the keeper runs read-only. |
+| `CLP_AUTHORITY_KEYPAIR_JSON`, `CLP_AUTHORITY_KEYPAIR` | unset, `key/clp-authority.json` | CLP authority, the same way. If no key loads, CLP-authority instructions are signed by the keeper wallet and fail unless it is the CLP authority. |
+| `USDC_MINT` | mainnet USDC on devnet; required on mainnet | Collateral mint. On devnet set it to cUSDC, `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. |
+| `MINT_REDEEM_PROGRAM_ID` | unset | Needed for market discovery. Transactions fall back to the devnet ID on devnet. |
+| `ORACLE_PROGRAM_ID`, `CLP_PROGRAM_ID` | devnet IDs on devnet | Required on mainnet; the keeper will not start there without them. |
+| `ACTIVE_MARKETS` | unset | Comma-separated symbols to pin. When unset, the keeper reads the `Market` account of each of the 14 symbols it supports and keeps those with `is_active = true`. |
+
+<Warning>
+  On devnet, an unset `USDC_MINT` falls back to mainnet USDC. Every token-account derivation is then wrong, vault balances read as 0, and loops skip markets without an error. Always set `DEVNET_USDC_MINT` or `USDC_MINT` to cUSDC on devnet.
+</Warning>
+
+### Price source
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `UPDATE_INTERVAL_MS` | `15000` (`5000` in the image) | Price-push interval. |
+| `PYTH_API_KEY` | unset | Pyth Pro key. Without it Pyth requests fail, and the keeper can price markets only from its fallback public quote source, which has its own enable flag (off by default). With neither source answering, it withholds every push. |
+| `HERMES_STALE_SECS` | `120` | Withhold a market's push when the source's own publish time is older than this, whichever source it came from. |
+| `HL_CROSS_CHECK_ENABLED` | `true` | Compare each fresh print with Hyperliquid and withhold the push when they disagree. An unreachable Hyperliquid lets the print through; Hyperliquid never sets a price. |
+| `CROSS_CHECK_BAND_BPS` | 30 FX, 60 metals, 100 stocks | Largest allowed disagreement. One value overrides all three. |
+
+When the fallback source prices a market, the confidence band comes from a GJR-GARCH volatility model; with Pyth, the keeper uses the wider of Pyth's band and the model's. Mainnet will price from Pyth (Pyth Pro).
+
+### Book manager and parameter posting
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CLMM_POOLS_ENABLED` | `true` | The book-manager loop. Refills, rebalancing and all parameter posting run inside it, including γ, so `false` stops all of them. |
+| `CLMM_POOL_INTERVAL_SECS` | `30` | Loop cadence, minimum 15. |
+| `CLMM_REPOSITION_BPS`, `CLMM_REPOSITION_BPS_<SYM>` | `20` | Largest reposition gate; the keeper cuts it per side to the first funded bin. |
+| `CLMM_VOL_SPREAD_ENABLED` | `true` | Volatility-scaled spreads. `false` posts a plain geometric shape from the first bin, with no spread floor, skew or inventory shift. |
+| `CLMM_SKEW_ENABLED` | `true` | Protective trend skew. |
+| `CLMM_INVENTORY_SKEW_ENABLED` | `true` | Inventory centre-shift, tuned by `CLMM_INVENTORY_GAIN` (`1.0`) and `CLMM_INVENTORY_CAP_FRAC` (`0.5`). |
+| `CLMM_SHAPE_KEEP_BPS` | `7000` | Per-bin decay of the live shape (0.7 per bin). |
+| `CLMM_REFILL_ENABLED` | `true` | Refill, trim and bid cap. |
+| `CLMM_BID_TARGET_USD` | `5000` | Standing bid cUSDC per side. |
+| `CLMM_TRIM_RATIO` | `1.5` | Largest ask value as a multiple of the bid value. |
+| `CLMM_FEE_SCALE_ENABLED` | `true` | Posts `clamp(fee_mult × half-spread, 10, 100)` bps as the mint and redeem fee when it moves by 5 bps or more. `fee_mult` is 1.0. |
+| `CLMM_COMMIT_SPREAD_ENABLED` | `true` | Posts `clamp(half-spread, 10, 500)` bps as the committed-order spread when it moves by 2 bps or more. |
+| `CLMM_BUFFER_POST_ENABLED` | `true` | Posts the overcollateralization target, never below 102%, when it moves by 50 bps or more. |
+| `CLMM_REBALANCE_ENABLED` | `true` | Cross-market collateral rebalance. |
+| `GAMMA_DECAY_COEF` | `1.0` | γ calibration. Must be in (0, 1]; any other value aborts boot. |
+| `CLMM_GAMMA_DECAY_ENABLED` | removed | Setting it to any value aborts boot. γ decay has no switch. |
+
+### Off-hours book
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CLMM_FREEFLOAT_CAP_USD` | `10000` | Dollar cap per side of a free-float book. |
+| `CLMM_FREEFLOAT_CAP_USD_JUMP` | `1250` | The same cap for AAPL, AMZN, GOOGL, MSFT, MSTR, NVDA and TSLA. |
+| `FF_GUARD_ENABLED` | `true` | Free-float guard, which pulls stale-side bins when other venues show a move. |
+| `FF_GUARD_MIN_MOVE_BPS` | `10` | Venue moves smaller than this count as noise. |
+| `FF_GUARD_RESTORE_SECS` | `600` | How long venues must allow it before pulled bins return. |
+
+### Committed orders
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `COMMIT_SETTLE_ENABLED` | `true` | The settlement cranker. |
+| `COMMIT_SETTLE_INTERVAL_SECS` | `20` | Idle cadence, minimum 5. It drops to 5 s while orders are pending. |
+
+### Health and alerts
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SOL_HEALTH_INTERVAL_SECS` | `300` | Balance check cadence, minimum 15. |
+| `SOL_HEALTH_KEEPER_LOW_LAMPORTS`, `SOL_HEALTH_KEEPER_CRITICAL_LAMPORTS` | 0.5 SOL, 0.15 SOL | Keeper wallet. Below the low line the dashboard marks it low. Below the critical line the keeper tops it up, then alerts if it is still below. |
+| `SOL_HEALTH_CLP_AUTHORITY_LOW_LAMPORTS`, `SOL_HEALTH_CLP_AUTHORITY_CRITICAL_LAMPORTS` | 1 SOL, 0.2 SOL | The same lines for the CLP authority. |
+| `SOL_REFILL_BUFFER_LAMPORTS` | 1 SOL | Top-ups aim this far above the low line. |
+| `SOL_AUTO_AIRDROP_ENABLED` | `true` | Devnet top-up by airdrop. |
+| `SOL_REFILL_SWAP_ENABLED` | `true` | Mainnet top-up: swaps the keeper wallet's own USDC to SOL through Jupiter, at most $250 per swap (`SOL_REFILL_MAX_USDC`). |
+| `DISCORD_BOT_TOKEN` and `DISCORD_NOTIF_CHANNEL_ID`, or `DISCORD_SOL_HEALTH_WEBHOOK_URL` | unset | Alert by bot (tried first) or by webhook. With neither set, alerting is off and the keeper logs that at startup. |
+| `SOL_HEALTH_ALERT_COOLDOWN_SECS` | `3600` | At most one alert per wallet in this window. |
+
+### Storage, dashboard and logs
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | unset | Journal in R2. Setting any one selects R2 and requires all four. |
+| `DATA_DIR` | `/data` | Journal root when R2 is unset. It must persist across restarts and support OS file locks, and only one process can hold it. |
+| `PORT`, then `DASHBOARD_PORT` | `8484` | The single dashboard port. |
+| `KEEPER_PEERS` | unset | Dashboard URLs of other keeper instances (see below). |
+| `RUST_LOG` | `info` | Log filter (see [Logging](#logging)). |
+| `KEEPER_LOG_FILE` | unset | Write logs to this file instead of stderr. |
+
+### Off by default
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LEGACY_METEORA_ENABLED` | `false` | The legacy Meteora layer: DLMM position manager, depth balancer, LP-fee claimer, arbitrage scanner with its boot-time sweep, and liquidity seeder. |
+| `COLLATERAL_YIELD_ENABLED` | `false` | Yield router. It also needs `yield_enabled` on the market, which is off on every devnet market as of 10 Oct 2026. |
+
+## Primary and standby
+
+Several instances can run with the same keys. Set `KEEPER_PEERS` on each to the dashboard URLs of the others. Every 30 s each instance probes `/api/status/<network>` on its peers, and the one with the oldest start time is primary. Standby instances still push prices, which is harmless to repeat, but skip the loops that move funds, such as the book manager and the commit settler. When the primary stops answering, the oldest remaining instance takes over at the next probe.
+
+Each market has one `keeper_authority`; the market admin can rotate it with `update_keeper_authority` to split markets between operators. Bots without either key can run alongside: `settle_swap` is permissionless, and anyone can trade the books.
+
+## Logging
+
+The binary crate is named `keeper`, so log targets are its module paths: `keeper::oracle`, `keeper::clmm_pool`, `keeper::commit_settler`, `keeper::sol_health`, `keeper::tx`, `keeper::rpc`. A filter for `continuum_keeper` matches nothing and silences the keeper.
+
+```env
+RUST_LOG=info,keeper::clmm_pool=debug,keeper::commit_settler=debug
+```
+
+`keeper::clmm_pool=debug` logs every reposition, refill and posting decision, and `keeper::commit_settler=debug` logs committed-order discovery and settlement. `keeper::rpc=warn` keeps only RPC failures.
+
+A healthy devnet start logs lines like these (timestamps omitted):
+
+```
+INFO keeper: Starting Continuum Keeper Bot
+INFO keeper: Env validated: γ decay UNCONDITIONAL, GAMMA_DECAY_COEF=1.0 (unset default)
+INFO keeper::config: [discovery] QQQ → ACTIVE (F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5)
+INFO keeper: Networks configured: devnet
+INFO keeper: Dashboard port resolved to 8484 (from default(8484))
+```
+
+The dashboard serves `/healthz`, `/api/status/<network>`, `/api/sol-health/<network>` and `/api/pool-state/<network>`.
+
+## Common issues
+
+### The keeper refuses to start
+
+Remove `CLMM_GAMMA_DECAY_ENABLED` if it is set, and check that `GAMMA_DECAY_COEF` is a number in (0, 1]. On mainnet, also set the collateral mint and the oracle, mint-redeem and CLP program IDs; there is no fallback to devnet values.
+
+### It runs only QQQ, skips markets, or fails with `UnauthorizedKeeper`
+
+1. Set `DEVNET_MINT_REDEEM_PROGRAM_ID` or `MINT_REDEEM_PROGRAM_ID`. Without it, discovery fails and the keeper falls back to QQQ.
+2. Set the collateral mint to cUSDC on devnet (see the warning above).
+3. Check that `market.keeper_authority` is the keeper wallet's public key. The admin may have rotated it with `update_keeper_authority`.
+4. On insufficient-lamports errors, check both wallets. Rent for new pool accounts comes from the CLP authority.
+
+### "Financial transactions paused" or `UNCONFIRMED_TX_MAY_STILL_LAND`
+
+An earlier send ended with an unknown outcome, so the keeper stopped every transaction that moves funds. It re-checks the journaled transaction every 30 s. Once the log shows "Reconciled financial transaction … restart keeper to rebuild plans and resume", restart it. If the journal is reported unavailable or already owned, configure R2 or a persistent `DATA_DIR`, and make sure no other process holds the same journal.
+
+### RPC rate limits
+
+List several endpoints. After 3 consecutive retriable failures (HTTP 429, 503 or a transport error) an endpoint is skipped for 30 s, then probed again.
+
+### A book sits far from NAV
+
+If the underlying market is closed, this is free float by design, and the first fresh price re-centres the book. If the market is open, check `CLMM_POOLS_ENABLED` and the `keeper::clmm_pool` logs, then the CLP vault balance if the book's depth is exhausted. A stale price while the market is open means the source is down or Hyperliquid is vetoing it; check the `keeper::oracle` logs.
+
+### Leftover L or S in the keeper wallet
+
+The boot-time sweep that cleared it belongs to the legacy layer and is off by default. Redeem matched amounts with `redeem_paired`, or a single leg with `keeper_redeem_single`, signed by the keeper wallet.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Keeper overview" icon="robot" href="/keeper/overview">
+    What the keeper runs and which keys it holds.
+  </Card>
+  <Card title="Peg maintenance" icon="route" href="/keeper/arb-paths">
+    Why the venues stay near NAV and what bounds drift.
+  </Card>
+  <Card title="Book management" icon="chart-line" href="/keeper/book-management">
+    Reposition loop, free float, refill, trim and bid cap.
+  </Card>
+</CardGroup>

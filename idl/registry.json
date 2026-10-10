@@ -1,0 +1,410 @@
+{
+  "address": "Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau",
+  "metadata": {
+    "name": "registry",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Continuum Market Registry \u2013 on-chain index of L/S pool addresses"
+  },
+  "instructions": [
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "registry",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "program"
+        },
+        {
+          "name": "program_data"
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "register_market",
+      "discriminator": [
+        24,
+        163,
+        183,
+        185,
+        145,
+        243,
+        36,
+        146
+      ],
+      "accounts": [
+        {
+          "name": "registry",
+          "writable": true
+        },
+        {
+          "name": "market_entry",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "MarketParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_active",
+      "discriminator": [
+        29,
+        16,
+        225,
+        132,
+        38,
+        216,
+        206,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "registry"
+        },
+        {
+          "name": "market_entry",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_symbol",
+          "type": "string"
+        },
+        {
+          "name": "is_active",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "transfer_authority",
+      "discriminator": [
+        48,
+        169,
+        76,
+        72,
+        229,
+        180,
+        55,
+        161
+      ],
+      "accounts": [
+        {
+          "name": "registry",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "update_market",
+      "discriminator": [
+        153,
+        39,
+        2,
+        197,
+        179,
+        50,
+        199,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "registry"
+        },
+        {
+          "name": "market_entry",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_symbol",
+          "type": "string"
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "MarketParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_positions",
+      "discriminator": [
+        123,
+        138,
+        204,
+        112,
+        209,
+        149,
+        241,
+        114
+      ],
+      "accounts": [
+        {
+          "name": "registry"
+        },
+        {
+          "name": "market_entry",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_symbol",
+          "type": "string"
+        },
+        {
+          "name": "long_position",
+          "type": "pubkey"
+        },
+        {
+          "name": "short_position",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MarketEntry",
+      "discriminator": [
+        199,
+        14,
+        24,
+        51,
+        54,
+        135,
+        246,
+        184
+      ]
+    },
+    {
+      "name": "RegistryState",
+      "discriminator": [
+        29,
+        34,
+        224,
+        195,
+        175,
+        183,
+        99,
+        97
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "SymbolTooLong",
+      "msg": "Symbol must be 16 characters or fewer"
+    },
+    {
+      "code": 6001,
+      "name": "UnauthorizedInitializer",
+      "msg": "Registry initialization requires the program upgrade authority"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidProgramData",
+      "msg": "Registry initialization requires this program's ProgramData account"
+    }
+  ],
+  "types": [
+    {
+      "name": "MarketEntry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "long_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "venue",
+            "type": {
+              "defined": {
+                "name": "Venue"
+              }
+            }
+          },
+          {
+            "name": "long_pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "long_position",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_position",
+            "type": "pubkey"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "long_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "venue",
+            "type": {
+              "defined": {
+                "name": "Venue"
+              }
+            }
+          },
+          {
+            "name": "long_pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "long_position",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_position",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RegistryState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_count",
+            "type": "u32"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Venue",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "MeteoraDlmm"
+          }
+        ]
+      }
+    }
+  ]
+}

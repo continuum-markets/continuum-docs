@@ -1,0 +1,265 @@
+{
+  "status": "verified_finalized",
+  "network": "devnet",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "sourceCommit": "6d9d13d608aecb6350807a1d5c82a9dc6fbf523b",
+  "sourceBranch": "performance/programs-20261009",
+  "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+  "baseCommit": "29960efb4d9db88c2bfc2ead42f0a2b8af52b847",
+  "verifiedAt": "2026-10-09T01:57:53Z",
+  "finalReadSlot": 509020184,
+  "programs": [
+    {
+      "name": "oracle",
+      "program": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+      "artifactSha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+      "artifactBytes": 307680,
+      "idlSha256": "a93027db20132006eafe52cae42e7338dd069687c54aad4af3026566e1192324",
+      "deployedDumpSha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+      "allocationTailZero": true,
+      "signature": "237m6yt5mpcmBffnEFfhc98mkiTP5CopzugzMRHGsjUck6CvNtMyym1mUgj62vGvtvyAQQ5vsPpV5SBHZb59EMHN",
+      "slot": 509018501,
+      "receipt": {
+        "slot": 509018501,
+        "blockTime": 1791510669,
+        "fee": 5000,
+        "computeUnitsConsumed": 2370,
+        "err": null
+      },
+      "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+    },
+    {
+      "name": "clp",
+      "program": "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES",
+      "artifactSha256": "0830f8c0acba63aa6fd26090462d5ba7e82922362dffd72c2ce3a57b01a5c56e",
+      "artifactBytes": 807384,
+      "idlSha256": "8cf9d2f066e74d664b7b9f813a5d9e756b4a5bee611fa6cb90e92925675246f0",
+      "deployedDumpSha256": "c2de04cc0b104ec70040e97ecdb77bc23dd624d325cc33e5e384ce2f455bde55",
+      "allocationTailZero": true,
+      "signature": "4Co6Mz4wj1Hcgk1Z6xXUio3XdxS83yrq2s4rFz8BjYvsWLkFWE4wy7FvX3cEM3w31L4Fp9wp5TYxeaCbXPcAtdh5",
+      "slot": 509019969,
+      "receipt": {
+        "slot": 509019969,
+        "blockTime": 1791511020,
+        "fee": 5000,
+        "computeUnitsConsumed": 2370,
+        "err": null
+      },
+      "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+    }
+  ],
+  "oracleMigrations": {
+    "finalized": 15,
+    "excludedUnchanged": 4,
+    "accounts": [
+      {
+        "address": "3wmPWWqo6dCo3qxXiJojn4HkAzFNfjyzeaaYoQfjPfST",
+        "market": "8SzenjMMpujRFcm7FCxzSxwKXJVkpr2kjL9rV92bmLAJ",
+        "status": "excluded and byte-identical",
+        "size": 1765,
+        "lamports": 13175280,
+        "dataSha256": "9b07d3aec851278faee1a1862afeba33d7c382ccfa3a60e92f7c97e975f9a41b",
+        "signature": null,
+        "slot": null
+      },
+      {
+        "address": "5wW4bJZ3vLtsGVDrfCuoAUBozzNgKDdp3urSRyERD6x3",
+        "market": "6vX3BNEbeem7xjiTKuMC9uMDD3hxPxo9fgM834BucH3n",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "cdad5b976ac9b9cc97dd05bf6d1cb0ab79a97f422d15bf189bd7c8ecdde91b3c",
+        "signature": "4s9dPCJYALGKP9wVJUhTdTo2K46rECZ4MFLySiwz42ye8q8s12sqX8brfAL2Q2E95h4LnV8a2YzxreeBLymc2ESr",
+        "slot": 509018763
+      },
+      {
+        "address": "71F1zwVKtTTTXbmpDHmF4Jg7YwxyWPY9aVvCTgQJWjKd",
+        "market": "HzCTyT5rRVUme6JugGsvnyCQ4wrsyZ6WrbX5FfaMR3Q3",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "685beee18fb912a0f2ac49c66ee435b7d38a6949adae0c4ab99e8c95dba9dedb",
+        "signature": "cMjsLVxwdY4WviWjtQXmB7bNLvJxZiRXjD8JAcLMoW76Mc6njUuwGNeVKvEEd2cxkTJ8FWB6utrinmhuQMjrbyA",
+        "slot": 509018845
+      },
+      {
+        "address": "7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1",
+        "market": "2hZtLxJtPeYjogUQFWeGYEKjJkWArEcf9iTtGkrChuKC",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "b94c34a390238b002fb089d4abfb8bafce8ee3b84b64a17edf88e204327de13c",
+        "signature": "5LjL8BUKhKG5Z8iZBrcfKbp3o1qqutbbnFfDdUeTBd4BP3B3qNCErdQwsjDX3qK9AjV7KixbegZPSkeRZjkWdbBs",
+        "slot": 509018853
+      },
+      {
+        "address": "7YwnWSbwNxJhzKkt3WoAkJ7nxnzpcAFNBsQ7gyYgpEVe",
+        "market": "4ZunzWTX3XAhdhPvjsfFLaXXzZSgMD7CPr9moC1XKpSA",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "12418350301e3d9435ebb60251bca679c680e30c11627cf4a2e639c7dacadcd2",
+        "signature": "3vnoRvGuxSJsAgbrrVo2FaJBwTUQEE3gM7xETLS2ghw1jPnKRVJ6ru1X2spoJMtHmWq2wbpXQ5hjhHW5bjcdWimY",
+        "slot": 509018860
+      },
+      {
+        "address": "7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1",
+        "market": "F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "8af0e0e9c8fcd58452ce10a0bc1ebf069dca83c436f3be2fb6daf99185dc8373",
+        "signature": "4mJzkjaqrPNuRiJ5pFpdzLGhQqzMGbqyzMsPzjBWxwvtnegKE9XMzzsxd6q6LLwSieE3SrTUvezfmgY4qLMEZAxw",
+        "slot": 509018868
+      },
+      {
+        "address": "8ZUofpK6Dj7Y8SDT7kiLawZjEeQ3eWiptLPZMum4W1p6",
+        "market": "tEGPdiYZFyysq6YJeASdtzs6qzHUGKS96qp7XYJjBpj",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "7f2a53baf8cb9508b56606387654aad7d2b33568084699753d8e0ff7e1954765",
+        "signature": "4gyK7NRhjsqVDbQ77tdCoPHCSrx18kebiNY7HFkTdVvriZd5hYXuB1hqpFE1EAAXKfeUQeLgc8JSBEcoTzp6djCP",
+        "slot": 509019484
+      },
+      {
+        "address": "BLWwgcpbAMADpaA1YVTc2jy7ScxmSa7G47Xze75kiyuv",
+        "market": "7kmfunh8gUn2h9eafmJHUP6xeR8qM6yJZVEEyRzKiXhb",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "40a57c81232d54c0612aac188ecfba248124b84ed7eb0f3fa39d6ab8fa2b25b2",
+        "signature": "56GkX8HjcASHLgKXJEj4GGCpUcjtsDEfLDxKirWSuMfNsWip7F7s86dXVGpQ5kP4CQ5GFibBSVM9YCk1V1cCCuib",
+        "slot": 509019518
+      },
+      {
+        "address": "BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn",
+        "market": "HjpaEbyXJBqzxP6B7eNnbZvtaUPXRubc5bEywzfMePqK",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "079a46a554ed11e08e76b6dcae24970289f0c5f71a3d6d108f24b8e12c8e51cf",
+        "signature": "2wkHBBWKibpqrWpUGpUD6t7neC76woahFUsbWBgi7EJKdVphZEErukNnRTr565B32hoRpPvMpKtTBZnZ7Ri21URb",
+        "slot": 509019551
+      },
+      {
+        "address": "BtYkLGtZAh9ifwiV2pyuBFMEwFFC5zUX22HfYpajAt84",
+        "market": "66WAH37WCVp1xxSBf3gqJQB4zgQnH1JGRaFymBCSpK9Y",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "e3863d9b1a596c5183a08b3cbe6adf5810d9ec08bb6a687604b4eeb6e619508e",
+        "signature": "4FTTR9Gy1gAWSyzJh7t7GMXeboJ7dQMaZYBBtUShTN3FyuehSLkXACNQhif87pGvJNKVYnDSoicxqY76R3vTEoB9",
+        "slot": 509019584
+      },
+      {
+        "address": "CZnrCy19NmVT8JJHBE4Q7MFjkk25NaXdDguKsvqWg8uE",
+        "market": "GT1XPJmWNxFukQXVxCmT6c9VdLdR6Da54aU9m9QGfd8b",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "0933302e75f57d670f92ae85c584ca315486271ba41a69c19501781800ee0d13",
+        "signature": "4FuusYx2GqNuVaQNC35PSU2TFqqNZxoYP71c6uWEYZknjrVNe4KjLMZMVQWUSTaRxp12sPEvFhLfFqcL4TQy2M6G",
+        "slot": 509019618
+      },
+      {
+        "address": "DSNRGdZUqkwH9HoYr7XLsMm2VZsY3sWXJNouAT85ghCM",
+        "market": "HvPnCkZq2z163WFxTGCgp7V13qhrNpiZvDywAgQaPTQg",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "06620547275f8dfcc9a52ee1cd63eea9b67f00faa073afbde0231712e64d4eac",
+        "signature": "4Nx1ut6VDcfzhEUMN73td8xLEmdPX6LyMYKzhbJEo5jKXreeF7CAs3MkhQggAJzTokX8eRVFcPPxtqFo2X5hdiaj",
+        "slot": 509019651
+      },
+      {
+        "address": "FYahB5Jazq3DJdYyJrwZXYee8efsM56wGpnziWo6Vhpu",
+        "market": "E9p5qVjLKvDJBVxXR8UuxM7i8NDVVToXZqoaZkfNkrY",
+        "status": "excluded and byte-identical",
+        "size": 1765,
+        "lamports": 13175280,
+        "dataSha256": "b3e537377b4a62727beb9ac22a9b9477975f22086a15fc4bf3effc1dc62a4080",
+        "signature": null,
+        "slot": null
+      },
+      {
+        "address": "FyEoKb5Aj8ow9jjpLeicrUEm2zY9dcvXYSugAJHDisQP",
+        "market": "9M3U9eWHVbwKJMtT3Rwxw2XJ2SxTqnAcAQe4PFBYi37y",
+        "status": "excluded and byte-identical",
+        "size": 1733,
+        "lamports": 12952560,
+        "dataSha256": "61224707e617742aab056103c4b58aebed05e93e5881d9ad5e66a0b91b5c9dd2",
+        "signature": null,
+        "slot": null
+      },
+      {
+        "address": "GS6nnzH89YW95KT13wi4pBbNa5rGW12dvnKpQxpfxP3q",
+        "market": "GfCCPnP6TkM5ykN6vfXSUpqt8nwqJFEXBpJp2hfaPPyZ",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "13a12ae0be17df3755ebbf6a76f2055b147ce97bc89286d85c2281c82f3658c9",
+        "signature": "4r9VPuvdmhxj62HJugMQ7NBKeE5pnNjZzw1gp4RauzKEmbQxaZujY9jAu478HUsLfMfyWiW3AuSMkAgPQ7tEE2cw",
+        "slot": 509019684
+      },
+      {
+        "address": "GYiFbGPQnrB2WpecjaU9CvFHP5JneiZgqfh6JHLkXACA",
+        "market": "CkK5rTLKBHwo7NeRGrzjKUJAnKPrV2ko4UgbfBf788f6",
+        "status": "excluded and byte-identical",
+        "size": 1765,
+        "lamports": 13175280,
+        "dataSha256": "7eac0d6c8796dd7e4896dff9e92de398f4f17e3362e5b6c3c277459929d426cc",
+        "signature": null,
+        "slot": null
+      },
+      {
+        "address": "H3kvpKAQbriHGr6CZWWpXreUFa9ox4pdHPAoeqYSuLt4",
+        "market": "8HVoUTS3iNdKSCHhvhc2FNRnXjd7yHcEARD6mTFjem7b",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "5005bbbc2a504df8802aee4131aa8d28660f67e9c7539fd1ec79167ace9916d5",
+        "signature": "UqLmdhooyBD3JFzyqCXfmJ372KZV2vf329pL7NkbEWCspjofgineiCEEUSWq9ZqNL1HUJndsNRiWvPrPwo4VU2u",
+        "slot": 509019718
+      },
+      {
+        "address": "H3wyiSQg8BubRwEdRaHYCMVx4HMwtAYdjgqEfohJmSyd",
+        "market": "3dadTP1Wce1CBrwxhCXor4HanjioauS7Qey3TFtpriVb",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "a8cfb864da7a3b0a6bc2b0c0e482b665b5abef180f9b55b6df51d3a0ff9fcd5f",
+        "signature": "4v4wHTL7hfrsPn6DtawsdWz86TLiBZEmqpk72Pt97t2WixUXUqBo9dwBjYKNYBfXntPG1of4AZhCYZhziki31sP9",
+        "slot": 509019751
+      },
+      {
+        "address": "J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh",
+        "market": "CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR",
+        "status": "migrated and finalized",
+        "size": 1781,
+        "lamports": 13175280,
+        "dataSha256": "9564226dd76ffefed03811db8cd252be8b00298bc5b27bce7a760e3b007b96b8",
+        "signature": "4HfgTAdh8zNAifDLzW8r6tsu6Ujm3TWujRV8fXq6fF6k6eNomAzzCLZTYoGweb1jaq2MzFanLCfVRFDGYD9AXK8r",
+        "slot": 509019783
+      }
+    ],
+    "totalRentTopUpLamports": 0,
+    "migrationReceiptFeesLamports": 75000,
+    "expiredUnlandedAttempts": 1
+  },
+  "buffers": [
+    {
+      "publicKey": "AWPytPRPiw8ep2RN9vL13M9GkJZJdCoTmtrM53XsGyXr",
+      "exists": false,
+      "lamports": 0
+    },
+    {
+      "publicKey": "EcLrN9u6pymWVdaoJBhD4goexAEtdkpxtx79TGoV7fhx",
+      "exists": false,
+      "lamports": 0
+    }
+  ],
+  "finalAdminBalanceLamports": 7905489440,
+  "authorityChanges": false,
+  "otherProgramsDeployed": false
+}

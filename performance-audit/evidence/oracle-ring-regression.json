@@ -1,0 +1,88 @@
+{
+  "sourceSha256": "872e1450ad232069f7a85ef13ceb72316ad2fbb410d81e651cb8ebbbf0f3302c",
+  "failure": {
+    "program": "oracle",
+    "instruction": "update_price_observation",
+    "scenario": "full 60-observation ring",
+    "success": false,
+    "computeUnits": "47278",
+    "executionMs": 0.6273750000000291,
+    "error": "TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 3004 } }"
+  },
+  "successfulAdditionalObservations": 55,
+  "cause": "Manual OracleConfig::space() treats two TwapState u128 cumulative_price fields as u64: 16 byte shortage. The 60th observation fails account serialization.",
+  "finalSourceSha256": "f45927b96fc71a3e816cb9cfa89f0e756e28779a9de443fe90969198e1b74fd2",
+  "oracleBinarySha256": "8aa5b1800ade3bb7466c39e966868019afc0fccef776e95a90c51d2674475de6",
+  "after": [
+    {
+      "instruction": "realloc_oracle_config",
+      "scenario": "already current size",
+      "success": true,
+      "expectedFailure": false,
+      "computeUnits": "11702",
+      "executionMs": 0.16416700000002038,
+      "beforeHash": "cdbff2291d6959043a05b64546a6d1821aecb5d9ab52febc2be24632de59bc2d",
+      "afterHash": "1f8ec9d613622786b42228242c10f6760b9da165b0e11f9899120caf0fcae8c7"
+    },
+    {
+      "instruction": "update_price_observation",
+      "scenario": "undersized legacy account rejects 60th observation",
+      "success": false,
+      "expectedFailure": true,
+      "computeUnits": "47347",
+      "executionMs": 0.27787499999999454,
+      "beforeHash": "60916d9205cb495a2999a15253b412de8527dc10062f094d73a4094ad94d7e43",
+      "afterHash": "a3618ee1f0d67f638bdad8e850893ba21bf0289a9eba3550ece991e2409e8b4e"
+    },
+    {
+      "instruction": "realloc_oracle_config",
+      "scenario": "wrong authority rejected",
+      "success": false,
+      "expectedFailure": true,
+      "computeUnits": "27694",
+      "executionMs": 0.22624999999993634,
+      "beforeHash": "775252bfa46d8d5964356f0ef374a738db3844be66d06df49b2e8355249fa797",
+      "afterHash": "8c5b0dd0611abcf74ac1d1ff289789d47a2e629322685cc87e435571f8016bb5"
+    },
+    {
+      "instruction": "realloc_oracle_config",
+      "scenario": "legacy account grows with rent top-up",
+      "success": true,
+      "expectedFailure": false,
+      "computeUnits": "41710",
+      "executionMs": 0.21395800000004783,
+      "beforeHash": "27f8d5f72c98b176190c21a80a007491254ed47f9099f41886a6ad84985051e6",
+      "afterHash": "0a85a3266dba21cfec8a7fbc97a4a44c1b0230b7817c789455a2ad39adb03da8"
+    },
+    {
+      "instruction": "update_price_observation",
+      "scenario": "60th observation after legacy resize",
+      "success": true,
+      "expectedFailure": false,
+      "computeUnits": "45330",
+      "executionMs": 0.24791700000002947,
+      "beforeHash": "fb36dd16b4e694f4a67c7566c8d89d70546e4bc66c87d5ba371f62ae63d53135",
+      "afterHash": "b9c83c68dbd81cbb1902664e90efd8a710b3225a83e42402cb65246d2554d901"
+    },
+    {
+      "instruction": "update_price_observation",
+      "scenario": "61st observation after legacy resize",
+      "success": true,
+      "expectedFailure": false,
+      "computeUnits": "45434",
+      "executionMs": 0.23462500000005093,
+      "beforeHash": "69fd683e65ce9f8886b9889eacee1cf789ec5138f81e3a86cc46f9ba77a53e1c",
+      "afterHash": "201aa5eea83a3f88ce26b656b265cad952ef2212291eb3d6c25e00fe99bbbfc7"
+    },
+    {
+      "instruction": "update_price_observation",
+      "scenario": "full 60-observation ring",
+      "success": true,
+      "expectedFailure": false,
+      "computeUnits": "45435",
+      "executionMs": 0.21445900000003348,
+      "beforeHash": "76ce75651ea048eb71b7f2027c996294ec3daefca24b6af92db1156451b453bc",
+      "afterHash": "764183c3bd7ca6301a409720fa08516d870c46463de7d4be46a24b295f17b28e"
+    }
+  ]
+}

@@ -1,0 +1,635 @@
+   Compiling mint-redeem v0.1.0 (/tmp/continuum-performance-sbf/workspace/programs/mint-redeem)
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/mint-redeem/src/lib.rs:242:1
+    |
+242 | #[program]
+    | ^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `program` crate for guidance on how handle this unexpected cfg
+    = help: the attribute macro `program` may come from an old version of the `anchor_attribute_program` crate, try updating your dependency with `cargo update -p anchor_attribute_program`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+    = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/mint-redeem/src/lib.rs:242:1
+    |
+242 | #[program]
+    | ^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:2409:10
+     |
+2409 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:2442:10
+     |
+2442 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3103:10
+     |
+3103 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3133:10
+     |
+3133 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3207:10
+     |
+3207 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3221:10
+     |
+3221 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3306:10
+     |
+3306 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3376:10
+     |
+3376 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3460:10
+     |
+3460 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3504:10
+     |
+3504 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3559:10
+     |
+3559 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3586:10
+     |
+3586 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3622:10
+     |
+3622 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3645:10
+     |
+3645 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3664:10
+     |
+3664 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3715:10
+     |
+3715 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3728:10
+     |
+3728 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3770:10
+     |
+3770 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3783:10
+     |
+3783 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3796:10
+     |
+3796 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3809:10
+     |
+3809 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3836:10
+     |
+3836 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3852:10
+     |
+3852 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3872:10
+     |
+3872 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3886:10
+     |
+3886 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3904:10
+     |
+3904 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3939:10
+     |
+3939 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3970:10
+     |
+3970 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs/mint-redeem/src/lib.rs:3982:10
+     |
+3982 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: use of deprecated function `pyth_sdk_solana::load_price_feed_from_account_info`: solana-specific, use SolanaPriceAccount::account_info_to_feed instead.
+ --> programs/mint-redeem/src/lib.rs:7:22
+  |
+7 | use pyth_sdk_solana::load_price_feed_from_account_info;
+  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `pyth_sdk_solana::load_price_feed_from_account_info`: solana-specific, use SolanaPriceAccount::account_info_to_feed instead.
+    --> programs/mint-redeem/src/lib.rs:2973:26
+     |
+2973 |         let price_feed = load_price_feed_from_account_info(oracle_account)
+     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `gamma`
+   --> programs/mint-redeem/src/lib.rs:554:13
+    |
+554 |         let gamma = market.short_gamma_index();
+    |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_gamma`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `mint-redeem` (lib) generated 39 warnings (5 duplicates)
+   Compiling oracle v0.1.0 (/tmp/continuum-performance-sbf/workspace/programs/oracle)
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs/oracle/src/lib.rs:17:1
+   |
+17 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_heap_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_heap_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `solana`
+  --> programs/oracle/src/lib.rs:17:1
+   |
+17 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_heap_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_heap_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs/oracle/src/lib.rs:17:1
+   |
+17 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_panic_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_panic_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `solana`
+  --> programs/oracle/src/lib.rs:17:1
+   |
+17 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `target_os` are: `aix`, `amdhsa`, `android`, `cuda`, `cygwin`, `dragonfly`, `emscripten`, `espidf`, `freebsd`, `fuchsia`, `haiku`, `hermit`, `horizon`, `hurd`, `illumos`, `ios`, `l4re`, `linux`, `lynxos178`, `macos`, `netbsd`, `none`, `nto`, `nuttx`, `openbsd`, `psp`, `psx`, `redox`, `rtems`, `solaris`, `solid_asp3`, `teeos`, `trusty`, `tvos`, and `uefi` and 9 more
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_panic_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_panic_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/oracle/src/lib.rs:17:1
+   |
+17 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `program` crate for guidance on how handle this unexpected cfg
+   = help: the attribute macro `program` may come from an old version of the `anchor_attribute_program` crate, try updating your dependency with `cargo update -p anchor_attribute_program`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/oracle/src/lib.rs:17:1
+   |
+17 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:606:10
+    |
+606 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:626:10
+    |
+626 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:643:10
+    |
+643 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:675:10
+    |
+675 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:705:10
+    |
+705 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:718:10
+    |
+718 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:727:10
+    |
+727 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/oracle/src/lib.rs:740:10
+    |
+740 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `devnet`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: use of deprecated function `pyth_sdk_solana::load_price_feed_from_account_info`: solana-specific, use SolanaPriceAccount::account_info_to_feed instead.
+ --> programs/oracle/src/lib.rs:2:22
+  |
+2 | use pyth_sdk_solana::load_price_feed_from_account_info;
+  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated function `pyth_sdk_solana::load_price_feed_from_account_info`: solana-specific, use SolanaPriceAccount::account_info_to_feed instead.
+   --> programs/oracle/src/lib.rs:570:22
+    |
+570 |     let price_feed = load_price_feed_from_account_info(oracle_account)
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `oracle` (lib test) generated 21 warnings (5 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.99s
+     Running unittests src/lib.rs (target/debug/deps/oracle-66b684bcd903c0f4)
+
+running 1 test
+test state::tests::allocation_fits_the_entire_observation_ring ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+

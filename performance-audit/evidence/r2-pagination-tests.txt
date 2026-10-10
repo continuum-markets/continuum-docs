@@ -1,0 +1,617 @@
+   Compiling continuum-keeper v0.1.0 (/Users/nafironato/Dev/Projects/continuum/keeper)
+warning: unused import: `anyhow`
+  --> src/yield_venues/marginfi.rs:25:14
+   |
+25 | use anyhow::{anyhow, Result};
+   |              ^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `token_balance_strict`
+  --> src/collateral_yield.rs:27:73
+   |
+27 | use crate::utils::{anchor_discriminator, derive_ata, derive_market_pda, token_balance_strict, BPS_DENOMINATOR, SPL_TOKEN_PROGRAM_ID};
+   |                                                                         ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `solana_sdk::commitment_config::CommitmentConfig`
+  --> src/liquidity_seeder.rs:25:5
+   |
+25 | use solana_sdk::commitment_config::CommitmentConfig;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `super::*`
+   --> src/pyth.rs:717:9
+    |
+717 |     use super::*;
+    |         ^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_program`: Use `solana_system_interface::program` instead
+  --> src/dlmm.rs:25:5
+   |
+25 |     system_program,
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated module `solana_sdk::system_program`: Use `solana_system_interface::program` instead
+  --> src/swap_inventory.rs:27:5
+   |
+27 |     system_program,
+   |     ^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_program`: Use `solana_system_interface::program` instead
+  --> src/liquidity_seeder.rs:33:5
+   |
+33 |     system_program,
+   |     ^^^^^^^^^^^^^^
+
+warning: use of deprecated module `solana_sdk::system_program`: Use `solana_system_interface::program` instead
+ --> src/meteora.rs:8:5
+  |
+8 |     system_program,
+  |     ^^^^^^^^^^^^^^
+
+warning: unused variable: `usdc_is_x`
+    --> src/arb.rs:1023:17
+     |
+1023 |             let usdc_is_x = pool_state.token_x_mint == usdc_mint_pk;
+     |                 ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_usdc_is_x`
+     |
+     = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `lower`
+    --> src/dlmm.rs:2468:13
+     |
+2468 |         let lower = 2500;
+     |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_lower`
+
+warning: unused variable: `market`
+    --> src/arb.rs:1849:9
+     |
+1849 |     let market = MarketAccount::from_account_data(&market_data)?;
+     |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_market`
+
+warning: unused variable: `usdc_mint`
+    --> src/arb.rs:2229:5
+     |
+2229 |     usdc_mint: &Pubkey,
+     |     ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_usdc_mint`
+
+warning: variable does not need to be mutable
+   --> src/vol_model.rs:907:13
+    |
+907 |         let mut c = cfg();
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> src/vol_model.rs:921:13
+    |
+921 |         let mut c = cfg();
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> src/vol_model.rs:933:13
+    |
+933 |         let mut c = cfg();
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+
+warning: type `arb::ResidualClose` is more private than the item `arb::decide_residual_close_inner`
+    --> src/arb.rs:1579:1
+     |
+1579 | / pub(crate) fn decide_residual_close_inner(
+1580 | |     ratio_bps: Option<u64>,
+1581 | |     smart_burn_threshold: u64,
+1582 | |     force_redeem: bool,
+1583 | | ) -> ResidualClose {
+     | |__________________^ function `arb::decide_residual_close_inner` is reachable at visibility `pub(crate)`
+     |
+note: but type `arb::ResidualClose` is only usable at visibility `pub(self)`
+    --> src/arb.rs:1531:1
+     |
+1531 | enum ResidualClose {
+     | ^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `MarketYieldState` is more private than the item `execute_harvest`
+   --> src/collateral_yield.rs:749:1
+    |
+749 | / pub async fn execute_harvest(
+750 | |     engine: &TxEngine,
+751 | |     config: &crate::config::KeeperConfig,
+752 | |     symbol: &str,
+...   |
+755 | |     yield_amount: u64,
+756 | | ) -> Result<()> {
+    | |_______________^ function `execute_harvest` is reachable at visibility `pub(crate)`
+    |
+note: but type `MarketYieldState` is only usable at visibility `pub(self)`
+   --> src/collateral_yield.rs:39:1
+    |
+ 39 | struct MarketYieldState {
+    | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `long_position` and `short_position` are never read
+  --> src/registry.rs:44:9
+   |
+37 | pub struct MarketEntryData {
+   |            --------------- fields in this struct
+...
+44 |     pub long_position: Pubkey,
+   |         ^^^^^^^^^^^^^
+45 |     pub short_position: Pubkey,
+   |         ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `registry_pda` is never used
+  --> src/registry.rs:56:8
+   |
+56 | pub fn registry_pda(registry_program: &Pubkey) -> Pubkey {
+   |        ^^^^^^^^^^^^
+
+warning: function `update_position_in_registry` is never used
+   --> src/registry.rs:165:8
+    |
+165 | pub fn update_position_in_registry(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ix_discriminator` is never used
+   --> src/registry.rs:225:4
+    |
+225 | fn ix_discriminator(name: &str) -> Vec<u8> {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: fields `price`, `confidence`, and `timestamp` are never read
+  --> src/oracle_state.rs:14:9
+   |
+13 | pub struct PriceObservationAccount {
+   |            ----------------------- fields in this struct
+14 |     pub price: u64,
+   |         ^^^^^
+15 |     pub confidence: u64,
+   |         ^^^^^^^^^^
+16 |     pub timestamp: i64,
+   |         ^^^^^^^^^
+   |
+   = note: `PriceObservationAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `cumulative_price`, `cumulative_time`, `last_update`, and `window_seconds` are never read
+  --> src/oracle_state.rs:21:9
+   |
+20 | pub struct TwapStateAccount {
+   |            ---------------- fields in this struct
+21 |     pub cumulative_price: u128,
+   |         ^^^^^^^^^^^^^^^^
+22 |     pub cumulative_time: u64,
+   |         ^^^^^^^^^^^^^^^
+23 |     pub last_twap: u64,
+24 |     pub last_update: i64,
+   |         ^^^^^^^^^^^
+25 |     pub window_seconds: u32,
+   |         ^^^^^^^^^^^^^^
+   |
+   = note: `TwapStateAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `max_staleness_seconds` and `reserved` are never read
+  --> src/oracle_state.rs:30:9
+   |
+29 | pub struct OracleHealthConfigAccount {
+   |            ------------------------- fields in this struct
+30 |     pub max_staleness_seconds: i64,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+31 |     pub max_confidence_bps: u16,
+32 |     pub reserved: [u8; 16],
+   |         ^^^^^^^^
+   |
+   = note: `OracleHealthConfigAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+  --> src/oracle_state.rs:37:9
+   |
+36 | pub struct OracleConfigAccount {
+   |            ------------------- fields in this struct
+37 |     pub market_id: Pubkey,
+   |         ^^^^^^^^^
+38 |     pub admin_authority: Pubkey,
+   |         ^^^^^^^^^^^^^^^
+...
+41 |     pub max_confidence_interval: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+42 |     pub max_staleness: i64,
+43 |     pub is_paused: bool,
+   |         ^^^^^^^^^
+...
+47 |     pub bump: u8,
+   |         ^^^^
+48 |     pub keeper_authority: Pubkey,
+   |         ^^^^^^^^^^^^^^^^
+49 |     pub keeper_twap: TwapStateAccount,
+   |         ^^^^^^^^^^^
+...
+52 |     pub state_changed_at: i64,
+   |         ^^^^^^^^^^^^^^^^
+...
+56 |     pub observation_index: u8,
+   |         ^^^^^^^^^^^^^^^^^
+57 |     pub observations: Vec<PriceObservationAccount>,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `OracleConfigAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `oracle_config` and `bump` are never read
+  --> src/oracle_state.rs:72:9
+   |
+71 | pub struct OracleFeedAccount {
+   |            ----------------- fields in this struct
+72 |     pub oracle_config: Pubkey,
+   |         ^^^^^^^^^^^^^
+...
+77 |     pub bump: u8,
+   |         ^^^^
+   |
+   = note: `OracleFeedAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `proxy_fee_multiplier`, `stress_fee_multiplier`, `stress_mint_cap`, `allow_mint_in_stress`, and `allow_redeem_in_stress` are never read
+  --> src/market_state.rs:32:9
+   |
+31 | pub struct RiskFeeConfigAccount {
+   |            -------------------- fields in this struct
+32 |     pub proxy_fee_multiplier: u16,
+   |         ^^^^^^^^^^^^^^^^^^^^
+33 |     pub stress_fee_multiplier: u16,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+34 |     pub stress_mint_cap: u64,
+   |         ^^^^^^^^^^^^^^^
+35 |     pub allow_mint_in_stress: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^
+36 |     pub allow_redeem_in_stress: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `RiskFeeConfigAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `mint`, `vault`, `collateral_type`, `total_deposited`, `is_active`, and `weight_bps` are never read
+  --> src/market_state.rs:49:9
+   |
+48 | pub struct CollateralVaultAccount {
+   |            ---------------------- fields in this struct
+49 |     pub mint: Pubkey,
+   |         ^^^^
+50 |     pub vault: Pubkey,
+   |         ^^^^^
+51 |     pub collateral_type: CollateralTypeAccount,
+   |         ^^^^^^^^^^^^^^^
+52 |     pub total_deposited: u64,
+   |         ^^^^^^^^^^^^^^^
+53 |     pub is_active: bool,
+   |         ^^^^^^^^^
+54 |     pub weight_bps: u16,
+   |         ^^^^^^^^^^
+   |
+   = note: `CollateralVaultAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+  --> src/market_state.rs:59:9
+   |
+58 | pub struct MarketAccount {
+   |            ------------- fields in this struct
+59 |     pub authority: Pubkey,
+   |         ^^^^^^^^^
+...
+63 |     pub oracle_type: OracleTypeAccount,
+   |         ^^^^^^^^^^^
+...
+68 |     pub multi_collateral_enabled: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+69 |     pub collateral_vault_count: u8,
+   |         ^^^^^^^^^^^^^^^^^^^^^^
+70 |     pub collateral_vaults: Vec<CollateralVaultAccount>,
+   |         ^^^^^^^^^^^^^^^^^
+...
+79 |     pub bump: u8,
+   |         ^^^^
+80 |     pub risk_state: MarketRiskStateAccount,
+81 |     pub risk_state_updated_at: i64,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+82 |     pub risk_fee_config: RiskFeeConfigAccount,
+   |         ^^^^^^^^^^^^^^^
+...
+88 |     pub dev_tax_pct: u8,
+   |         ^^^^^^^^^^^
+...
+92 |     pub total_yield_harvested: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `MarketAccount` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: function `build_clp_init_bin_array_ix` is never used
+    --> src/dlmm.rs:2071:4
+     |
+2071 | fn build_clp_init_bin_array_ix(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reference_price_for_symbol` is never used
+    --> src/dlmm.rs:2314:4
+     |
+2314 | fn reference_price_for_symbol(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `find_arb_opportunity` is never used
+   --> src/arb.rs:312:10
+    |
+312 | async fn find_arb_opportunity(
+    |          ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calculate_q_bps` is never used
+   --> src/inventory.rs:345:8
+    |
+345 | pub fn calculate_q_bps(volatile_value: u64, stable_value: u64) -> u16 {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `check_bounds` is never used
+   --> src/inventory.rs:354:8
+    |
+354 | pub fn check_bounds(
+    |        ^^^^^^^^^^^^
+
+warning: function `calculate_drawdown_bps` is never used
+   --> src/inventory.rs:367:8
+    |
+367 | pub fn calculate_drawdown_bps(current_value: u64, peak_value: u64) -> u16 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `YieldDeploymentStatus` is never constructed
+  --> src/yield_harvesting.rs:50:12
+   |
+50 | pub struct YieldDeploymentStatus {
+   |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calculate_optimal_allocation` is never used
+   --> src/yield_harvesting.rs:869:8
+    |
+869 | pub fn calculate_optimal_allocation(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `RESERVE_LIQ_MINT_DECIMALS` is never used
+   --> src/yield_venues/solend.rs:259:7
+    |
+259 | const RESERVE_LIQ_MINT_DECIMALS: usize = RESERVE_LIQUIDITY_OFFSET + 32;
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `keeper_authority` and `fee_recipient` are never read
+  --> src/collateral_yield.rs:41:5
+   |
+39 | struct MarketYieldState {
+   |        ---------------- fields in this struct
+40 |     collateral_vault: Pubkey,
+41 |     keeper_authority: Pubkey,
+   |     ^^^^^^^^^^^^^^^^
+42 |     fee_recipient: Pubkey,      // = CLP PDA (after update_fee_recipient)
+   |     ^^^^^^^^^^^^^
+
+warning: function `execute_harvest` is never used
+   --> src/collateral_yield.rs:749:14
+    |
+749 | pub async fn execute_harvest(
+    |              ^^^^^^^^^^^^^^^
+
+warning: fields `authority`, `market`, `side`, and `bump` are never read
+   --> src/clmm_pool.rs:88:9
+    |
+ 87 | struct PoolState {
+    |        --------- fields in this struct
+ 88 |     pub authority: Pubkey,
+    |         ^^^^^^^^^
+ 89 |     pub market: Pubkey,
+    |         ^^^^^^
+ 90 |     pub side: u8,
+    |         ^^^^
+...
+101 |     pub bump: u8,
+    |         ^^^^
+    |
+    = note: `PoolState` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: fields `authority`, `admin_wallet`, and `bump` are never read
+  --> src/liquidity_seeder.rs:59:9
+   |
+46 | struct GlobalClpSeederState {
+   |        -------------------- fields in this struct
+...
+59 |     pub authority: [u8; 32],
+   |         ^^^^^^^^^
+60 |     pub admin_wallet: [u8; 32],
+   |         ^^^^^^^^^^^^
+61 |     pub bump: u8,
+   |         ^^^^
+
+warning: fields `market_id` and `allocated_usdc` are never read
+  --> src/liquidity_seeder.rs:66:9
+   |
+65 | struct MarketAllocationEntry {
+   |        --------------------- fields in this struct
+66 |     pub market_id: [u8; 32],
+   |         ^^^^^^^^^
+67 |     pub allocated_usdc: u64,
+   |         ^^^^^^^^^^^^^^
+
+warning: constant `TOKEN_PROGRAM_ID` is never used
+  --> src/meteora.rs:26:7
+   |
+26 | const TOKEN_PROGRAM_ID: Pubkey = solana_sdk::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `ATA_PROGRAM_ID` is never used
+  --> src/meteora.rs:29:7
+   |
+29 | const ATA_PROGRAM_ID: Pubkey = solana_sdk::pubkey!("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+   |       ^^^^^^^^^^^^^^
+
+warning: method `fee_weight` is never used
+   --> src/meteora.rs:180:12
+    |
+176 | impl BinActivity {
+    | ---------------- method in this implementation
+...
+180 |     pub fn fee_weight(&self) -> u64 {
+    |            ^^^^^^^^^^
+
+warning: field `status` is never read
+   --> src/meteora.rs:195:9
+    |
+190 | pub struct MeteoraPairState {
+    |            ---------------- field in this struct
+...
+195 |     pub status: u8,
+    |         ^^^^^^
+    |
+    = note: `MeteoraPairState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: associated items `new` and `pair_exists` are never used
+   --> src/meteora.rs:332:12
+    |
+324 | impl MeteoraClient {
+    | ------------------ associated items in this implementation
+...
+332 |     pub fn new(rpc_url: &str) -> Result<Self> {
+    |            ^^^
+...
+582 |     pub fn pair_exists(&self, pair: &Pubkey) -> Result<bool> {
+    |            ^^^^^^^^^^^
+
+warning: methods `rebalance_position` and `ensure_bin_array` are never used
+   --> src/meteora.rs:869:12
+    |
+861 | impl MeteoraClient {
+    | ------------------ methods in this implementation
+...
+869 |     pub fn rebalance_position(
+    |            ^^^^^^^^^^^^^^^^^^
+...
+962 |     fn ensure_bin_array(
+    |        ^^^^^^^^^^^^^^^^
+
+warning: struct `RebalanceResult` is never constructed
+    --> src/meteora.rs:1018:12
+     |
+1018 | pub struct RebalanceResult {
+     |            ^^^^^^^^^^^^^^^
+
+warning: function `ix_discriminator` is never used
+    --> src/meteora.rs:1034:4
+     |
+1034 | fn ix_discriminator(name: &str) -> [u8; 8] {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `get_ata` is never used
+    --> src/meteora.rs:1042:4
+     |
+1042 | fn get_ata(wallet: &Pubkey, mint: &Pubkey) -> Pubkey {
+     |    ^^^^^^^
+
+warning: function `event_authority_pda` is never used
+    --> src/meteora.rs:1051:4
+     |
+1051 | fn event_authority_pda(program_id: &Pubkey) -> Pubkey {
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `BinLiquidityReduction` is never constructed
+    --> src/meteora.rs:1058:8
+     |
+1058 | struct BinLiquidityReduction {
+     |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `StrategyParameters` is never constructed
+    --> src/meteora.rs:1064:8
+     |
+1064 | struct StrategyParameters {
+     |        ^^^^^^^^^^^^^^^^^^
+
+warning: struct `LiquidityParameterByStrategy` is never constructed
+    --> src/meteora.rs:1075:8
+     |
+1075 | struct LiquidityParameterByStrategy {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_remove_liquidity_ix` is never used
+    --> src/meteora.rs:1086:4
+     |
+1086 | fn build_remove_liquidity_ix(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_close_position_ix` is never used
+    --> src/meteora.rs:1135:4
+     |
+1135 | fn build_close_position_ix(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_init_bin_array_ix` is never used
+    --> src/meteora.rs:1166:4
+     |
+1166 | fn build_init_bin_array_ix(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_init_and_add_liquidity_ix` is never used
+    --> src/meteora.rs:1191:4
+     |
+1191 | fn build_init_and_add_liquidity_ix(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variants `Pyusd`, `Usde`, and `Other` are never constructed
+  --> src/collateral.rs:17:5
+   |
+14 | pub enum CollateralType {
+   |          -------------- variants in this enum
+...
+17 |     Pyusd,
+   |     ^^^^^
+18 |     Usde,
+   |     ^^^^
+19 |     Other,
+   |     ^^^^^
+   |
+   = note: `CollateralType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `collateral`, `apy`, `depeg_bps`, and `swap_cost_bps` are never read
+  --> src/collateral.rs:62:9
+   |
+61 | pub struct CollateralScore {
+   |            --------------- fields in this struct
+62 |     pub collateral: CollateralType,
+   |         ^^^^^^^^^^
+...
+65 |     pub apy: f64,
+   |         ^^^
+66 |     /// Distance from $1 peg in basis points (e.g. 10 = 0.10% depeg).
+67 |     pub depeg_bps: u16,
+   |         ^^^^^^^^^
+68 |     /// Estimated swap cost in bps to convert this collateral to USDC.
+69 |     pub swap_cost_bps: u16,
+   |         ^^^^^^^^^^^^^
+   |
+   = note: `CollateralScore` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: `continuum-keeper` (bin "keeper" test) generated 62 warnings (run `cargo fix --bin "keeper" --tests` to apply 7 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.17s
+     Running unittests src/main.rs (keeper/target/debug/deps/keeper-18a579768b757861)
+
+running 9 tests
+test r2::tests::continuation_query_is_signed_in_canonical_order ... ok
+test r2::tests::conditional_writes_cannot_use_a_wildcard_or_multiple_versions ... ok
+test r2::tests::pagination_errors_and_resource_bounds_never_return_partial_keys ... ok
+test r2::tests::signed_headers_sort_metadata_conditions_and_aws_headers_together ... ok
+test r2::tests::signing_rejects_duplicate_or_invalid_headers ... ok
+test r2::tests::paginated_listing_reaches_newest_batches_beyond_first_thousand ... ok
+test r2::tests::versioned_get_returns_matching_bytes_and_opaque_etag ... ok
+test r2::tests::versioned_get_fails_on_missing_etag_truncated_body_or_non_absence_error ... ok
+test r2::tests::conditional_put_requires_success_and_a_single_strong_response_etag ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 375 filtered out; finished in 0.01s
+

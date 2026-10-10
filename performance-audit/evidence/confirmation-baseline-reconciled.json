@@ -1,0 +1,82 @@
+{
+  "gap": "Observer evidence serialization failed on an RPC BigInt. No timing from this run is used. Original signature reconciled; not resubmitted.",
+  "pendingRow": {
+    "wallet": "3cQH4Wep65MrSkDRwhcGnMdFSvydouY7Xr6fzhj2fPns",
+    "cluster": "devnet",
+    "market": "audit",
+    "action": "confirmation-baseline",
+    "id": "cb3cfeca-dcef-43c3-934d-8bd5f8284026",
+    "createdAt": 1791507638880,
+    "analytics": {},
+    "lifetime": {
+      "kind": "blockhash",
+      "blockhash": "B9SNqFMbaAFzUxrLxcq9xCzgvQirTbK7Ht5QcGSwivZD",
+      "lastValidBlockHeight": "496240233"
+    },
+    "signature": "5qHCXQGkZb5ziXNhtQ2mLFns3DLkWzBRRzUiT6dGZCXz5NMoTHnQTaQ3rimmxkHZCz7h7Be1M4vQKStrSiuHHvSd"
+  },
+  "receipt": {
+    "blockTime": 1791507639,
+    "meta": {
+      "computeUnitsConsumed": 14862,
+      "costUnits": 15915,
+      "err": null,
+      "fee": 5000,
+      "innerInstructions": [],
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      },
+      "logMessages": [
+        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [1]",
+        "Program log: Memo (len 37): \"continuum confirmation audit baseline\"",
+        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr consumed 14862 of 200000 compute units",
+        "Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr success"
+      ],
+      "postBalances": [
+        93570080,
+        41509609334
+      ],
+      "postTokenBalances": [],
+      "preBalances": [
+        93575080,
+        41509609334
+      ],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 509005804,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          "3cQH4Wep65MrSkDRwhcGnMdFSvydouY7Xr6fzhj2fPns",
+          "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+        ],
+        "addressTableLookups": [],
+        "header": {
+          "numReadonlySignedAccounts": 0,
+          "numReadonlyUnsignedAccounts": 1,
+          "numRequiredSignatures": 1
+        },
+        "instructions": [
+          {
+            "accounts": [],
+            "data": "4LHmqFeZYGnvqciBPyiKrz2whZkj3MwVnNgNN2tAww5SMCWNBj2",
+            "programIdIndex": 1,
+            "stackHeight": 1
+          }
+        ],
+        "recentBlockhash": "B9SNqFMbaAFzUxrLxcq9xCzgvQirTbK7Ht5QcGSwivZD"
+      },
+      "signatures": [
+        "5qHCXQGkZb5ziXNhtQ2mLFns3DLkWzBRRzUiT6dGZCXz5NMoTHnQTaQ3rimmxkHZCz7h7Be1M4vQKStrSiuHHvSd"
+      ]
+    },
+    "transactionIndex": 12,
+    "version": 0
+  },
+  "checkedAt": 1791507695.943094
+}

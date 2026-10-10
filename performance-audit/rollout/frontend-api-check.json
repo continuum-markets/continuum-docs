@@ -1,0 +1,12 @@
+{
+  "url": "https://continuum.markets/api/usdc-supply-apr",
+  "status": 200,
+  "jsonBytes": 75,
+  "response": {
+    "apy": 6.55988,
+    "source": "Kamino",
+    "tvlUsd": 732457,
+    "fetchedAt": 1791510628018
+  },
+  "observedAt": "2026-10-09T01:51:10Z"
+}

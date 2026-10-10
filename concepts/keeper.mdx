@@ -1,0 +1,137 @@
+---
+title: Keeper
+description: The off-chain service that pushes prices, manages the bin books, settles committed orders, and posts fees, buffers and volatility decay.
+---
+
+The **keeper** is an off-chain Rust service, run by the protocol, that drives Continuum's operational loops. Its source code is not published. This page describes how the protocol's keeper behaves and how it is configured.
+
+1. The price updater pushes each market's price and confidence band on-chain, and withholds the push when the source goes stale.
+2. The book manager (`clmm_pool.rs`) centres and reshapes the books, sizes the spread, refills and trims inventory, and posts the buffer, fees, committed spread and volatility decay.
+3. The commit settler cranks committed-order settlement, which anyone may do.
+4. The yield router moves deployed collateral between lending venues. It is off by default.
+
+The keeper is **not in your transaction**. User mints, redeems and trades go straight to the on-chain programs. But mint and redeem rely on its pushes: both revert with `TwapNotAvailable` when the last push is more than 300 s old.
+
+## Task inventory
+
+### Price updater (every 5 s in the Docker image)
+
+For each market, the keeper fetches a price and confidence band and pushes both with `mint_redeem::update_risk_state_v2`, together with the source's publish time. Pyth's Hermes service needs an API key (`PYTH_API_KEY`). Without one, the devnet keeper prices markets from a keyless public quote source and derives the band from a GJR-GARCH volatility model. Before it pushes a fresh price, it checks the price against Hyperliquid's oracle price for the same market and withholds the push if the two disagree. On devnet every market runs in `ProxyMode`. See [Oracle](/concepts/oracle).
+
+The updater knows when a market is closed. If the source's publish time is more than 120 s old (`HERMES_STALE_SECS`), or the fetch fails, the keeper **withholds** the push. The stored price then ages past 300 s, mint and redeem freeze, and the book manager switches to free-float books.
+
+### Book manager (30 s)
+
+Per market, each tick:
+
+- Feeds the vol state with the latest price, ignoring repeated closed-hours prices.
+- Centres each book on NAV plus an **inventory shift** (the GLFT / Avellaneda-Stoikov centre shift). The shift is one dollar amount, added to one leg's centre and subtracted from the other's, so the pair price doesn't move: a lone long buyer pays a small premium that funds a lone short buyer's discount.
+- **Repositions** a book with `set_pool_shape` when NAV drifts from its centre by more than a gate. The gate is 20 bps at most, cut down to each leg's funded quote edge.
+- **Refills and trims** both ways. Drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides). Bids cap at about \$5k per side, with the excess swept to the CLP vault, and asks trim to at most 1.5× bids.
+- Posts one **free-float book** per side off-hours, anchored at the last price, flat across the ladder, and capped at \$10,000 per side (\$1,250 for the single-name stocks). A guard can then pull bins on the side that other venues show is stale. It never moves the centre or adds depth.
+- Posts the **dynamic buffer** target (`set_buffer_target`), the **mint/redeem fee** (`update_market`, `clamp(fee_mult × half-spread, 10, 100)` bps, the same value for both) and the **committed spread** (`set_commit_spread`, `clamp(half-spread, 10, 500)` bps) once they move by at least 50, 5 and 2 bps respectively. The keeper posts a committed spread on all 14 markets, but as of 10 Oct 2026 only QQQ, SPY and XAU accept committed orders.
+- Posts the **short-leg volatility decay** (`set_s_gamma_index`). It is always on and has no switch. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+- Runs the **cross-market collateral rebalance**, which moves only excess above a source market's own dynamic target.
+
+### Commit settler (20 s idle, 5 s while orders pend)
+
+The settler finds pending `Order` accounts with one filtered `getProgramAccounts` call, and also wakes early on websocket notifications. It provisions inventory (sells first, since they need cUSDC from `vault_redeem_pairs`) and settles up to 10 orders per tick, largest first. Anyone may settle; the keeper just does it promptly.
+
+### Yield router
+
+The router is off by default (`COLLATERAL_YIELD_ENABLED=false`), and `yield_enabled` is false on every market as of 10 Oct 2026, so no collateral is deployed. When on, it routes deployed collateral across Kamino, Save (Solend) and Jupiter Lend by **30-day-mean** supply APY from a DefiLlama-backed cache, with switch hysteresis so it doesn't churn between near-equal venues. MarginFi is wired in but dormant, because DefiLlama doesn't index its lending rate. With `COLLATERAL_YIELD_RATE_AWARE` (default on), it splits a deployment so every funded venue ends at the same marginal rate. Harvests go to the cUSDC account of the market's `fee_recipient`, which `harvest_collateral_yield` names `clp_vault`.
+
+On devnet, a yield emulator (`DEVNET_YIELD_EMULATION`, default on, devnet only) mints cUSDC at the top venue's APY and pushes it through the real `harvest_collateral_yield` every hour. It skips markets with `yield_enabled = false`, which today is all of them.
+
+### Housekeeping
+
+SOL balance checks every 300 s (with alerts, and airdrop top-ups on devnet), an inventory monitor, and an operator dashboard.
+
+## The spread engine (model-free)
+
+The half-spread that shapes every book is **not a forecasting model**. No trained model is in the live path: a linear-quantile forecaster measured net-negative in research, because inside a `max()` with the floors it could only widen, taxing flow without adding protection. The live spread is a max-of-floors stack:
+
+```
+half_spread = max(
+    realized-q90 ratchet,    # trailing empirical q90 of window |moves|;
+                             # warms within ~8 windows
+    floor_mult × σ_60d,      # slow auto-floor from 60-day unconditional vol;
+                             # self-corrects mis-set listing floors
+    oracle_conf + fixed,     # never quote inside oracle uncertainty
+    min_bps,                 # per-market static boot floor:
+)                            # QQQ 18, SPY 15, XAU 18, NVDA 30
+```
+
+Two post-processing steps follow. Above `freeze_trigger`, the book **freezes**: it stops repositioning and floats rather than chasing a disorderly tape. And a **protective drift skew** widens the trend-adverse side by ×(1 + z), where z is a slow, roughly 1-day return z-score, while the other side **never tightens**. Backtested, the skew fixes trend bleed (XAU went from −233 to +257 bps/yr). The antisymmetric variant, which also tightened the other side, was falsified.
+
+The vol state lives in memory. After a restart, the `min_bps` and oracle-confidence floors govern until the ratchet warms, within about 8 windows; the slow floor takes longer. Closed-hours repeated prices are ignored.
+
+### Listing without model training
+
+Per-market config (`min_bps` / `floor_mult` / `fee_mult` / window) lives in the keeper's config JSON; `fee_mult` is 1.0 on every live market. Listing a new asset needs **no training**: the floors plus the ratchet carry both safety and competitiveness. The recipe is steep-wing geometry sized to the asset's vol class, `min_bps` at least about 2× its 5-minute σ, and `fee_mult` around 1.0 to 1.5 for high-vol single names.
+
+## Configuration
+
+Most keeper behavior sits behind env switches that default on. γ decay has none.
+
+| Switch | Default | Gates |
+|---|---|---|
+| `CLMM_POOLS_ENABLED` | on | Book management as a whole |
+| `CLMM_VOL_SPREAD_ENABLED` | on | Vol-scaled spread (off → static floors) |
+| `CLMM_INVENTORY_SKEW_ENABLED` | on | Inventory centre shift |
+| `CLMM_BUFFER_POST_ENABLED` | on | Dynamic buffer posting |
+| `CLMM_FEE_SCALE_ENABLED` | on | Vol-informed fee posting |
+| `CLMM_COMMIT_SPREAD_ENABLED` | on | Committed-spread posting |
+| `CLMM_REBALANCE_ENABLED` | on | Cross-market collateral rebalance |
+| `CLMM_REFILL_ENABLED` | on | Refill and trim |
+| `FF_GUARD_ENABLED` | on | Off-hours free-float guard |
+| `COMMIT_SETTLE_ENABLED` | on | Settlement crank |
+| `COLLATERAL_YIELD_ENABLED` | off | Yield router |
+| `DEVNET_YIELD_EMULATION` | on (devnet only) | Devnet yield emulator |
+
+The keyless fallback price source has its own switch, which is off by default. The devnet keeper runs with it on.
+
+Main tunables:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PYTH_API_KEY` | unset | Pyth Hermes API key. Without it, Pyth requests fail and the keyless fallback, if enabled, prices the market |
+| `GAMMA_DECAY_COEF` | `1.0` | Scales the γ charge; must be in (0, 1]. Setting `CLMM_GAMMA_DECAY_ENABLED` to any value aborts boot |
+| `UPDATE_INTERVAL_MS` | `15000` (`5000` in the Docker image) | Price updater cadence |
+| `HERMES_STALE_SECS` | `120` | Source-price age at which a push is withheld, for every source |
+| `CLMM_REPOSITION_BPS[_SYM]` | `20` | Largest drift gate before a reposition |
+| `CLMM_BID_TARGET_USD` | `5000` | Bid-side cUSDC cap per side |
+| `CLMM_TRIM_RATIO` | `1.5` | Max asks-to-bids value ratio |
+| `COMMIT_SETTLE_INTERVAL_SECS` | `20` | Settler cadence when idle |
+| `PORT`, `DASHBOARD_PORT` | `8484` | Dashboard port (`PORT` wins, then `DASHBOARD_PORT`) |
+
+Full list: [keeper running guide](/keeper/running).
+
+## Can I run my own keeper?
+
+Not the protocol's: its source isn't published, and its privileged instructions check the market's authorities. What's open and what isn't:
+
+- Anyone can crank `settle_swap`. Settling committed orders needs no authority.
+- Paired arbitrage is open. Ordinary `mint_paired` / `redeem_paired` plus book trades need no privilege, and neither does `donate_to_vault`.
+- Pricing and book shaping are privileged. `update_risk_state_v2`, `set_buffer_target` and `set_s_gamma_index` require `market.keeper_authority`. `set_pool_shape` requires the pool's `authority`, fee posting through `update_market` requires `market.authority`, and `set_commit_spread` requires the CLP's `authority`.
+
+## Dashboard
+
+The keeper serves an operator dashboard on one HTTP port (`PORT`, then `DASHBOARD_PORT`, default 8484). It shows price freshness per market, risk state, book positions and drift, pending committed orders, vault balances and yield status. It is for the operator; integrators read state from on-chain accounts.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="Keeper overview" icon="robot" href="/keeper/overview">
+    Architecture, loops, and operational detail.
+  </Card>
+  <Card title="Keeper configuration" icon="terminal" href="/keeper/running">
+    Config, keypairs, dashboard, troubleshooting.
+  </Card>
+  <Card title="CLP and the venues" icon="arrows-rotate" href="/concepts/clp">
+    The books and vaults these loops manage.
+  </Card>
+  <Card title="Solvency" icon="shield" href="/concepts/solvency">
+    What the protocol enforces independently of the keeper.
+  </Card>
+</CardGroup>

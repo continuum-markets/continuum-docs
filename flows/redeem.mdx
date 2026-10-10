@@ -1,0 +1,162 @@
+---
+title: Redeem paired tokens
+description: Burn long and short tokens together and receive cUSDC at worst-case quotes.
+---
+
+`redeem_paired(l_amount, s_amount)` burns L and S from the user and pays their value in cUSDC from the market's collateral vault. Both amounts must be above zero. They don't have to match in quantity or value, but together they must be worth at least 10 cUSDC at the redeem quotes.
+
+There is no single-leg redeem. With either amount at 0 the program fails with `InvalidAmount`. To get out of a leg you hold on its own, [sell it](#exiting-one-leg).
+
+## Math
+
+```
+L_quote  = P - c
+S_quote  = K / (P + c) * γ
+gross    = l_amount * L_quote + s_amount * S_quote     // must be at least 10 cUSDC
+payout   = min(gross, gross * total_collateral / total_claims)
+
+fee_bps  = redeem_fee_bps * state_mult / 100
+fee      = payout * fee_bps / 10_000
+return   = payout - fee
+```
+
+`P`, `c`, `K`, γ and `state_mult` mean the same as on [Mint](/flows/mint#math): the spot price, the confidence band, the constant product, the short-leg decay and the risk-state multiplier (1.5× in `ProxyMode`). The quotes run against the user again: L is priced below its NAV at `P - c`, and S below its NAV at `K / (P + c) * γ`. Every division rounds down.
+
+`total_claims` values every outstanding L and S at the same quotes. While the vault holds at least that much, `payout` equals `gross`. If it holds less, every redeemer gets the same pro-rata share (see [below](#under-collateralization-pro-rata-redemption)). The fee is charged on `payout`.
+
+The fee is the same posted value as the mint fee: QQQ posted 18 bps on 10 Oct 2026 and charged 27 bps in `ProxyMode`. A tenth of the fee (`dev_tax`) goes to the fee recipient, and the rest stays in the vault. See [Mint fees](/flows/mint#fees).
+
+A worked example with QQQ's last push before the weekend, at 20:15 UTC on 9 Oct 2026: L's NAV was 751.27 cUSDC and S's was 304.599737, with γ at 0.99321461. QQQ quotes at NAV because its worst-case quoting is off. At that price, redeeming 0.663742 QQQL with 1.637066 QQQS gives a gross of 997.299325 cUSDC, a 27 bps fee of 2.692708 and a return of 994.606617 cUSDC.
+
+## Price freshness
+
+Redeem has the same gate as mint. Outside `Normal` it reverts with `TwapNotAvailable` when the price is 0 or more than 300 seconds old. While the underlying market is closed the keeper normally withholds pushes, so redeem pauses until trading resumes. The [bin books](/flows/trade) keep quoting off-hours if you need to exit then.
+
+## Accounts
+
+Redeem takes the mint accounts, with the same names and checks, plus one optional account.
+
+| Account | Notes |
+|---|---|
+| `market` (mut) | Market PDA |
+| `user` (signer, mut) | Owns the L and S being burned |
+| `userCollateral` (mut) | Receives the cUSDC |
+| `userLongAccount`, `userShortAccount` (mut) | The accounts the burns come from |
+| `longMint`, `shortMint` (mut) | From the market |
+| `collateralVault` (mut) | Pays out the cUSDC |
+| `devTokenAccount` (mut) | The fee recipient's cUSDC account; receives `dev_tax` |
+| `oracle` | `market.oracle_address` |
+| `tokenProgram` | SPL Token |
+| `collateralAuthority` (optional) | PDA `[b"collateral_authority"]` under mint_redeem (`7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3`). It owns the unified vault and signs its payouts, so QQQ, SPY and XAU need it. The other 11 markets' vaults are owned by their Market PDA, which signs instead, and passing the account there does no harm |
+
+Anchor's TypeScript client fills in `collateralAuthority` when you leave it out, because its seeds are constant. Passing `null` omits it, and a QQQ, SPY or XAU payout then fails in the token transfer.
+
+## TypeScript
+
+Set up `program`, `user`, `marketPda`, `market` and the four token accounts as on [Mint](/flows/mint#typescript), then:
+
+```typescript
+const [collateralAuthority] = PublicKey.findProgramAddressSync(
+  [Buffer.from("collateral_authority")],
+  program.programId,
+);
+
+await program.methods
+  .redeemPaired(new BN(663_742), new BN(1_637_066)) // 0.663742 QQQL and 1.637066 QQQS
+  .accounts({
+    market: marketPda,
+    user,
+    userCollateral,
+    userLongAccount,
+    userShortAccount,
+    longMint: market.longMint,
+    shortMint: market.shortMint,
+    collateralVault: market.collateralVault,
+    devTokenAccount,
+    oracle: market.oracleAddress,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    collateralAuthority,
+  })
+  .rpc();
+```
+
+## Exiting one leg
+
+If you minted and then sold one side, you hold the other side alone, and the program won't redeem it on its own. Sell it instead:
+
+- On its [bin book](/flows/trade#bin-books) with `pool_swap`. The fill is instant, at the book's prices, with slippage that grows with size.
+- With a [committed order](/flows/trade#committed-orders). It fills at NAV minus the market's commit spread, at a keeper price push after you commit. As of 10 Oct 2026 committed orders run only on QQQ, SPY and XAU.
+
+If you hold both legs, in any ratio, one `redeem_paired` can burn all of them. Your profit or loss is all the cUSDC you received, from redeems and sales, minus what you paid to mint.
+
+For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee was 27 bps as of 10 Oct 2026. The first bins of a QQQ book sit one 20 bps core step from the book's centre, which the keeper shifts with the CLP's inventory, and larger sales walk into wider bins. A committed sale pays the commit spread, 18 bps on QQQ that day, one leg at a time.
+
+## Limits
+
+There is no size cap. A redeem can't burn more than the market's outstanding supply of either leg (`InvalidAmount`). The payout plus `dev_tax` must fit within the market's liquid collateral, `total_collateral` minus `deployed_to_yield`, and within the vault's token balance (`InsufficientLiquidCollateral`). The program doesn't check your balances; burning more than you hold fails inside SPL Token.
+
+## Under-collateralization: pro-rata redemption
+
+The vault is meant to stay over-collateralized. In the tail, a large move on a lopsided book can still push collateral below the value of all outstanding tokens. Redeem keeps paying in that case, but pro-rata: the `payout` line in [Math](#math) multiplies `gross` by `min(1, CR)`, where `CR = total_collateral / total_claims`.
+
+A redeem can never pay out more than the vault holds, because `gross` can't exceed `total_claims`. Every redeemer gets the same `min(1, CR)` factor, and the ratio stays the same for everyone left, so redeeming early gains nothing. While `CR` is at or above 100% the factor is 1 and you receive the full quote.
+
+## Behavior across risk states
+
+| Risk state | Price | Fee and confidence multiplier | Redeem |
+|---|---|---|---|
+| `Normal` | The market's oracle account | 1× | Allowed |
+| `ProxyMode` (every devnet market) | `user_twap_price`, at most 300 s old | 1.5× | Allowed |
+| `Stress` | `user_twap_price`, at most 300 s old | 3× | Blocked by default |
+| `Recovery` | `user_twap_price`, at most 300 s old | Falls linearly from 3× to 1× over the hour after `risk_state_updated_at` | Allowed |
+
+`Stress` blocks redeem unless the market's `allow_redeem_in_stress` is true, and it is false on every live market. The `Recovery` multiplier behaves as described on [Mint](/flows/mint#behavior-across-risk-states).
+
+## Errors
+
+| Error | Code | Cause |
+|---|---|---|
+| `InvalidAmount` | 6001 | `l_amount` or `s_amount` is 0, an amount exceeds that leg's outstanding supply, or an account doesn't match the market |
+| `BelowMinimum` | 6019 | The redeem is worth less than 10 cUSDC at the quotes |
+| `TwapNotAvailable` | 6012 | The price is 0 or more than 300 s old. Usually the underlying market is closed |
+| `RedeemNotAllowedInStress` | 6010 | The market is in `Stress` |
+| `InsufficientLiquidCollateral` | 6022 | The payout plus `dev_tax` exceeds the market's liquid collateral or the vault balance |
+| `MarketNotActive` | 6000 | `market.is_active` is false |
+| `OraclePriceUnavailable` | 6005 | A worst-case quote came out as 0 |
+| `Unauthorized` | 6021 | `devTokenAccount` isn't owned by `market.fee_recipient` |
+| SPL Token error `0x1` | | Your L or S balance is below the amount |
+
+See the [full error catalog](/reference/errors).
+
+## Fee waivers
+
+`redeem_paired_with_waiver` takes the same accounts plus the user's `FeeWaiver` PDA and skips the fee under the conditions on [Mint](/flows/mint#fee-waivers).
+
+## What you receive
+
+```
+dev_tax = fee * dev_tax_pct / 100              // dev_tax_pct = 10
+
+user cUSDC account        +return
+collateral vault          -(return + dev_tax)
+fee recipient             +dev_tax
+user L account            -l_amount (burned)
+user S account            -s_amount (burned)
+
+market.total_l_supply    -= l_amount
+market.total_s_supply    -= s_amount
+market.total_collateral  -= return + dev_tax
+```
+
+The rest of the fee never leaves the vault. The program then emits `PairedActionExecuted` with `action` 1, `gross_collateral_amount` (the payout), `collateral_amount` (the return), `fee_amount` and `dev_tax`.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Mint" icon="circle-plus" href="/flows/mint">
+    The inverse: deposit cUSDC and receive both legs.
+  </Card>
+  <Card title="Trade" icon="chart-mixed" href="/flows/trade">
+    Bin books, committed orders and the instant oracle swap.
+  </Card>
+</CardGroup>

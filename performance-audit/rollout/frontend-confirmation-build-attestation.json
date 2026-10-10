@@ -1,0 +1,9 @@
+{
+  "deploymentId": "a5e7cf5e-51f6-44cf-b085-04a78c3ae441",
+  "containerBuildId": "tGsBihMahyrh9iURsneoL",
+  "browserBuildId": "tGsBihMahyrh9iURsneoL",
+  "url": "https://continuum.markets/mint?market=XAU&analytics_qa=performance-rollout-final",
+  "method": "Railway SSH .next/BUILD_ID matched to T3-rendered flight metadata",
+  "devnetMarker": true,
+  "match": true
+}

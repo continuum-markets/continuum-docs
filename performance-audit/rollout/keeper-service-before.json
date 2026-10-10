@@ -1,0 +1,97 @@
+{
+  "config": {
+    "build": {
+      "buildEnvironment": "V3",
+      "builder": "RAILPACK"
+    },
+    "deploy": {
+      "healthcheckPath": "/health",
+      "ipv6EgressEnabled": false,
+      "multiRegionConfig": {
+        "europe-west4-drams3a": {
+          "numReplicas": 1
+        }
+      },
+      "runtime": "V2",
+      "useLegacyStacker": false
+    },
+    "source": {
+      "branch": "main",
+      "checkSuites": false,
+      "repo": "nxfi777/keeper"
+    }
+  },
+  "domains": {
+    "customDomains": [],
+    "serviceDomains": []
+  },
+  "environment": {
+    "id": "76457ef2-7675-4239-a336-f0a09f244052",
+    "name": "production"
+  },
+  "latestDeployment": {
+    "createdAt": "2026-10-09T00:58:50.828Z",
+    "id": "80812f54-26d4-4f77-87ff-96ee84a75ef7",
+    "status": "SUCCESS",
+    "url": null
+  },
+  "service": {
+    "id": "0deb23db-6fc8-4cb6-9144-d2fe24f4ba99",
+    "name": "keeper",
+    "state": "live"
+  },
+  "staged": null,
+  "stagedChanges": [],
+  "tcpProxies": [],
+  "tracing": {
+    "autoInstrumentationActive": false,
+    "autoInstrumentationEnabled": false,
+    "tracingEnabled": false
+  },
+  "variableNames": [
+    "AMM_PROGRAM_ID",
+    "CLP_AUTHORITY_KEYPAIR_JSON",
+    "CLP_PROGRAM_ID",
+    "CNBC_FALLBACK_ENABLED",
+    "DEVNET_FLASH_LOAN_PROVIDER",
+    "DEVNET_RPC_URL",
+    "DISCORD_BOT_TOKEN",
+    "DISCORD_NOTIF_CHANNEL_ID",
+    "FAUCET_PROGRAM_ID",
+    "FAUCET_SERVICE_API_KEY",
+    "FAUCET_SERVICE_URL",
+    "FLASH_LOAN_PROVIDER",
+    "JITO_BLOCK_ENGINE_URL",
+    "KAMINO_FEE_BPS",
+    "KAMINO_FEE_RECEIVER",
+    "KAMINO_LENDING_MARKET_AUTHORITY",
+    "KAMINO_MARKET",
+    "KAMINO_RESERVE",
+    "KAMINO_RESERVE_VAULT",
+    "KEEPER_KEYPAIR_JSON",
+    "KEEPER_RESIDUAL_REDEEM",
+    "KEEPER_TOPUP_ENABLED",
+    "KEEPER_TOPUP_INTERVAL_SECS",
+    "KEEPER_TOPUP_THRESHOLD_USDC",
+    "KEEPER_VAULT_DONATION_BPS",
+    "KEEPER_VAULT_TARGET_RATIO_BPS",
+    "MALLOC_ARENA_MAX",
+    "MARGINFI_BANK",
+    "MARGINFI_BANK_VAULT",
+    "MARGINFI_BANK_VAULT_AUTHORITY",
+    "MARGINFI_GROUP",
+    "MARGINFI_PROGRAM_ID",
+    "MAX_SLIPPAGE_BPS",
+    "MINT_REDEEM_PROGRAM_ID",
+    "ORACLE_PROGRAM_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_ACCOUNT_ID",
+    "R2_BUCKET",
+    "R2_SECRET_ACCESS_KEY",
+    "TOKIO_WORKER_THREADS",
+    "UPDATE_INTERVAL_MS",
+    "USDC_MINT",
+    "_RJEM_MALLOC_CONF"
+  ],
+  "volumes": []
+}

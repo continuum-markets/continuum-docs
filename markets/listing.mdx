@@ -1,0 +1,118 @@
+---
+title: Listing a market
+description: How a new asset becomes a Continuum market. Listing is an operator process run by the Continuum team; this page walks through each step and what it changes on chain.
+---
+
+The Continuum team lists markets as an operator process, and its listing scripts are not public. Listing needs the market authority, the GlobalClp authority and changes to the keeper and the app. This page describes each step, so you can see how a new market's accounts are built and when it becomes usable.
+
+The on-chain [registry](/programs/registry) plays no part in listing today. It holds no markets and nothing reads it. New addresses are published on [Address registry](/reference/addresses).
+
+## Choosing an asset
+
+Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualifies when all of these hold:
+
+- A free public source quotes the same instrument the market tracks, with no API key. A proxy doesn't count. OIL was withdrawn on 30 Aug 2026 because its only keyless quote was the front-month WTI future, a different instrument that carries a roll basis.
+- Hyperliquid lists the instrument, or an index the keeper can track it against, so that every price push can be checked.
+- For mainnet, Pyth publishes a feed for it.
+- The keeper has trained volatility coefficients for it. Its fees and spread floors depend on them.
+
+## On-chain sequence
+
+<Steps>
+  <Step title="Create the mints and the vault">
+    Create the long and short mints as classic SPL Token mints with 6 decimals and no freeze authority. Their mint authority is the Market PDA (`[b"market", symbol]` on mint-redeem), which can be derived before the market exists. The collateral vault is the cUSDC ATA of the Market PDA.
+  </Step>
+  <Step title="Initialize the market">
+    The market authority calls `initialize_market(params: InitMarketParams)`:
+
+    ```rust
+    pub struct InitMarketParams {
+        pub asset_symbol: String,    // at most 10 bytes
+        pub oracle_type: OracleType, // Continuum
+        pub initial_l_price: u64,    // scaled by 1e6
+        pub initial_s_price: u64,    // scaled by 1e6; equals initial_l_price on every live market
+        pub mint_fee_bps: u16,       // at most 1000
+        pub redeem_fee_bps: u16,     // at most 1000
+        pub keeper_authority: Pubkey,
+    }
+    ```
+
+    With `OracleType::Continuum`, the `oracle` account must be the market's `OracleConfig` PDA (`[b"oracle_config", market]`), which the next step creates. The market starts active, in the `Normal` risk state, with `dev_tax_pct = 10`. Its first reference price is the initial L price.
+  </Step>
+  <Step title="Create the oracle config">
+    On the oracle program, `initialize_oracle_config(max_confidence_interval, max_staleness, keeper_authority)` creates the `OracleConfig` PDA. `upsert_oracle_feed(priority, kind, is_active)` registers each Pyth price account as a feed. Mint and redeem check only the `OracleConfig` address. On devnet the keeper doesn't update it and writes prices to `Market.user_twap_price` instead.
+  </Step>
+  <Step title="Create and fund the CLP">
+    On the clp program, `initialize_clp(oi_cap, oracle_config)` creates the per-market `Clp` PDA (`[b"clp", market]`). Every live market stores an OI cap of 250,000 cUSDC (`oi_cap = 250_000_000_000`), but nothing enforces it yet. The CLP vault and the CLP's L and S token accounts are ATAs of the `Clp` PDA. `allocate_to_market(amount)` moves capital from the GlobalClp vault into the CLP vault.
+  </Step>
+  <Step title="Open the two books">
+    `init_pool(side, step_bps, num_bins)` creates each `Pool` PDA (`[b"pool", market, [side]]`, side 0 long, side 1 short), and only the GlobalClp authority can sign it. `configure_pool_geom(wing_step_bps, core_bins)` then sets the two-zone geometry. The pool's token vaults are its ATAs for the synth mint and for cUSDC.
+
+    To seed the books, the operator sends cUSDC to each pool's cUSDC vault for the bids. It also mints L and S as a pair, sending the L to the long book's synth vault and the S to the short book's. The first `set_pool_shape(base_price_1e6, asks, bids)` posts the bins and sets `enabled = true`. From then on, nothing can disable or freeze the pool.
+  </Step>
+  <Step title="Set the operating state">
+    The market moves to ProxyMode, where every devnet market runs. Committed orders and `clp_swap` stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; as of 10 Oct 2026 they are on for QQQ, SPY and XAU only. The books don't depend on this flag. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint.
+  </Step>
+</Steps>
+
+## Choosing the geometry
+
+`init_pool` accepts a core step of 1 to 1,000 bps and up to 16 bins a side. `configure_pool_geom` requires the wing step to be at least the core step and `core_bins` to be at most `num_bins`; a wing step of 0 keeps a uniform ladder. The live books use these settings (10 Oct 2026):
+
+| Asset class | Markets | Core step × core bins | Wing step | Bins a side |
+|---|---|---|---|---|
+| Index ETF | QQQ, SPY | 15 to 20 bps × 3 | 250 to 300 bps | 12 |
+| Metal | XAU, XAG | 20 bps × 3 (XAU long book: 50 bps) | 300 bps | 12 (XAU long book: 6) |
+| Single stock | NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, MSTR | 25 to 50 bps × 3 | 400 to 700 bps | 12 |
+| FX | EUR, GBP, JPY | 10 bps × 3 | 200 bps | 12 |
+
+The books charge no swap fee, so the gap between the centre and the first funded bin is the price of an instant trade. A tight core step gives better prices but loses more to informed traders when the price gaps. That is why the volatile single stocks get wider steps than the index ETFs and FX.
+
+## Keeper changes
+
+The keeper's source isn't published. Before the protocol's keeper will price and run a new market, it needs these changes:
+
+1. Add the symbol to the discovery candidate list (`DISCOVERY_CANDIDATES`). At boot the keeper reads each candidate's Market PDA and runs every market with `is_active = true`, unless `ACTIVE_MARKETS` overrides discovery.
+2. Map the symbol to its price sources: the public quote source's symbol, the Pyth feed IDs for mainnet, and a benchmark ticker that seeds the volatility state at boot.
+3. Map it to its Hyperliquid instrument for the price check. If Hyperliquid lists only the index, as for QQQ and SPY, flag it as an index proxy so the keeper learns the ratio.
+4. Add its entry to `vol_coefs.json`. A test in the keeper's suite fails until every candidate has one.
+5. For a single stock, add it to `JUMP_PRONE`, which caps its off-hours books at \$1,250 a side.
+6. Redeploy. Discovery runs only at boot, so the keeper ignores a new market until it restarts.
+
+## App changes
+
+The app at continuum.markets reads a static address list, so a new market also needs:
+
+- an entry in the app's market address list with the market's mints, vault, CLP accounts and books;
+- an asset class in the app's market taxonomy, since the build fails for an unclassified market;
+- a logo, plus the token images and metadata JSON that the on-chain metadata points to.
+
+## When a new market becomes usable
+
+| After | What works |
+|---|---|
+| `initialize_market` | The market exists and is active. Its first reference price is the initial L price, stamped at creation. Once that is 300 s old, mint and redeem revert with `TwapNotAvailable` until the keeper pushes a price. |
+| First `set_pool_shape` | Both books are enabled and trade at the posted bins. |
+| Keeper redeploy | The keeper discovers the market, pushes prices, posts fees and the committed-order spread, and manages the books. Mint and redeem work whenever its last price is no more than 300 s old. |
+
+## Pausing and delisting
+
+The market authority pauses a market with `update_market(is_active: Some(false))`. Mint and redeem then revert with `MarketNotActive`, and the keeper drops the market at its next restart. Existing L and S tokens stay valid SPL tokens, but they can't be redeemed until the market is reactivated.
+
+Pausing doesn't touch the books. Nothing can disable or freeze a pool, so a paused market's books stay tradable until the operator sweeps their inventory back to the CLP with `pool_sweep_usdc` and `pool_sweep_synth`.
+
+A full delist goes further. `vault_redeem_pairs` turns the CLP's L and S back into cUSDC, and `return_to_global` sends the capital back to the GlobalClp. `close_market_admin` can close the Market account only once its L and S supply, total collateral and deployed yield are all zero.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    Markets currently active on devnet.
+  </Card>
+  <Card title="Roadmap" icon="map" href="/markets/roadmap">
+    Planned markets.
+  </Card>
+  <Card title="Concepts → Markets" icon="book" href="/concepts/markets">
+    Market structure, book geometry and trading hours.
+  </Card>
+</CardGroup>

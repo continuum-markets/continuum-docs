@@ -1,0 +1,34 @@
+---
+title: Book management
+description: How the keeper centres, shapes, refills and trims the bin books, and what it posts while a market is closed.
+---
+
+Each market has two books, one per leg. A book lives entirely inside one `Pool` account: up to 16 bins stored inline, with no per-bin rent. The keeper's book manager centres each book near NAV and posts a bin shape derived from live volatility.
+
+## The reposition loop
+
+Every 30 s, for each market and side:
+
+1. **Feed the volatility state.** One price sample per cycle goes into the spread engine. The state lives in memory, so a restart empties it, and until the ratchet has about 8 windows of data the spread falls back to its floors.
+2. **Find the centre.** The target is NAV moved by the inventory centre-shift (on by default). When the public holds more L than S, the protocol is left holding S, so the keeper quotes the long book dearer and the short book cheaper. The shift is at most half the narrower leg's half-spread, never quotes inside the spread floor, and stays within the redeem-fee hurdle so a half-posted update cannot be arbitraged.
+3. **Check the drift gate.** The book re-centres only when the target has moved from the posted base by at least the gate. `CLMM_REPOSITION_BPS` (default 20) is a ceiling: on the side a move threatens, the keeper cuts the gate so the book re-centres, with 1 bp to spare, before NAV comes within the spread floor (oracle confidence plus a fixed cost) of the first funded bin.
+4. **Compute the shape.** The half-spread is the largest of the realized q90 ratchet, the slow auto-floor, oracle confidence plus cost, and the static floor (see [the keeper concept page](/concepts/keeper)). Bins inside it stay empty. Liquidity starts at the bin whose offset is nearest the half-spread and falls off by a factor of 0.7 per bin outward. The protective skew then widens the side a continuing trend would hit and never tightens the other. The short book mirrors this automatically, since `S = K / L × γ` moves inversely to L. A side that cannot clear the floor stays unposted.
+5. **Post it.** `set_pool_shape(base, asks, bids)`. On chain, the asks must fit in the pool's synth vault and the bids in its cUSDC vault.
+
+## Closed markets: the free-float book
+
+When a market's underlying stops trading, the keeper stops pushing its price. Once the last push is more than 300 s old, the program rejects mint and redeem, and the keeper switches that market's books to free float. It posts one book per side, anchored at the last price with no inventory shift, and spreads the inventory evenly across the ladder. Each side is capped at $10,000, or $1,250 for the single-name stocks AAPL, AMZN, GOOGL, MSFT, MSTR, NVDA and TSLA. The keeper holds that book until a fresh price returns, then re-centres it whatever the drift.
+
+The free-float guard (on by default) watches venues that keep trading while the underlying is shut: US pre- and post-market prints, CME and CFE futures, Hyperliquid perps, and tokenized gold and euro (PAXG, EURC) on Coinbase. When they show a move of 10 bps or more, the guard pulls the stale side's bins: asks within the free-float half-spread of the highest price any venue shows, and bids within it of the lowest. Pulled bins return only after the venues have allowed it for 600 s without a break. The guard never moves the centre or adds depth, and with no venue reading it changes nothing.
+
+## Inventory: refill, trim, bid cap
+
+`pool_swap` fills only from pre-funded bins, so trading reshapes inventory. The keeper rebalances it every cycle, in both directions.
+
+- When buying drains a side's asks below half its bid value, the keeper sweeps surplus bid cUSDC to the CLP vault, mints fresh L and S from it with `vault_mint_pairs`, and funds both sides' asks in one pass. Minting pairs keeps the restock delta-neutral, and the next reshape is forced so the new inventory enters the book at once.
+- When a side's asks are worth more than 1.5× its bids, the keeper sweeps the excess back to CLP custody with `pool_sweep_synth`, where it can provision committed orders. Ask depth the bid side cannot absorb is exit capacity nobody can use, and it invites arbitrage.
+- Standing bid cUSDC is capped at $5,000 per side, and the excess goes to the CLP vault. On QQQ, SPY and XAU, large sells can use the [committed venue](/flows/trade) instead, which the keeper provisions at settlement.
+
+## Why the books are lean
+
+Toxic loss grows with deployed depth, while organic revenue is capped by demand, so depth beyond demand subsidizes arbitrage. That is why bid cUSDC has a hard dollar cap and asks a ratio to the bids. `pool_swap` charges no swap fee, so a book earns only its spread; the protocol's other income is the mint and redeem fees and the committed-order spread.

@@ -1,0 +1,23 @@
+{
+  "canRedeploy": true,
+  "canRollback": true,
+  "createdAt": "2026-10-09T02:14:03.439Z",
+  "creator": {
+    "email": "nafironato@pm.me",
+    "id": "6d6a86c4-e5c5-457a-9df2-ae655b524287",
+    "name": "nxfi"
+  },
+  "environmentId": "76457ef2-7675-4239-a336-f0a09f244052",
+  "id": "3426b325-99ef-4934-8844-510bd96453ac",
+  "meta": {
+    "reason": "deploy"
+  },
+  "regions": [
+    "europe-west4-drams3a"
+  ],
+  "serviceId": "a558e432-23f9-47b1-acd6-0e0a7ee559d0",
+  "snapshotId": "ebff28fa-acdd-42ba-ba74-b1c936c2caec",
+  "status": "SUCCESS",
+  "updatedAt": "2026-10-09T02:15:11.126Z",
+  "url": null
+}

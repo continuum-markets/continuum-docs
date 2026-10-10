@@ -1,0 +1,249 @@
+{
+  "scope": "isolated v1.45 SBFv2 regression; no network submissions",
+  "before": [
+    {
+      "program": "clp",
+      "instruction": "clp_open_meteora_position",
+      "scenario": "real Meteora CPI with fresh position signer",
+      "success": false,
+      "computeUnits": "45018",
+      "executionMs": 0.4722080000000233,
+      "error": "TransactionErrorInstructionError { index: 1, error: InstructionErrorCustom { code: 6038 } }"
+    },
+    {
+      "unexpectedLogs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES invoke [1]",
+        "Program log: Instruction: ClpOpenMeteoraPosition",
+        "Program LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo invoke [2]",
+        "Program log: Instruction: InitializePosition",
+        "Program 11111111111111111111111111111111 invoke [3]",
+        "Program 11111111111111111111111111111111 success",
+        "Program log: AnchorError thrown in programs/lb_clmm/src/instructions/position/common.rs:47. Error Code: BinIdOutOfBound. Error Number: 6038. Error Message: Bin id out of bound.",
+        "Program LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo consumed 8636 of 1363618 compute units",
+        "Program LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo failed: custom program error: 0x1796",
+        "Program 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES consumed 44868 of 1399850 compute units",
+        "Program 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES failed: custom program error: 0x1796"
+      ],
+      "instructions": [
+        {
+          "program": "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES",
+          "data": "73decd1f05c5d5ea00a086010000000000a086010000000000000000000000000000000000"
+        }
+      ],
+      "inner": [
+        [],
+        [
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "dbc0ea47bebf6650572cfcff01000000",
+            "depth": 2
+          },
+          {
+            "program": "11111111111111111111111111111111",
+            "data": "0000000080f26b0300000000b81f00000000000004e9e12fbc84e826c932cce9e2640cce15590c1c6273b0925708ba3b8520b0bc",
+            "depth": 3
+          }
+        ]
+      ]
+    }
+  ],
+  "directSdkControls": [
+    {
+      "program": "clp",
+      "instruction": "fixture_sdk_position",
+      "scenario": "direct SDK width 1",
+      "success": true,
+      "computeUnits": "10221",
+      "executionMs": 0.3198330000000169,
+      "error": null
+    },
+    {
+      "program": "clp",
+      "instruction": "fixture_sdk_position",
+      "scenario": "direct SDK width 3",
+      "success": true,
+      "computeUnits": "10221",
+      "executionMs": 0.4877920000000131,
+      "error": null
+    },
+    {
+      "program": "clp",
+      "instruction": "fixture_sdk_position",
+      "scenario": "direct SDK width 69",
+      "success": true,
+      "computeUnits": "10221",
+      "executionMs": 0.45637499999998,
+      "error": null
+    },
+    {
+      "program": "clp",
+      "instruction": "fixture_sdk_position",
+      "scenario": "direct SDK width 70",
+      "success": true,
+      "computeUnits": "10221",
+      "executionMs": 0.3488750000000209,
+      "error": null
+    }
+  ],
+  "fix": "Narrow scalar helper arguments grouped behind immutable references; external instruction bytes unchanged.",
+  "finalSourceSha256": "f45927b96fc71a3e816cb9cfa89f0e756e28779a9de443fe90969198e1b74fd2",
+  "after": [
+    {
+      "instruction": "clp_open_meteora_position",
+      "scenario": "real Meteora CPI with fresh position signer",
+      "success": true,
+      "computeUnits": "119476",
+      "innerInstructions": [
+        [],
+        [
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "dbc0ea47bebf6650ffffffff03000000",
+            "depth": 2
+          },
+          {
+            "program": "11111111111111111111111111111111",
+            "data": "0000000080f26b0300000000b81f00000000000004e9e12fbc84e826c932cce9e2640cce15590c1c6273b0925708ba3b8520b0bc",
+            "depth": 3
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1d908efc549d35257974e560ac620ed62ffc7b55344b14315550cd4f0b2f639d5a7c5a7a9e56360b5e23cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d0",
+            "depth": 3
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "03dd95da6f8d76d5a086010000000000a0860100000000000000000005000000ffffffff01000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "depth": 2
+          },
+          {
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "data": "0c8f8601000000000006",
+            "depth": 3
+          },
+          {
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "data": "0c9f8601000000000006",
+            "depth": 3
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1d1f5e7d5ae3343dba74e560ac620ed62ffc7b55344b14315550cd4f0b2f639d5a7c5a7a9e56360b5e047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d023cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d8f860100000000009f8601000000000000000000",
+            "depth": 3
+          }
+        ]
+      ]
+    },
+    {
+      "instruction": "clp_topup_meteora_position",
+      "scenario": "real Meteora CPI",
+      "success": true,
+      "computeUnits": "101446",
+      "innerInstructions": [
+        [],
+        [
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "03dd95da6f8d76d5a086010000000000a0860100000000000000000005000000ffffffff01000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "depth": 2
+          },
+          {
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "data": "0c8f8601000000000006",
+            "depth": 3
+          },
+          {
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "data": "0c9f8601000000000006",
+            "depth": 3
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1d1f5e7d5ae3343dba74e560ac620ed62ffc7b55344b14315550cd4f0b2f639d5a7c5a7a9e56360b5e047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d023cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d8f860100000000009f8601000000000000000000",
+            "depth": 3
+          }
+        ]
+      ]
+    },
+    {
+      "instruction": "clp_claim_lp_fees",
+      "scenario": "real Meteora CPI, empty accrued fees",
+      "success": true,
+      "computeUnits": "62056",
+      "innerInstructions": [
+        [],
+        [
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "70bf65ab1c907fbbffffffff0100000000000000",
+            "depth": 2
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1d4b7a9a308c4a7ba374e560ac620ed62ffc7b55344b14315550cd4f0b2f639d5a7c5a7a9e56360b5e23cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d000000000000000000000000000000000",
+            "depth": 3
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1de8abf2613a4d232d74e560ac620ed62ffc7b55344b14315550cd4f0b2f639d5a7c5a7a9e56360b5e23cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d00000000000000000000000000000000000000000",
+            "depth": 3
+          }
+        ]
+      ]
+    },
+    {
+      "instruction": "clp_remove_meteora_liquidity",
+      "scenario": "real Meteora CPI",
+      "success": true,
+      "computeUnits": "85312",
+      "innerInstructions": [
+        [],
+        [
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "cc02c391359191cdffffffff01000000102700000000",
+            "depth": 2
+          },
+          {
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "data": "0c1e0d03000000000006",
+            "depth": 3
+          },
+          {
+            "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "data": "0c3e0d03000000000006",
+            "depth": 3
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1d74f461e8671f983a74e560ac620ed62ffc7b55344b14315550cd4f0b2f639d5a7c5a7a9e56360b5e047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d023cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d1e0d0300000000003e0d03000000000000000000",
+            "depth": 3
+          }
+        ]
+      ]
+    },
+    {
+      "instruction": "clp_close_meteora_position",
+      "scenario": "real Meteora CPI",
+      "success": true,
+      "computeUnits": "37362",
+      "innerInstructions": [
+        [],
+        [
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "ae5a2373ba2893e2",
+            "depth": 2
+          },
+          {
+            "program": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+            "data": "e445a52e51cb9a1dffc4106b1cca358023cd91bc560582dff4aedce1b0eab51f54f26dfd820ff2842b6cdaf2bd91e37d047c8f493919c07a6bd8acb6060082eb1a80044e08d23ddf2089f58de6e480d0",
+            "depth": 3
+          }
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "fetchedAt": "2026-10-08T23:50:15.355Z",
+  "serviceId": "0deb23db-6fc8-4cb6-9144-d2fe24f4ba99",
+  "deploymentId": "d1073556-c2ff-42fa-bcc1-824e330a2d36",
+  "metrics": {
+    "environment": {
+      "id": "76457ef2-7675-4239-a336-f0a09f244052",
+      "name": "production"
+    },
+    "metrics": [
+      {
+        "average": 0.001832932786885246,
+        "current": 0,
+        "max": 0.003789966666666667,
+        "measurement": "CPU_USAGE",
+        "min": 0,
+        "sampleCount": 61
+      },
+      {
+        "average": 0.02792904603278688,
+        "current": 0.027887616,
+        "max": 0.04100096,
+        "measurement": "MEMORY_USAGE_GB",
+        "min": 0.026165248,
+        "sampleCount": 61
+      }
+    ],
+    "service": {
+      "id": "0deb23db-6fc8-4cb6-9144-d2fe24f4ba99",
+      "name": "keeper"
+    }
+  },
+  "settlementLogs": [
+    {
+      "attributes": [
+        {
+          "key": "level",
+          "value": "\"error\""
+        }
+      ],
+      "message": "2026-10-08T22:48:36.683583Z  INFO keeper::commit_settler: [commit] XAU 1 settleable order(s)",
+      "severity": "error",
+      "timestamp": "2026-10-08T22:48:40.113609615Z"
+    },
+    {
+      "attributes": [
+        {
+          "key": "level",
+          "value": "\"error\""
+        }
+      ],
+      "message": "2026-10-08T22:48:38.557722Z  INFO keeper::commit_settler: [commit] XAU settled order 5BgkWBNk6w6Ru8WcZHGkvVMUGCYj24rV6LMaBrtnJzQo (side=0 dir=0 in=1000000) 3ooKDDj2b5PKY7noupy7CwuuQapPGEPEPRkkttYnv5CHDAz5GVuh1kFoYuBGvXhgcC84vppheMMqZAALRQtwe3TN",
+      "severity": "error",
+      "timestamp": "2026-10-08T22:48:40.113612484Z"
+    },
+    {
+      "attributes": [
+        {
+          "key": "level",
+          "value": "\"error\""
+        }
+      ],
+      "message": "2026-10-08T22:49:23.998623Z  INFO keeper::commit_settler: [commit] XAU 1 settleable order(s)",
+      "severity": "error",
+      "timestamp": "2026-10-08T22:49:24.023777470Z"
+    },
+    {
+      "attributes": [
+        {
+          "key": "level",
+          "value": "\"error\""
+        }
+      ],
+      "message": "2026-10-08T22:49:25.964335Z  INFO keeper::commit_settler: [commit] XAU settled order Dned3k2cJXFfzLPk8RZnBp72j1w8PooLBzuDunoFVCbz (side=0 dir=1 in=241) 3DYQyY9Cm9cZswGZHhw41czxpvGTZ5vUCxVNojRy2N4hTPyPVZwTfcHRkcvVWc4qno3ZRFGomEVxj22LFusHLQGo",
+      "severity": "error",
+      "timestamp": "2026-10-08T22:49:25.980847296Z"
+    },
+    {
+      "attributes": [
+        {
+          "key": "level",
+          "value": "\"error\""
+        }
+      ],
+      "message": "2026-10-08T22:49:51.340448Z  INFO keeper::commit_settler: [commit] XAU 1 settleable order(s)",
+      "severity": "error",
+      "timestamp": "2026-10-08T22:49:54.452685600Z"
+    },
+    {
+      "attributes": [
+        {
+          "key": "level",
+          "value": "\"error\""
+        }
+      ],
+      "message": "2026-10-08T22:49:53.740340Z  INFO keeper::commit_settler: [commit] XAU settled order 2uSG2zCWRvXsGFd2ftGGo8vy3HJVZrEBtN9bvWQgrP5L (side=0 dir=0 in=1000000) 48gdFh9Xy4cSK7FZDfT3YmLqX3yskF8EZ3DkVrtuSH53Xc4ApqX5fUmC4tudDb1Nd2zdwnd6bFNEhZNK5gGxaU7g",
+      "severity": "error",
+      "timestamp": "2026-10-08T22:49:54.452688270Z"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "method": "One sample per route;375px wide,4xCPU,Fast4G. Input to two frames proxy, not fieldINP or a physical-phone measurement.",
+  "routes": [
+    {
+      "route": "/mint?analytics_qa=performance-rollout-mobile",
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "viewport": [
+        375,
+        900
+      ],
+      "fcpMs": 892,
+      "lcpMs": 892,
+      "actionAttempts": 8,
+      "timedActions": 8,
+      "minMs": 26.899999976158142,
+      "maxMs": 74.5,
+      "error": null
+    },
+    {
+      "route": "/pools?analytics_qa=performance-rollout-mobile",
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "viewport": [
+        375,
+        900
+      ],
+      "fcpMs": 908,
+      "lcpMs": 908,
+      "actionAttempts": 21,
+      "timedActions": 10,
+      "minMs": 30.80000001192093,
+      "maxMs": 221.69999998807907,
+      "error": null
+    },
+    {
+      "route": "/pools/AAPL?analytics_qa=performance-rollout-mobile",
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "viewport": [
+        375,
+        900
+      ],
+      "fcpMs": 932,
+      "lcpMs": 932,
+      "actionAttempts": 17,
+      "timedActions": 17,
+      "minMs": 28.399999976158142,
+      "maxMs": 77.10000002384186,
+      "error": null
+    }
+  ],
+  "widthEvidence": [
+    {
+      "url": "https://continuum.markets/pools/EUR?analytics_qa=posted-pricing-visual-20261009",
+      "recordedAt": "2026-10-09T02:18:35.367Z",
+      "viewport": [
+        375,
+        900
+      ],
+      "scrollWidth": 375,
+      "buildId": "IKi12OWWBM-jIGLF_59hR"
+    },
+    {
+      "url": "https://continuum.markets/mint?market=EUR&analytics_qa=posted-pricing-visual-20261009",
+      "recordedAt": "2026-10-09T02:19:17.917Z",
+      "viewport": [
+        375,
+        900
+      ],
+      "scrollWidth": 375,
+      "buildId": "IKi12OWWBM-jIGLF_59hR"
+    }
+  ]
+}

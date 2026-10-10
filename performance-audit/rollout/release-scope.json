@@ -1,0 +1,46 @@
+{
+  "frontend": {
+    "path": "/private/tmp/continuum-fee-offer-release-20261009",
+    "base": "2a7c22eea901a282070769989a8ab8863d14cd4b",
+    "commit": "f97f949f6ffcd35d6831836cfaa8a89051c492be",
+    "preserved": [
+      "posted-price Anchor backport",
+      "live browser analytics"
+    ],
+    "excluded": [
+      "SDK transaction and recovery migration",
+      "SDK address cache and exact-quote integrations",
+      "privacy changes",
+      "unrelated UI edits"
+    ],
+    "confirmationBackport": "Existing Anchor and wallet context confirm via guarded HTTP, no resend; durable nonce remains SDK",
+    "performanceCommit": "95851676698aab6c3d721544d0c1f1d53211f041",
+    "concurrentVisualChanges": [
+      "app/pools/[symbol]/pool-view.tsx",
+      "components/MarketOHLCVChart.tsx"
+    ],
+    "benchmarkCommit": "3024aab4d8d1cf8ccbd781d4425cb02e03002648",
+    "concurrentProductChanges": [
+      "components/DonateToVaultPanel.tsx",
+      "components/MintRedeemView.tsx",
+      "lib/seo/fees.ts"
+    ]
+  },
+  "keeper": {
+    "path": "/tmp/continuum-performance-keeper-release",
+    "base": "cef63426bda621a5b7db3f6304e8fc4c7a26281a",
+    "preserved": "live finalized event analytics",
+    "commit": "b05154e2d6567de9c0f5544fb68f7180eb29429c"
+  },
+  "frontendInitial": {
+    "path": "/Users/nafironato/Dev/Projects/continuum/frontend-performance-release",
+    "base": "bee92c6255a46e133b2b47802fd67d4fedeccecf",
+    "excluded": [
+      "SDK transaction and recovery migration",
+      "SDK address cache and exact-quote integrations",
+      "SDK early-confirmation loop",
+      "privacy changes",
+      "unrelated UI edits"
+    ]
+  }
+}

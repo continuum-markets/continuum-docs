@@ -1,0 +1,29 @@
+{
+  "clp": {
+    "added": [],
+    "removed": [],
+    "changed": [],
+    "accountsIdentical": true,
+    "typesIdentical": false,
+    "errorsIdentical": true,
+    "typesAdded": [
+      "SwapExecuted"
+    ],
+    "typesRemoved": [],
+    "existingTypesChanged": [],
+    "note": "Fresh IDL additionally exposes SwapExecuted, whose unchanged business-event source matches the live analytics commit; no existing instruction/account/type changed."
+  },
+  "oracle": {
+    "added": [
+      "realloc_oracle_config"
+    ],
+    "removed": [],
+    "changed": [],
+    "accountsIdentical": true,
+    "typesIdentical": true,
+    "errorsIdentical": true,
+    "typesAdded": [],
+    "typesRemoved": [],
+    "existingTypesChanged": []
+  }
+}

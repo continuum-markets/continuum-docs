@@ -1,0 +1,202 @@
+stage,route,sample,action,frameMs,feedbackMs,gap
+before,/pools,0,button: Select Wallet,111.80000001192093,95.19999998807907,
+before,/pools,0,"DisclosureTriangle: Protocol overview · TVL, yield and collateral",44.59999996423721,36.30000001192093,
+before,/pools,0,button: All 14,30,,
+before,/pools,0,button: Indices 2,91.5,83.69999998807907,
+before,/pools,0,button: Stocks 7,570.8999999761581,547,
+before,/pools,0,button: Commodities 2,188.5999999642372,171,
+before,/pools,0,button: Forex 3,311.19999998807907,291.80000001192093,
+before,/pools,0,Stale reference Spread ±40bps Details Yield and liquidity for QQQ,,,not present in current state
+before,/pools,0,Stale reference Spread ±30bps Details Yield and liquidity for SPY,,,not present in current state
+before,/pools,0,Stale reference Spread ±50bps Details Yield and liquidity for AAPL,,,not present in current state
+before,/pools,0,Stale reference Spread ±75bps Details Yield and liquidity for AMZN,,,not present in current state
+before,/pools,0,Stale reference Spread ±75bps Details Yield and liquidity for GOOGL,,,not present in current state
+before,/pools,0,Stale reference Spread ±75bps Details Yield and liquidity for MSFT,,,not present in current state
+before,/pools,0,Stale reference Spread ±149bps Details Yield and liquidity for MSTR,,,not present in current state
+before,/pools,0,Stale reference Spread ±60bps Details Yield and liquidity for NVDA,,,not present in current state
+before,/pools,0,Stale reference Spread ±104bps Details Yield and liquidity for TSLA,,,not present in current state
+before,/pools,0,Live Spread ±20bps Details Yield and liquidity for XAG,,,not present in current state
+before,/pools,0,Live Spread ±50bps Details Yield and liquidity for XAU,,,not present in current state
+before,/pools,0,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for EUR,34.69999998807907,19.69999998807907,
+before,/pools,0,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for GBP,29.899999976158142,17.799999952316284,
+before,/pools,0,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for JPY,30.69999998807907,15.600000023841858,
+before,/pools,1,button: Select Wallet,84.40000003576279,71.30000001192093,
+before,/pools,1,"DisclosureTriangle: Protocol overview · TVL, yield and collateral",52.30000001192093,41.80000001192093,
+before,/pools,1,button: All 14,45.80000001192093,,
+before,/pools,1,button: Indices 2,88.39999997615814,80.5,
+before,/pools,1,button: Stocks 7,571.6000000238419,546.6000000238419,
+before,/pools,1,button: Commodities 2,305.7000000476837,283.5,
+before,/pools,1,button: Forex 3,231.5,215.5,
+before,/pools,1,Stale reference Spread ±40bps Details Yield and liquidity for QQQ,,,not present in current state
+before,/pools,1,Stale reference Spread ±30bps Details Yield and liquidity for SPY,,,not present in current state
+before,/pools,1,Stale reference Spread ±50bps Details Yield and liquidity for AAPL,,,not present in current state
+before,/pools,1,Stale reference Spread ±75bps Details Yield and liquidity for AMZN,,,not present in current state
+before,/pools,1,Stale reference Spread ±75bps Details Yield and liquidity for GOOGL,,,not present in current state
+before,/pools,1,Stale reference Spread ±75bps Details Yield and liquidity for MSFT,,,not present in current state
+before,/pools,1,Stale reference Spread ±149bps Details Yield and liquidity for MSTR,,,not present in current state
+before,/pools,1,Stale reference Spread ±60bps Details Yield and liquidity for NVDA,,,not present in current state
+before,/pools,1,Stale reference Spread ±104bps Details Yield and liquidity for TSLA,,,not present in current state
+before,/pools,1,Live Spread ±20bps Details Yield and liquidity for XAG,,,not present in current state
+before,/pools,1,Live Spread ±50bps Details Yield and liquidity for XAU,,,not present in current state
+before,/pools,1,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for EUR,30.69999998807907,20,
+before,/pools,1,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for GBP,28.5,16.899999976158142,
+before,/pools,1,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for JPY,31.100000023841858,17.19999998807907,
+before,/pools,2,button: Select Wallet,79.60000002384186,66.69999998807907,
+before,/pools,2,"DisclosureTriangle: Protocol overview · TVL, yield and collateral",45.89999997615814,37,
+before,/pools,2,button: All 14,29.19999998807907,,
+before,/pools,2,button: Indices 2,80.69999998807907,73.39999997615814,
+before,/pools,2,button: Stocks 7,619.7999999523163,593.5,
+before,/pools,2,button: Commodities 2,296.89999997615814,269.5999999642372,
+before,/pools,2,button: Forex 3,226.5999999642372,211.19999998807907,
+before,/pools,2,Stale reference Spread ±40bps Details Yield and liquidity for QQQ,,,not present in current state
+before,/pools,2,Stale reference Spread ±30bps Details Yield and liquidity for SPY,,,not present in current state
+before,/pools,2,Stale reference Spread ±50bps Details Yield and liquidity for AAPL,,,not present in current state
+before,/pools,2,Stale reference Spread ±75bps Details Yield and liquidity for AMZN,,,not present in current state
+before,/pools,2,Stale reference Spread ±75bps Details Yield and liquidity for GOOGL,,,not present in current state
+before,/pools,2,Stale reference Spread ±75bps Details Yield and liquidity for MSFT,,,not present in current state
+before,/pools,2,Stale reference Spread ±149bps Details Yield and liquidity for MSTR,,,not present in current state
+before,/pools,2,Stale reference Spread ±60bps Details Yield and liquidity for NVDA,,,not present in current state
+before,/pools,2,Stale reference Spread ±104bps Details Yield and liquidity for TSLA,,,not present in current state
+before,/pools,2,Live Spread ±20bps Details Yield and liquidity for XAG,,,not present in current state
+before,/pools,2,Live Spread ±50bps Details Yield and liquidity for XAU,,,not present in current state
+before,/pools,2,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for EUR,27.899999976158142,17.899999976158142,
+before,/pools,2,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for GBP,28.5,21.80000001192093,
+before,/pools,2,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for JPY,28.899999976158142,18.5,
+after,/mint,0,button: Select Wallet,84.10000002384186,73.70000004768372,
+after,/mint,0,button: Mint,32.90000003576279,240.70000004768372,
+after,/mint,0,button: Redeem,66.80000001192093,55.200000047683716,
+after,/mint,0,combobox: SELECT ASSET,69.10000002384186,54.30000001192093,
+after,/mint,0,spinbutton: CUSDC AMOUNT,46.80000001192093,35.19999998807907,
+after,/mint,0,button: Connect Wallet,88.39999997615814,72.69999998807907,
+after,/mint,0,DisclosureTriangle: Yield and market details,30.5,16.799999952316284,
+after,/mint,0,spinbutton: 0.00,27.5,15,
+after,/mint,1,button: Select Wallet,93.10000002384186,81.39999997615814,
+after,/mint,1,button: Mint,30.700000047683716,231.9000000357628,
+after,/mint,1,button: Redeem,36.80000001192093,30.200000047683716,
+after,/mint,1,combobox: SELECT ASSET,37.89999997615814,26.299999952316284,
+after,/mint,1,spinbutton: CUSDC AMOUNT,34.09999996423721,15.899999976158142,
+after,/mint,1,button: Connect Wallet,70.5,58.39999997615814,
+after,/mint,1,DisclosureTriangle: Yield and market details,30.5,15.399999976158142,
+after,/mint,1,spinbutton: 0.00,28.900000035762787,14.100000023841858,
+after,/mint,2,button: Select Wallet,113.89999997615814,101.59999996423721,
+after,/mint,2,button: Mint,30.69999998807907,132.5999999642372,
+after,/mint,2,button: Redeem,47.80000001192093,40.19999998807907,
+after,/mint,2,combobox: SELECT ASSET,45.89999997615814,35.80000001192093,
+after,/mint,2,spinbutton: CUSDC AMOUNT,39.40000003576279,20,
+after,/mint,2,button: Connect Wallet,63.90000003576279,52,
+after,/mint,2,DisclosureTriangle: Yield and market details,32.89999997615814,16.69999998807907,
+after,/mint,2,spinbutton: 0.00,26.399999976158142,12.100000023841858,
+after,/pools,0,button: Select Wallet,94.30000001192093,76.5,
+after,/pools,0,"DisclosureTriangle: Protocol overview · TVL, yield and collateral",43.90000003576279,36.5,
+after,/pools,0,button: All 14,29.69999998807907,,
+after,/pools,0,button: Indices 2,45.200000047683716,38.10000002384186,
+after,/pools,0,button: Stocks 7,241.20000004768372,219.20000004768372,
+after,/pools,0,button: Commodities 2,88.19999998807907,78.89999997615814,
+after,/pools,0,button: Forex 3,104.60000002384186,94.69999998807907,
+after,/pools,0,Stale reference Spread ±40bps Details Yield and liquidity for QQQ,,,not present in current state
+after,/pools,0,Stale reference Spread ±30bps Details Yield and liquidity for SPY,,,not present in current state
+after,/pools,0,Stale reference Spread ±50bps Details Yield and liquidity for AAPL,,,not present in current state
+after,/pools,0,Stale reference Spread ±75bps Details Yield and liquidity for AMZN,,,not present in current state
+after,/pools,0,Stale reference Spread ±75bps Details Yield and liquidity for GOOGL,,,not present in current state
+after,/pools,0,Stale reference Spread ±75bps Details Yield and liquidity for MSFT,,,not present in current state
+after,/pools,0,Stale reference Spread ±149bps Details Yield and liquidity for MSTR,,,not present in current state
+after,/pools,0,Stale reference Spread ±60bps Details Yield and liquidity for NVDA,,,not present in current state
+after,/pools,0,Stale reference Spread ±104bps Details Yield and liquidity for TSLA,,,not present in current state
+after,/pools,0,Live Spread ±20bps Details Yield and liquidity for XAG,,,not present in current state
+after,/pools,0,Live Spread ±50bps Details Yield and liquidity for XAU,,,not present in current state
+after,/pools,0,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for EUR,98.39999997615814,15.599999964237213,
+after,/pools,0,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for GBP,56.09999996423721,15.5,
+after,/pools,0,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for JPY,54.5,17.100000023841858,
+after,/pools,1,button: Select Wallet,99.5,81.59999996423721,
+after,/pools,1,"DisclosureTriangle: Protocol overview · TVL, yield and collateral",50.89999997615814,42,
+after,/pools,1,button: All 14,29.900000035762787,,
+after,/pools,1,button: Indices 2,68.69999998807907,57.10000002384186,
+after,/pools,1,button: Stocks 7,331.5999999642372,313.5999999642372,
+after,/pools,1,button: Commodities 2,114.5,101.89999997615814,
+after,/pools,1,button: Forex 3,123.59999996423721,110,
+after,/pools,1,Stale reference Spread ±40bps Details Yield and liquidity for QQQ,,,not present in current state
+after,/pools,1,Stale reference Spread ±30bps Details Yield and liquidity for SPY,,,not present in current state
+after,/pools,1,Stale reference Spread ±50bps Details Yield and liquidity for AAPL,,,not present in current state
+after,/pools,1,Stale reference Spread ±75bps Details Yield and liquidity for AMZN,,,not present in current state
+after,/pools,1,Stale reference Spread ±75bps Details Yield and liquidity for GOOGL,,,not present in current state
+after,/pools,1,Stale reference Spread ±75bps Details Yield and liquidity for MSFT,,,not present in current state
+after,/pools,1,Stale reference Spread ±149bps Details Yield and liquidity for MSTR,,,not present in current state
+after,/pools,1,Stale reference Spread ±60bps Details Yield and liquidity for NVDA,,,not present in current state
+after,/pools,1,Stale reference Spread ±104bps Details Yield and liquidity for TSLA,,,not present in current state
+after,/pools,1,Live Spread ±20bps Details Yield and liquidity for XAG,,,not present in current state
+after,/pools,1,Live Spread ±50bps Details Yield and liquidity for XAU,,,not present in current state
+after,/pools,1,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for EUR,105.69999998807907,17.100000023841858,
+after,/pools,1,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for GBP,60.80000001192093,18,
+after,/pools,1,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for JPY,59,17,
+after,/pools,2,button: Select Wallet,96.19999998807907,81.19999998807907,
+after,/pools,2,"DisclosureTriangle: Protocol overview · TVL, yield and collateral",45.39999997615814,37,
+after,/pools,2,button: All 14,29.299999952316284,,
+after,/pools,2,button: Indices 2,50.5,42.39999997615814,
+after,/pools,2,button: Stocks 7,268.19999998807907,252.80000001192093,
+after,/pools,2,button: Commodities 2,98.5,89.30000001192093,
+after,/pools,2,button: Forex 3,123.69999998807907,108,
+after,/pools,2,Stale reference Spread ±40bps Details Yield and liquidity for QQQ,,,not present in current state
+after,/pools,2,Stale reference Spread ±30bps Details Yield and liquidity for SPY,,,not present in current state
+after,/pools,2,Stale reference Spread ±50bps Details Yield and liquidity for AAPL,,,not present in current state
+after,/pools,2,Stale reference Spread ±75bps Details Yield and liquidity for AMZN,,,not present in current state
+after,/pools,2,Stale reference Spread ±75bps Details Yield and liquidity for GOOGL,,,not present in current state
+after,/pools,2,Stale reference Spread ±75bps Details Yield and liquidity for MSFT,,,not present in current state
+after,/pools,2,Stale reference Spread ±149bps Details Yield and liquidity for MSTR,,,not present in current state
+after,/pools,2,Stale reference Spread ±60bps Details Yield and liquidity for NVDA,,,not present in current state
+after,/pools,2,Stale reference Spread ±104bps Details Yield and liquidity for TSLA,,,not present in current state
+after,/pools,2,Live Spread ±20bps Details Yield and liquidity for XAG,,,not present in current state
+after,/pools,2,Live Spread ±50bps Details Yield and liquidity for XAU,,,not present in current state
+after,/pools,2,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for EUR,122.5,22.899999976158142,
+after,/pools,2,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for GBP,57.90000003576279,17.5,
+after,/pools,2,DisclosureTriangle: Live Spread ±10bps Details Yield and liquidity for JPY,58.5,18.899999976158142,
+after,/pools/AAPL,0,button: Select Wallet,75.80000001192093,66,
+after,/pools/AAPL,0,button: Retry,37.90000003576279,45,
+after,/pools/AAPL,0,button: Buy,30.599999964237213,610.6999999880791,
+after,/pools/AAPL,0,button: Long (AAPLL),31,577.1999999880791,
+after,/pools/AAPL,0,button: Short (AAPLS),30.100000023841858,22.80000001192093,
+after,/pools/AAPL,0,spinbutton: Amount in cUSDC,31.80000001192093,16.200000047683716,
+after,/pools/AAPL,0,button: 0.1%,30.899999976158142,26.299999952316284,
+after,/pools/AAPL,0,button: 0.5%,30.799999952316284,19.799999952316284,
+after,/pools/AAPL,0,button: 1%,31.100000023841858,19.80000001192093,
+after,/pools/AAPL,0,button: next print,34.5,17.899999976158142,
+after,/pools/AAPL,0,button: Connect Wallet,65.30000001192093,52.19999998807907,
+after,/pools/AAPL,0,button: 1m,26.399999976158142,735.7999999523163,
+after,/pools/AAPL,0,button: 5m,31.5,25.599999964237213,
+after,/pools/AAPL,0,button: 15m,32,27,
+after,/pools/AAPL,0,button: 1h,28.80000001192093,22.80000001192093,
+after,/pools/AAPL,0,button: 4h,35,27.399999976158142,
+after,/pools/AAPL,0,button: 1D,30.19999998807907,22.599999964237213,
+after,/pools/AAPL,1,button: Select Wallet,68.30000001192093,58.60000002384186,
+after,/pools/AAPL,1,button: Retry,37.5,45.80000001192093,
+after,/pools/AAPL,1,button: Buy,30.5,607.5,
+after,/pools/AAPL,1,button: Long (AAPLL),31.400000035762787,608.6000000238419,
+after,/pools/AAPL,1,button: Short (AAPLS),31.400000035762787,23,
+after,/pools/AAPL,1,spinbutton: Amount in cUSDC,29.5,14.5,
+after,/pools/AAPL,1,button: 0.1%,31.099999964237213,24.099999964237213,
+after,/pools/AAPL,1,button: 0.5%,30.100000023841858,19.400000035762787,
+after,/pools/AAPL,1,button: 1%,31.5,21.5,
+after,/pools/AAPL,1,button: next print,33,28.100000023841858,
+after,/pools/AAPL,1,button: Connect Wallet,63.30000001192093,52,
+after,/pools/AAPL,1,button: 1m,38.30000001192093,737.3000000119209,
+after,/pools/AAPL,1,button: 5m,34.59999996423721,28.80000001192093,
+after,/pools/AAPL,1,button: 15m,31.69999998807907,25.69999998807907,
+after,/pools/AAPL,1,button: 1h,30.30000001192093,23.80000001192093,
+after,/pools/AAPL,1,button: 4h,30.399999976158142,22.5,
+after,/pools/AAPL,1,button: 1D,30.80000001192093,22.600000023841858,
+after,/pools/AAPL,2,button: Select Wallet,69.30000001192093,58.90000003576279,
+after,/pools/AAPL,2,button: Retry,41.80000001192093,49.30000001192093,
+after,/pools/AAPL,2,button: Buy,31,303.60000002384186,
+after,/pools/AAPL,2,button: Long (AAPLL),29.600000023841858,486.19999998807907,
+after,/pools/AAPL,2,button: Short (AAPLS),30.69999998807907,24.19999998807907,
+after,/pools/AAPL,2,spinbutton: Amount in cUSDC,36.19999998807907,17.69999998807907,
+after,/pools/AAPL,2,button: 0.1%,42.60000002384186,36.60000002384186,
+after,/pools/AAPL,2,button: 0.5%,30.80000001192093,19.600000023841858,
+after,/pools/AAPL,2,button: 1%,30,19.799999952316284,
+after,/pools/AAPL,2,button: next print,30.69999998807907,18.600000023841858,
+after,/pools/AAPL,2,button: Connect Wallet,54.19999998807907,43.19999998807907,
+after,/pools/AAPL,2,button: 1m,31.80000001192093,755.8000000119209,
+after,/pools/AAPL,2,button: 5m,30.899999976158142,23.19999998807907,
+after,/pools/AAPL,2,button: 15m,30.900000035762787,23.200000047683716,
+after,/pools/AAPL,2,button: 1h,30.799999952316284,23.69999998807907,
+after,/pools/AAPL,2,button: 4h,29.299999952316284,24.099999964237213,
+after,/pools/AAPL,2,button: 1D,30.80000001192093,25.30000001192093,

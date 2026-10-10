@@ -1,0 +1,140 @@
+[
+  {
+    "endpoint": "/ping",
+    "before": {
+      "n": 5,
+      "medianMs": 0.241,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        2
+      ]
+    },
+    "after": {
+      "n": 5,
+      "medianMs": 0.145,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        2
+      ]
+    }
+  },
+  {
+    "endpoint": "/health",
+    "before": {
+      "n": 5,
+      "medianMs": 0.217,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        171
+      ]
+    },
+    "after": {
+      "n": 5,
+      "medianMs": 0.101,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        169
+      ]
+    }
+  },
+  {
+    "endpoint": "/api/status/devnet",
+    "before": {
+      "n": 5,
+      "medianMs": 0.232,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        4420
+      ]
+    },
+    "after": {
+      "n": 5,
+      "medianMs": 0.158,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        4442
+      ]
+    }
+  },
+  {
+    "endpoint": "/api/arb-scan/devnet",
+    "before": {
+      "n": 5,
+      "medianMs": 0.211,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        16
+      ]
+    },
+    "after": {
+      "n": 5,
+      "medianMs": 0.11,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        16
+      ]
+    }
+  },
+  {
+    "endpoint": "/api/sol-health/devnet",
+    "before": {
+      "n": 5,
+      "medianMs": 0.196,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        448
+      ]
+    },
+    "after": {
+      "n": 5,
+      "medianMs": 0.112,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        448
+      ]
+    }
+  },
+  {
+    "endpoint": "/api/pool-state/devnet",
+    "before": {
+      "n": 5,
+      "medianMs": 0.146,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        12
+      ]
+    },
+    "after": {
+      "n": 5,
+      "medianMs": 0.10900000000000001,
+      "statuses": [
+        200
+      ],
+      "bytes": [
+        12
+      ]
+    }
+  }
+]

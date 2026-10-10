@@ -1,0 +1,1 @@
+PASS: successful raw reads survive later failure; timestamped resume, forced refresh, TTL expiry and bounded 429 gap verified without network.

@@ -1,0 +1,1225 @@
+{
+  "method": "Cold isolated contexts, 4x CPU, Fast 4G; input-to-two-frames is a proxy, not field INP.",
+  "before": "docs/performance-audit/rollout-posted-before",
+  "after": "docs/performance-audit/rollout-combined-final",
+  "routes": [
+    {
+      "route": "/mint",
+      "before": {
+        "fcpMs": null,
+        "lcpMs": null,
+        "longTaskMs": null
+      },
+      "after": {
+        "fcpMs": {
+          "n": 3,
+          "median": 884,
+          "min": 884,
+          "max": 916
+        },
+        "lcpMs": {
+          "n": 3,
+          "median": 2360,
+          "min": 2160,
+          "max": 2452
+        },
+        "longTaskMs": {
+          "n": 3,
+          "median": 888,
+          "min": 837,
+          "max": 967
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "before": {
+        "fcpMs": {
+          "n": 3,
+          "median": 920,
+          "min": 900,
+          "max": 952
+        },
+        "lcpMs": {
+          "n": 3,
+          "median": 920,
+          "min": 900,
+          "max": 952
+        },
+        "longTaskMs": {
+          "n": 3,
+          "median": 2562,
+          "min": 2559,
+          "max": 3497
+        }
+      },
+      "after": {
+        "fcpMs": {
+          "n": 3,
+          "median": 916,
+          "min": 908,
+          "max": 924
+        },
+        "lcpMs": {
+          "n": 3,
+          "median": 916,
+          "min": 908,
+          "max": 924
+        },
+        "longTaskMs": {
+          "n": 3,
+          "median": 1887,
+          "min": 1769,
+          "max": 1901
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "before": {
+        "fcpMs": null,
+        "lcpMs": null,
+        "longTaskMs": null
+      },
+      "after": {
+        "fcpMs": {
+          "n": 3,
+          "median": 940,
+          "min": 936,
+          "max": 952
+        },
+        "lcpMs": {
+          "n": 3,
+          "median": 940,
+          "min": 936,
+          "max": 952
+        },
+        "longTaskMs": {
+          "n": 3,
+          "median": 1324,
+          "min": 1180,
+          "max": 1358
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "route": "/mint",
+      "action": "DisclosureTriangle: Yield and market details",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.5,
+          "min": 30.5,
+          "max": 32.9
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 16.7,
+          "min": 15.4,
+          "max": 16.8
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "button: Connect Wallet",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 70.5,
+          "min": 63.9,
+          "max": 88.4
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 58.4,
+          "min": 52,
+          "max": 72.7
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "button: Mint",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.7,
+          "min": 30.7,
+          "max": 32.9
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 231.9,
+          "min": 132.6,
+          "max": 240.7
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "button: Redeem",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 47.8,
+          "min": 36.8,
+          "max": 66.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 40.2,
+          "min": 30.2,
+          "max": 55.2
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "button: Select Wallet",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 93.1,
+          "min": 84.1,
+          "max": 113.9
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 81.4,
+          "min": 73.7,
+          "max": 101.6
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "combobox: SELECT ASSET",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 45.9,
+          "min": 37.9,
+          "max": 69.1
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 35.8,
+          "min": 26.3,
+          "max": 54.3
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "spinbutton: 0.00",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 27.5,
+          "min": 26.4,
+          "max": 28.9
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 14.1,
+          "min": 12.1,
+          "max": 15
+        }
+      }
+    },
+    {
+      "route": "/mint",
+      "action": "spinbutton: CUSDC AMOUNT",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 39.4,
+          "min": 34.1,
+          "max": 46.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 20,
+          "min": 15.9,
+          "max": 35.2
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "DisclosureTriangle: Live Spread \u00b110bps Details Yield and liquidity for EUR",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.7,
+          "min": 27.9,
+          "max": 34.7
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 19.7,
+          "min": 17.9,
+          "max": 20
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 105.7,
+          "min": 98.4,
+          "max": 122.5
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 17.1,
+          "min": 15.6,
+          "max": 22.9
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "DisclosureTriangle: Live Spread \u00b110bps Details Yield and liquidity for GBP",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 28.5,
+          "min": 28.5,
+          "max": 29.9
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 17.8,
+          "min": 16.9,
+          "max": 21.8
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 57.9,
+          "min": 56.1,
+          "max": 60.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 17.5,
+          "min": 15.5,
+          "max": 18
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "DisclosureTriangle: Live Spread \u00b110bps Details Yield and liquidity for JPY",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.7,
+          "min": 28.9,
+          "max": 31.1
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 17.2,
+          "min": 15.6,
+          "max": 18.5
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 58.5,
+          "min": 54.5,
+          "max": 59
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 17.1,
+          "min": 17,
+          "max": 18.9
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "DisclosureTriangle: Protocol overview \u00b7 TVL, yield and collateral",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 45.9,
+          "min": 44.6,
+          "max": 52.3
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 37,
+          "min": 36.3,
+          "max": 41.8
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 45.4,
+          "min": 43.9,
+          "max": 50.9
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 37,
+          "min": 36.5,
+          "max": 42
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Live Spread \u00b120bps Details Yield and liquidity for XAG",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Live Spread \u00b150bps Details Yield and liquidity for XAU",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b1104bps Details Yield and liquidity for TSLA",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b1149bps Details Yield and liquidity for MSTR",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b130bps Details Yield and liquidity for SPY",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b140bps Details Yield and liquidity for QQQ",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b150bps Details Yield and liquidity for AAPL",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b160bps Details Yield and liquidity for NVDA",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b175bps Details Yield and liquidity for AMZN",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b175bps Details Yield and liquidity for GOOGL",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "Stale reference Spread \u00b175bps Details Yield and liquidity for MSFT",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": null,
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "button: All 14",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 30,
+          "min": 29.2,
+          "max": 45.8
+        },
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 29.7,
+          "min": 29.3,
+          "max": 29.9
+        },
+        "feedbackMs": null
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "button: Commodities 2",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 296.9,
+          "min": 188.6,
+          "max": 305.7
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 269.6,
+          "min": 171,
+          "max": 283.5
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 98.5,
+          "min": 88.2,
+          "max": 114.5
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 89.3,
+          "min": 78.9,
+          "max": 101.9
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "button: Forex 3",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 231.5,
+          "min": 226.6,
+          "max": 311.2
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 215.5,
+          "min": 211.2,
+          "max": 291.8
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 123.6,
+          "min": 104.6,
+          "max": 123.7
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 108,
+          "min": 94.7,
+          "max": 110
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "button: Indices 2",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 88.4,
+          "min": 80.7,
+          "max": 91.5
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 80.5,
+          "min": 73.4,
+          "max": 83.7
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 50.5,
+          "min": 45.2,
+          "max": 68.7
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 42.4,
+          "min": 38.1,
+          "max": 57.1
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "button: Select Wallet",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 84.4,
+          "min": 79.6,
+          "max": 111.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 71.3,
+          "min": 66.7,
+          "max": 95.2
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 96.2,
+          "min": 94.3,
+          "max": 99.5
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 81.2,
+          "min": 76.5,
+          "max": 81.6
+        }
+      }
+    },
+    {
+      "route": "/pools",
+      "action": "button: Stocks 7",
+      "before": {
+        "frameMs": {
+          "n": 3,
+          "median": 571.6,
+          "min": 570.9,
+          "max": 619.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 547,
+          "min": 546.6,
+          "max": 593.5
+        }
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 268.2,
+          "min": 241.2,
+          "max": 331.6
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 252.8,
+          "min": 219.2,
+          "max": 313.6
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 0.1%",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31.1,
+          "min": 30.9,
+          "max": 42.6
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 26.3,
+          "min": 24.1,
+          "max": 36.6
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 0.5%",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.8,
+          "min": 30.1,
+          "max": 30.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 19.6,
+          "min": 19.4,
+          "max": 19.8
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 1%",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31.1,
+          "min": 30,
+          "max": 31.5
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 19.8,
+          "min": 19.8,
+          "max": 21.5
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 15m",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31.7,
+          "min": 30.9,
+          "max": 32
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 25.7,
+          "min": 23.2,
+          "max": 27
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 1D",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.8,
+          "min": 30.2,
+          "max": 30.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 22.6,
+          "min": 22.6,
+          "max": 25.3
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 1h",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.3,
+          "min": 28.8,
+          "max": 30.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 23.7,
+          "min": 22.8,
+          "max": 23.8
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 1m",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31.8,
+          "min": 26.4,
+          "max": 38.3
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 737.3,
+          "min": 735.8,
+          "max": 755.8
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 4h",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.4,
+          "min": 29.3,
+          "max": 35
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 24.1,
+          "min": 22.5,
+          "max": 27.4
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: 5m",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31.5,
+          "min": 30.9,
+          "max": 34.6
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 25.6,
+          "min": 23.2,
+          "max": 28.8
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: Buy",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.6,
+          "min": 30.5,
+          "max": 31
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 607.5,
+          "min": 303.6,
+          "max": 610.7
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: Connect Wallet",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 63.3,
+          "min": 54.2,
+          "max": 65.3
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 52,
+          "min": 43.2,
+          "max": 52.2
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: Long (AAPLL)",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31,
+          "min": 29.6,
+          "max": 31.4
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 577.2,
+          "min": 486.2,
+          "max": 608.6
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: Retry",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 37.9,
+          "min": 37.5,
+          "max": 41.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 45.8,
+          "min": 45,
+          "max": 49.3
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: Select Wallet",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 69.3,
+          "min": 68.3,
+          "max": 75.8
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 58.9,
+          "min": 58.6,
+          "max": 66
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: Short (AAPLS)",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 30.7,
+          "min": 30.1,
+          "max": 31.4
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 23,
+          "min": 22.8,
+          "max": 24.2
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "button: next print",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 33,
+          "min": 30.7,
+          "max": 34.5
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 18.6,
+          "min": 17.9,
+          "max": 28.1
+        }
+      }
+    },
+    {
+      "route": "/pools/AAPL",
+      "action": "spinbutton: Amount in cUSDC",
+      "before": {
+        "frameMs": null,
+        "feedbackMs": null
+      },
+      "after": {
+        "frameMs": {
+          "n": 3,
+          "median": 31.8,
+          "min": 29.5,
+          "max": 36.2
+        },
+        "feedbackMs": {
+          "n": 3,
+          "median": 16.2,
+          "min": 14.5,
+          "max": 17.7
+        }
+      }
+    }
+  ],
+  "samples": [
+    {
+      "stage": "before",
+      "route": "/pools",
+      "sample": 0,
+      "buildId": null,
+      "fcpMs": 952,
+      "lcpMs": 952,
+      "longTaskMs": 3497,
+      "status": 200
+    },
+    {
+      "stage": "before",
+      "route": "/pools",
+      "sample": 1,
+      "buildId": null,
+      "fcpMs": 920,
+      "lcpMs": 920,
+      "longTaskMs": 2562,
+      "status": 200
+    },
+    {
+      "stage": "before",
+      "route": "/pools",
+      "sample": 2,
+      "buildId": null,
+      "fcpMs": 900,
+      "lcpMs": 900,
+      "longTaskMs": 2559,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/mint",
+      "sample": 0,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 884,
+      "lcpMs": 2452,
+      "longTaskMs": 967,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/mint",
+      "sample": 1,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 916,
+      "lcpMs": 2160,
+      "longTaskMs": 837,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/mint",
+      "sample": 2,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 884,
+      "lcpMs": 2360,
+      "longTaskMs": 888,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/pools",
+      "sample": 0,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 924,
+      "lcpMs": 924,
+      "longTaskMs": 1769,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/pools",
+      "sample": 1,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 916,
+      "lcpMs": 916,
+      "longTaskMs": 1887,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/pools",
+      "sample": 2,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 908,
+      "lcpMs": 908,
+      "longTaskMs": 1901,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/pools/AAPL",
+      "sample": 0,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 952,
+      "lcpMs": 952,
+      "longTaskMs": 1358,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/pools/AAPL",
+      "sample": 1,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 936,
+      "lcpMs": 936,
+      "longTaskMs": 1180,
+      "status": 200
+    },
+    {
+      "stage": "after",
+      "route": "/pools/AAPL",
+      "sample": 2,
+      "buildId": "IKi12OWWBM-jIGLF_59hR",
+      "fcpMs": 940,
+      "lcpMs": 940,
+      "longTaskMs": 1324,
+      "status": 200
+    }
+  ],
+  "gaps": [],
+  "actionAttempts": 201,
+  "timedActions": 135
+}

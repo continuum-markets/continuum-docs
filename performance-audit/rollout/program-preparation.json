@@ -1,0 +1,46 @@
+{
+  "scope": "read-only devnet deployment preparation; no signatures or submissions",
+  "fetchedAt": "2026-10-09T01:38:54Z",
+  "programs": {
+    "clp": {
+      "pubkey": "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES",
+      "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "programData": "8RUVZAsiXQS1yRvxjrWWmHKtmSV3TgjEJxA6XiVzezVq",
+      "lastUpgradeSlot": 509011058,
+      "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+      "programDataBytes": 828293,
+      "allocatedProgramBytes": 828248,
+      "programDataLamports": 4208378680,
+      "backup": "/tmp/continuum-performance-rollout/clp-before.so",
+      "backupSha256": "4988d5e07edbba8f9ebdf890414672ffe78d338765e3d8ebec682c871d80b412",
+      "newBinary": "/tmp/continuum-performance-sbf/optimized/clp.so",
+      "newBinaryBytes": 808064,
+      "newBinarySha256": "9e93753fb99da8cf7a1998265447096c69e5d41d2632b47dab4aaff86ab65b10",
+      "newBufferRentLamports": 4105803320
+    },
+    "oracle": {
+      "pubkey": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+      "loader": "BPFLoaderUpgradeab1e11111111111111111111111",
+      "programData": "D7kw1vq3EmzNpwopZUnFgrPV1hr9U3jtAWZ4khBJf741",
+      "lastUpgradeSlot": 458990884,
+      "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+      "programDataBytes": 295733,
+      "allocatedProgramBytes": 295688,
+      "programDataLamports": 2059192560,
+      "backup": "/tmp/continuum-performance-rollout/oracle-before.so",
+      "backupSha256": "8fdd7d80c01e69142d8389b162a83ef56476ea03ddf8668f89b5bf01b87db955",
+      "newBinary": "/tmp/continuum-performance-sbf/optimized/oracle.so",
+      "newBinaryBytes": 308160,
+      "newBinarySha256": "8aa5b1800ade3bb7466c39e966868019afc0fccef776e95a90c51d2674475de6",
+      "newBufferRentLamports": 1566291000
+    }
+  },
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "authority": {
+    "pubkey": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni",
+    "lamports": 7435820120,
+    "slot": 509015415
+  },
+  "programDataReadSlot": 509015415,
+  "artifactStatus": "Initial mixed-working-tree candidate was rejected before deployment. Only backup/account observations remain authoritative here; clean deployment artifacts are pinned in release-plan.json."
+}

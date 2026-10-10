@@ -1,0 +1,257 @@
+---
+title: Mint and redeem (full example)
+description: A complete TypeScript script that drips cUSDC, checks the price, mints a paired QQQ position and redeems it on devnet.
+---
+
+This Bun script runs a full paired cycle on devnet. It drips cUSDC from the faucet, checks the market's price age, estimates the fill, mints a QQQ pair with `mint_paired` and redeems it with `redeem_paired`. It needs a funded devnet wallet and nothing else.
+
+## Prerequisites
+
+- A devnet wallet at `~/.config/solana/id.json` (or set `WALLET_PATH`) with some SOL for fees and token-account rent. 0.05 SOL is plenty.
+- The packages from [SDK setup](/build/sdk-setup): `bun add @coral-xyz/anchor@0.32 @solana/web3.js@1 @solana/spl-token`.
+- An open underlying market. The keeper stops posting a market's price while its underlying market is closed, and mint and redeem revert once the price is more than 300 s old.
+
+```bash
+solana airdrop 1 --url devnet
+```
+
+## The script
+
+```typescript
+// mint-and-redeem.ts
+import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { AnchorProvider, BN, Program, Wallet, type Idl } from "@coral-xyz/anchor";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+} from "@solana/spl-token";
+import fs from "fs";
+import os from "os";
+import path from "path";
+
+const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
+const WALLET_PATH =
+  process.env.WALLET_PATH ?? path.join(os.homedir(), ".config/solana/id.json");
+const IDL_BASE =
+  "https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl";
+const SYMBOL = process.env.SYMBOL ?? "QQQ";
+const CUSDC_MINT = new PublicKey("B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE");
+const AMOUNT = 100_000_000n; // 100 cUSDC, 6 decimals
+const MAX_AGE = 300;         // the programs reject prices older than this (seconds)
+const MARGIN = 30;           // time left for the transaction to land
+const E6 = 1_000_000n;
+const ONE = 1_000_000_000n;  // γ scale
+
+const big = (x: { toString(): string }) => BigInt(x.toString());
+const fmt = (x: bigint) => (Number(x) / 1e6).toFixed(6);
+
+async function loadIdl(name: string): Promise<Idl> {
+  const res = await fetch(`${IDL_BASE}/${name}.json`);
+  if (!res.ok) throw new Error(`IDL ${name}: HTTP ${res.status}`);
+  return (await res.json()) as Idl;
+}
+
+// Risk-state multiplier in percent (150 = 1.5x). Recovery falls linearly
+// from the Stress value to the Normal value over one hour.
+function stateMult(m: any, normal: number, proxy: number, stress: number, now: number) {
+  const state = Object.keys(m.riskState)[0];
+  if (state === "normal") return BigInt(normal);
+  if (state === "proxyMode") return BigInt(proxy);
+  if (state === "stress") return BigInt(stress);
+  const t = Math.min(Math.max(now - m.riskStateUpdatedAt.toNumber(), 0), 3600);
+  return BigInt(stress - Math.floor(((stress - normal) * t) / 3600));
+}
+
+// Worst-case NAVs (1e6) and fee rates, computed the way mint-redeem does.
+function quote(m: any, now: number) {
+  const P = big(m.userTwapPrice);
+  const K = big(m.initialLPrice) * big(m.initialSPrice);
+  const g = big(m.sGammaIndex);
+  const gamma = g === 0n || g > ONE ? ONE : g; // 0 means unset: read as 1.0
+  const sNav = (price: bigint) => ((K / price) * gamma) / ONE;
+  const wc = m.worstCaseConfig;
+  const c = wc.enabled
+    ? (big(m.oracleConfidence) *
+        stateMult(m, wc.normalConfidenceMultiplier, wc.proxyConfidenceMultiplier,
+          wc.stressConfidenceMultiplier, now)) / 100n
+    : 0n;
+  const feeMult = stateMult(m, 100, m.riskFeeConfig.proxyFeeMultiplier,
+    m.riskFeeConfig.stressFeeMultiplier, now);
+  return {
+    gamma,
+    mint: { l: P + c, s: sNav(P - c), feeBps: (BigInt(m.mintFeeBps) * feeMult) / 100n },
+    redeem: { l: P - c, s: sNav(P + c), feeBps: (BigInt(m.redeemFeeBps) * feeMult) / 100n },
+  };
+}
+
+async function main() {
+  const connection = new Connection(RPC_URL, "confirmed");
+  const secret = JSON.parse(fs.readFileSync(WALLET_PATH, "utf8"));
+  const wallet = new Wallet(Keypair.fromSecretKey(Uint8Array.from(secret)));
+  const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" });
+  const user = wallet.publicKey;
+  // A fetched IDL has no static types, so the clients are `any` to TypeScript.
+  const [mr, faucet]: any[] = await Promise.all(
+    ["mint_redeem", "faucet"].map(async (n) => new Program(await loadIdl(n), provider)));
+
+  // 1. Load the market and check the price before spending anything
+  const [market] = PublicKey.findProgramAddressSync(
+    [Buffer.from("market"), Buffer.from(SYMBOL)], mr.programId);
+  const m = await mr.account.market.fetch(market);
+  const now = Math.floor(Date.now() / 1000);
+  const age = now - m.twapUpdatedAt.toNumber();
+  const state = Object.keys(m.riskState)[0];
+  console.log(`${SYMBOL} risk=${state} price=${fmt(big(m.userTwapPrice))} age=${age}s`);
+  if (m.userTwapPrice.isZero() || age > MAX_AGE - MARGIN) {
+    throw new Error(`price is ${age}s old; mint and redeem revert after ${MAX_AGE}s`);
+  }
+  if (state === "stress" &&
+      !(m.riskFeeConfig.allowMintInStress && m.riskFeeConfig.allowRedeemInStress)) {
+    throw new Error("market is in Stress; mint and redeem are blocked");
+  }
+
+  // 2. Estimate the mint at the worst-case NAVs
+  const q = quote(m, now);
+  const fee = (AMOUNT * q.mint.feeBps) / 10_000n;
+  const half = (AMOUNT - fee) / 2n;
+  console.log(`mint NAVs  L ${fmt(q.mint.l)}  S ${fmt(q.mint.s)}  ` +
+    `gamma ${(Number(q.gamma) / 1e9).toFixed(9)}  fee ${q.mint.feeBps} bps`);
+  console.log(`expect    ~${fmt((half * E6) / q.mint.l)} L + ` +
+    `${fmt(((AMOUNT - fee - half) * E6) / q.mint.s)} S`);
+
+  // 3. Token accounts. The fee recipient can be a PDA, hence `true`.
+  const userCollateral = getAssociatedTokenAddressSync(CUSDC_MINT, user);
+  const userLongAccount = getAssociatedTokenAddressSync(m.longMint, user);
+  const userShortAccount = getAssociatedTokenAddressSync(m.shortMint, user);
+  const devTokenAccount = getAssociatedTokenAddressSync(CUSDC_MINT, m.feeRecipient, true);
+  const collateralAtaIx =
+    createAssociatedTokenAccountIdempotentInstruction(user, userCollateral, user, CUSDC_MINT);
+  const ataIxs = [
+    collateralAtaIx,
+    createAssociatedTokenAccountIdempotentInstruction(user, userLongAccount, user, m.longMint),
+    createAssociatedTokenAccountIdempotentInstruction(user, userShortAccount, user, m.shortMint),
+    createAssociatedTokenAccountIdempotentInstruction(
+      user, devTokenAccount, m.feeRecipient, CUSDC_MINT),
+  ];
+  const balance = (a: PublicKey) =>
+    connection.getTokenAccountBalance(a).then((r) => BigInt(r.value.amount), () => 0n);
+
+  // 4. Drip 1,000 cUSDC if the wallet is short (one drip per wallet per 24 h)
+  if ((await balance(userCollateral)) < AMOUNT) {
+    const dripIx = await faucet.methods
+      .drip()
+      .accounts({ mint: CUSDC_MINT, recipient: user, recipientAta: userCollateral })
+      .instruction(); // faucetState, mintAuthority and dripRecord are derived PDAs
+    const sig = await provider.sendAndConfirm(new Transaction().add(collateralAtaIx, dripIx));
+    console.log(`drip          ${sig}`);
+  }
+
+  // 5. Mint the pair
+  const accounts = {
+    market, user, userCollateral, userLongAccount, userShortAccount,
+    longMint: m.longMint, shortMint: m.shortMint,
+    collateralVault: m.collateralVault, devTokenAccount,
+    oracle: m.oracleAddress, tokenProgram: TOKEN_PROGRAM_ID,
+  };
+  const [l0, s0] = await Promise.all([balance(userLongAccount), balance(userShortAccount)]);
+  const mintIx = await mr.methods
+    .mintPaired(new BN(AMOUNT.toString()))
+    .accounts(accounts)
+    .instruction();
+  const mintSig = await provider.sendAndConfirm(new Transaction().add(...ataIxs, mintIx));
+  const [l1, s1] = await Promise.all([balance(userLongAccount), balance(userShortAccount)]);
+  console.log(`mint_paired   ${mintSig}`);
+  console.log(`  +${fmt(l1 - l0)} ${SYMBOL} L  +${fmt(s1 - s0)} ${SYMBOL} S`);
+
+  // 6. Redeem what was just minted. Both amounts must be > 0.
+  const nominal = ((l1 - l0) * q.redeem.l) / E6 + ((s1 - s0) * q.redeem.s) / E6;
+  console.log(`expect    ~${fmt(nominal - (nominal * q.redeem.feeBps) / 10_000n)} cUSDC back`);
+  const [collateralAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from("collateral_authority")], mr.programId);
+  const redeemIx = await mr.methods
+    .redeemPaired(new BN((l1 - l0).toString()), new BN((s1 - s0).toString()))
+    .accounts({ ...accounts, collateralAuthority }) // optional; QQQ, SPY and XAU need it
+    .instruction();
+  const c0 = await balance(userCollateral);
+  const redeemSig = await provider.sendAndConfirm(new Transaction().add(redeemIx));
+  console.log(`redeem_paired ${redeemSig}`);
+  console.log(`  +${fmt((await balance(userCollateral)) - c0)} cUSDC`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
+```
+
+## Run
+
+```bash
+bun mint-and-redeem.ts              # QQQ
+SYMBOL=EUR bun mint-and-redeem.ts   # any live market
+```
+
+Expected output for QQQ's devnet state on 10 Oct 2026 (price \$751.27, γ 0.993214606, posted fee 18 bps). Signatures are elided:
+
+```
+QQQ risk=proxyMode price=751.270000 age=6s
+mint NAVs  L 751.270000  S 304.599737  gamma 0.993214606  fee 27 bps
+expect    ~0.066374 L + 0.163706 S
+drip          <signature>
+mint_paired   <signature>
+  +0.066374 QQQ L  +0.163706 QQQ S
+expect    ~99.460329 cUSDC back
+redeem_paired <signature>
+  +99.460329 cUSDC
+```
+
+When the underlying market is closed, the script stops at step 1. On Saturday 10 Oct 2026 it printed this (Bun's source excerpt and stack trace trimmed):
+
+```
+QQQ risk=proxyMode price=751.270000 age=84194s
+error: price is 84194s old; mint and redeem revert after 300s
+```
+
+## What just happened
+
+- Step 1 read the `Market` account and stopped if the price was older than 270 s or the market was in Stress. The 270 s is the program's 300 s limit, minus 30 s for the transaction to land. Stress blocks mint and redeem on every live market, because `allow_mint_in_stress` and `allow_redeem_in_stress` are false.
+- Step 2 priced the mint the way `mint_paired` does. L costs P + c and S costs K / (P − c) × γ, where P is `user_twap_price`, K is `initial_l_price × initial_s_price`, and c is `oracle_confidence` times the risk-state multiplier (1.5× in ProxyMode). QQQ is the one market with worst-case quoting switched off (`worst_case_config.enabled` is false as of 10 Oct 2026), so its c is 0 and both legs price at NAV. The fee is the posted 18 bps times the same 1.5× multiplier: 27 bps.
+- Step 4 dripped 1,000 cUSDC because the wallet held less than 100. The faucet allows one drip per wallet every 24 hours.
+- Step 5 deposited 100 cUSDC. The program kept a 0.27 cUSDC fee and minted 0.066374 L and 0.163706 S from the other 99.73 cUSDC, half to each leg. A tenth of the fee (`dev_tax_pct` = 10) went to the fee recipient; the rest stayed in the vault.
+- Step 6 burned both legs and paid 99.460329 cUSDC after the 27 bps redeem fee. The round trip cost 0.539671 cUSDC, about 54 bps.
+
+The estimates match the program exactly while the market is over-collateralized. Below a 100% collateral ratio, `redeem_paired` pays pro rata (`nominal × total_collateral / total_claims`), and the redeem estimate comes out high.
+
+## Redeeming one leg
+
+There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. To exit a single leg, sell it on the bin book with `pool_swap`, which works on every market, or through a committed order on QQQ, SPY and XAU. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
+
+## Common errors
+
+| Error | Cause and fix |
+|---|---|
+| `TwapNotAvailable` (6012) | The price is 0 or more than 300 s old. The keeper doesn't post while the underlying market is closed; retry during market hours. |
+| `BelowMinimum` (6019) | The mint amount, or the value of a redeem, is under 10 cUSDC. |
+| `InvalidAmount` (6001) | A redeem amount is 0 (both legs must be above 0), an amount exceeds the market's supply, or a token account has the wrong mint. |
+| `MintNotAllowedInStress` (6009), `RedeemNotAllowedInStress` (6010) | The market is in Stress, which blocks both by default. Wait until it leaves Stress. |
+| `Unauthorized` (6021) | `devTokenAccount` isn't owned by `market.feeRecipient`. |
+| SPL Token `insufficient funds` (custom program error `0x1`) | The wallet holds less cUSDC than the mint amount, or fewer L or S tokens than the redeem amounts. |
+| `AccountNotInitialized` (3012) | A token account doesn't exist yet. The script creates all four idempotently before minting. |
+| `CooldownNotElapsed` (faucet, 6000) | The wallet already dripped in the last 24 hours. |
+
+→ [Full error catalog](/reference/errors)
+
+## Extending the example
+
+- Mint in several markets at once by adding one `mintPaired` instruction per market to the same transaction, within Solana's 1,232-byte transaction size limit.
+- Refresh estimates live: subscribe to the market account with `connection.onAccountChange(market, ...)` and run `quote()` on each update.
+- Take a directional position: after step 5, sell the leg you don't want on the bin book, or through a committed order on QQQ, SPY and XAU ([Trade flow](/flows/trade)).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reading prices" icon="chart-line" href="/build/reading-prices">
+    Read the price, confidence and γ from the Market account.
+  </Card>
+  <Card title="Composability" icon="puzzle-piece" href="/build/composability">
+    Use cases: wrappers, bots, structured products, integrations.
+  </Card>
+</CardGroup>

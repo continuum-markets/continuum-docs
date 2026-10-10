@@ -1,0 +1,416 @@
+{
+  "address": "9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY",
+  "metadata": {
+    "name": "faucet",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Continuum devnet faucet \u2013 rate-limited token drip with PDA mint authority"
+  },
+  "instructions": [
+    {
+      "name": "drip",
+      "discriminator": [
+        215,
+        250,
+        141,
+        179,
+        116,
+        10,
+        187,
+        192
+      ],
+      "accounts": [
+        {
+          "name": "faucet_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  117,
+                  99,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "relations": [
+            "faucet_state"
+          ]
+        },
+        {
+          "name": "drip_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  105,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "recipient"
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient_ata",
+          "writable": true
+        },
+        {
+          "name": "recipient",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "mint_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "faucet_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  117,
+                  99,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "drip_amount",
+          "type": "u64"
+        },
+        {
+          "name": "cooldown_seconds",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "transfer_authority",
+      "discriminator": [
+        48,
+        169,
+        76,
+        72,
+        229,
+        180,
+        55,
+        161
+      ],
+      "accounts": [
+        {
+          "name": "faucet_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  117,
+                  99,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "faucet_state.mint",
+                "account": "FaucetState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "faucet_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "update_params",
+      "discriminator": [
+        108,
+        178,
+        190,
+        95,
+        94,
+        203,
+        116,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "faucet_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  97,
+                  117,
+                  99,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "faucet_state.mint",
+                "account": "FaucetState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "faucet_state"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "drip_amount",
+          "type": "u64"
+        },
+        {
+          "name": "cooldown_seconds",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "DripRecord",
+      "discriminator": [
+        188,
+        20,
+        24,
+        145,
+        77,
+        213,
+        183,
+        33
+      ]
+    },
+    {
+      "name": "FaucetState",
+      "discriminator": [
+        241,
+        183,
+        103,
+        67,
+        44,
+        12,
+        178,
+        23
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "CooldownNotElapsed",
+      "msg": "Cooldown period has not elapsed yet"
+    }
+  ],
+  "types": [
+    {
+      "name": "DripRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "last_drip",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FaucetState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "drip_amount",
+            "type": "u64"
+          },
+          {
+            "name": "cooldown_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "total_dripped",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "mint_authority_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

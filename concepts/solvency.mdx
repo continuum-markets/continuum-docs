@@ -1,0 +1,103 @@
+---
+title: Solvency
+description: The paired-mint invariant, the convexity gap it leaves open, and the defenses sized against it, from lean books and keeper-posted fees to volatility decay and the dynamic buffer.
+---
+
+Continuum's solvency rests on one structural rule, one known extraction path and a set of defenses sized against that path. This page takes them in that order.
+
+## The invariant: paired mint/redeem is solvency-neutral
+
+Every user mint and redeem is **paired**. `mint_paired` deposits cUSDC and issues L and S worth exactly the deposit, less the fee, at the current NAV. `redeem_paired` burns some of each leg (both amounts above zero) and pays their NAV value. Because `S_NAV = K·γ / L_NAV`, one L plus one S is worth
+
+```
+f(P) = P + K·γ / P        (P = L_NAV, K = initial_l_price × initial_s_price)
+```
+
+A paired operation moves collateral and claims by the same amount at the moment it happens. After that the collateral stays put while the claims move with the price. `f` is convex, with its minimum at `P = √(K·γ)`. At a fixed γ, a position of value `v` minted at price `P_m` is later worth `(v/2)·(P/P_m + P_m/P)`, which is at least `v`, so its claim rises with any price move away from `P_m`. There is no user-facing single-sided mint; an unpaired mint would leave the vault holding a one-way bet.
+
+## The attack surface: the convexity gap
+
+With no external venue to trade against, the only riskless extraction is the **paired round trip**: mint a pair, wait for the price to move, redeem. Its gross profit is that convexity gap.
+
+Structurally, the protocol is **short the pair's convexity**, which means short volatility. Two charges work against the round trip. Volatility decay marks the short leg down by the realized variance of the path, and the fee hurdle taxes every mint and redeem. The keeper posts fees from 10 to 100 bps (10 to 52 bps across live markets as of 10 Oct 2026), the program multiplies them by 1.5 in `ProxyMode`, and the round trip pays them twice, plus the worst-case markup.
+
+The result splits by asset class. For a broad index trading near its anchor price, the gap over realistic horizons stays below the hurdle. For a high-growth single name on an NVDA-like path, a flat at-NAV venue alone *can* be drained at scale: the gap compounds with the trend, and volatility decay barely charges a smooth trend. That is why the defenses below exist, and why single-name listings need all of them.
+
+## The defenses
+
+The CLP account also stores an `oi_cap` (250,000 cUSDC per market), but nothing enforces it, so it is not one of these defenses.
+
+### 1. Depth-capped books
+
+The instant venues never expose unlimited size at NAV. The bin books carry lean, demand-sized depth (about \$5k of bids and at most \$7.5k of asks per side; off-hours, at most \$10,000 per side, or \$1,250 for the single-name stocks) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
+
+Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread.
+
+### 2. Vol-informed fees
+
+The keeper posts each market's mint and redeem fee from realized volatility:
+
+```
+fee_bps     = clamp(fee_mult × half_spread, 10, 100)      fee_mult = 1.0 on every market
+charged_bps = fee_bps × risk-state multiplier             1.5× in ProxyMode
+```
+
+`half_spread` is the long book's half-spread from the keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free), and the keeper posts the result as both the mint and the redeem fee. QQQ posts 18 bps and is charged 27 bps on devnet. Of every fee, 90% stays in the market's collateral vault, raising the collateral ratio directly, and 10% is the dev tax. Higher vol means a bigger convexity gap and a proportionally higher hurdle.
+
+### 3. Dynamic overcollateralization buffer
+
+Each market has a buffer target, which the keeper posts on-chain with `set_buffer_target`:
+
+```
+B = δ²/2 + |q|·δ + margin
+```
+
+- `δ` = tail multiplier × σ, where σ is the long book's recent worst-case window σ scaled to a 17.5-hour gap.
+- `q` is fixed at 0.3 (`CLMM_Q_IMBALANCE`) rather than read from live inventory, and the closed-period multiplier isn't applied.
+- The keeper floors `B` at 200 bps (102%) and posts it when it moves by 50 bps or more. The program clamps it to [100, 5000] bps over parity (101% to 150%). All 14 markets sit at 200 bps as of 10 Oct 2026.
+
+The target adds no collateral by itself. It works as a gate: waiver consumption, the `withdraw_excess_to_clp` floor and the cross-market rebalancer all read it, so it limits how much collateral can leave a market.
+
+### 4. Volatility decay (the γ-index)
+
+The convexity the protocol is short lives entirely in the short leg: `S_NAV = K/P` is convex, and `L_NAV = P` is linear. γ is the live mechanism that charges for it. The keeper ratchets γ down by realized variance, which marks short claims down and raises the collateral ratio directly. At `GAMMA_DECAY_COEF` = 1.0 the charge is break-even against the short leg's convexity on a choppy path.
+
+```
+S_NAV = (K / P) × γ          γ ratchets down by realized variance
+```
+
+It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection, and, if collateral still falls short, on pro-rata redemption. γ is always on with no kill switch, only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+
+### 5. `reanchor_gamma` is not a spot re-anchor
+
+`reanchor_gamma` renews γ's budget. Only the market authority can call it, at least 14 days after the previous one. It folds γ into `initial_s_price` and resets γ to 1.0, so every claim is unchanged at every price. It collects and returns nothing; it lets decay keep charging once γ nears its floor. It does not move the curve's minimum to the current price. A re-anchor to spot would revalue holders' positions, and the program has no instruction for it.
+
+## How the collateral ratio refills
+
+Four channels push the ratio up over time:
+
+1. 90% of every mint and redeem fee stays in the vault, immediately.
+2. Each volatility-decay step marks short claims down.
+3. When the price moves back toward a position's mint price, its claim falls and the vault over-collateralizes passively.
+4. Anyone can add collateral with `donate_to_vault`. CLP trading profits and harvested yield reach a market's collateral only this way, and the keeper doesn't call it in its default configuration.
+
+Collateral yield adds nothing today: `yield_enabled` is false on every market and nothing is deployed, as of 10 Oct 2026. On devnet, yield would be simulated, with the keeper minting cUSDC.
+
+## Supporting structural protections
+
+- Users can only mint in pairs. `keeper_mint_single` and `keeper_redeem_single` need `market.keeper_authority`, and `redeem_single_for_vault` accepts only the market's CLP PDA. The keeper's single-sided mint collects full NAV for the leg it mints.
+- Price writes are bounded. `update_risk_state_v2` rejects a move of more than 25% per push and a source publish time more than 300 s old, so a compromised keeper key can't teleport NAV. On mainnet the keeper adds its own 10% envelope before pushing.
+- A staleness gate stops pricing off a dead feed. Outside `Normal`, mint and redeem revert with `TwapNotAvailable` once the last push is more than 300 s old. See [Risk states](/concepts/risk-states).
+- Swap guards run on every oracle-priced fill. `clp_swap` and `settle_swap` check price age, confidence, deviation and a collateral floor, and `clp_swap` and `pool_swap` share a rolling notional cap where one is set.
+- Each market keeps its own ledger. QQQ, SPY and XAU share one unified vault, and the other 11 markets have their own. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only excess above the source's dynamic target, with the floor enforced on-chain.
+- Redemption goes pro rata in a shortfall. If a tail move pushes the collateral ratio below 100%, redeem pays `nominal × min(1, CR)`. The vault can't be overdrawn, and every remaining holder gets the same ratio, so there's no first-mover advantage and no bank-run dynamic.
+
+## What this means for users
+
+**You can't lose more than your collateral.** A paired position is fully prepaid, with no margin and no liquidations. Redeeming needs both legs (each amount above zero) and a price push no more than 300 s old, so it depends on the keeper pushing prices. While the vault is fully collateralized you get NAV, less the fee and markup; in a shortfall you get the pro-rata share. A single leg exits through its bin book, or through a committed order on QQQ, SPY and XAU.
+
+## What this means for builders
+
+A lone leg can't be redeemed by itself. If you receive 100 QQQS in payment, you can sell it on the QQQS book or through a committed order, or redeem it together with some QQQL. The things to monitor are **risk state** (`Stress` blocks mint and redeem by default) and **price freshness** (mint and redeem freeze off-hours when pushes stop).
+
+→ [Risk states](/concepts/risk-states) · [Reading state](/flows/read-state)

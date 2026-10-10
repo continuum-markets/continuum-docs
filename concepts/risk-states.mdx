@@ -1,0 +1,105 @@
+---
+title: Risk states
+description: The per-market risk regime, the fee and confidence surcharges each state applies, why devnet runs in ProxyMode, and the staleness gate that freezes mint and redeem off-hours.
+---
+
+Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#market-account) account. The keeper writes it with each price push (`update_risk_state_v2`). The state sets two surcharges, one on the fee and one on the confidence band, and decides whether mint and redeem are open at all. A separate staleness gate freezes mint and redeem when pushes stop, most often because the underlying market has closed.
+
+<Note>
+  On devnet, every market runs in **`ProxyMode`** all the time, by design. `ProxyMode` means the program prices off the keeper-pushed `user_twap_price` instead of reading a Pyth account. `Normal` is the mainnet steady state, where mint and redeem read Pyth directly.
+</Note>
+
+## The states
+
+| State | Meaning | User mint | User redeem | Price used |
+|---|---|---|---|---|
+| `Normal` | Pyth-direct steady state (mainnet) | Open | Open | Pyth account, at most 60 s old |
+| `ProxyMode` | Pricing off the keeper-pushed price (devnet) | Open | Open | `user_twap_price`, at most 300 s old |
+| `Stress` | Oracle unreliable, defensive | Blocked by default (`MintNotAllowedInStress`) | Blocked by default (`RedeemNotAllowedInStress`) | `user_twap_price` |
+| `Recovery` | Wind-down after `Stress` | Open | Open | `user_twap_price`, at most 300 s old |
+
+`Stress` blocks both sides because `allow_mint_in_stress` and `allow_redeem_in_stress` default to false, and both are false on all 14 markets as of 10 Oct 2026. The market authority can turn either on with `configure_risk_fees`. A mint in `Stress` is then also held to `stress_mint_cap` per transaction. That cap is 0 (no cap) on every market.
+
+## Fee and confidence multipliers
+
+Each state multiplies the market's posted fee and its confidence band. Both multipliers are surcharges on top of the posted values, and every live setting is 1× or more.
+
+| State | Fee multiplier | Confidence multiplier |
+|---|---|---|
+| `Normal` | 1× | 1× |
+| `ProxyMode` | 1.5× (`proxy_fee_multiplier`) | 1.5× (`proxy_confidence_multiplier`) |
+| `Stress` | 3× (`stress_fee_multiplier`), if trading is allowed | 3× (`stress_confidence_multiplier`) |
+| `Recovery` | Falls from 3× to 1× over 1 hour | Falls from 3× to 1× over 1 hour |
+
+These are the defaults, and the values on every live market as of 10 Oct 2026. The market authority sets the fee multipliers with `configure_risk_fees` and the confidence multipliers with `configure_worst_case_quoting`. The confidence multiplier applies only where worst-case quoting is on; see [NAV math](/concepts/nav#worst-case-quoting).
+
+On devnet the 1.5× fee multiplier always applies: QQQ posts an 18 bps fee and is charged 27 bps.
+
+The `Recovery` decline is linear and is measured from `risk_state_updated_at`. Every push rewrites that timestamp, so while the keeper keeps pushing `Recovery`, the surcharge stays close to 3×. The keeper holds `Recovery` for an hour after leaving `Stress`.
+
+### Transition rules
+
+The on-chain transition matrix stops a compromised keeper from skipping recovery: **`Stress` can only move to `Recovery`** (or stay in `Stress`). A direct `Stress` → `Normal` or `Stress` → `ProxyMode` jump is rejected, which would otherwise drop the surcharge from 3× straight away. Every other transition is allowed: `ProxyMode` and `Recovery` move freely, and `Normal` can be entered from any state except `Stress`. Each push is also capped on price (a 25% move limit); see [Oracle](/concepts/oracle#what-one-push-contains).
+
+## The staleness chain (off-hours behavior)
+
+Risk states describe the oracle's *quality*. A separate chain handles its *absence*, most often when the underlying market closes for the night or the weekend:
+
+```
+underlying closes
+  → source publish time > 120 s old      keeper withholds the push
+  → twap_updated_at > 300 s old          MAX_TWAP_AGE_SECS gate trips
+  → mint and redeem revert               TwapNotAvailable
+  → books switch to free-float books     off-hours price discovery
+```
+
+The program enforces the freeze, but only the keeper's silence causes it. Any accepted push resets `twap_updated_at`, so the freeze lasts exactly as long as the keeper withholds. While frozen, mint and redeem revert in every state except `Normal`, the bin books keep trading against free-float books, and committed orders can't settle; after the 180 s TTL the user signs `cancel_swap` for a refund. The first accepted push at reopen re-anchors NAV. The full chain is on [Oracle](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes).
+
+If you only check one thing before you submit a mint or redeem, check `market.twap_updated_at`.
+
+## What you should do in each state
+
+### `ProxyMode` (devnet)
+
+Operate normally. Fees carry the 1.5× surcharge, and quotes carry a 1.5× confidence markup on both legs, usually a few bps. If you run a bot, remember that a mint or redeem needs a push no more than 300 s old.
+
+### `Stress`
+
+Mint and redeem are blocked by default (`MintNotAllowedInStress`, `RedeemNotAllowedInStress`). The bin books still trade. If you build a UI, say so:
+
+> "QQQ is in Stress mode. Minting and redeeming are paused; the QQQL and QQQS books still trade."
+
+### `Recovery`
+
+Mint and redeem reopen. Expect fees and confidence markups near 3× while the keeper keeps the market in `Recovery`.
+
+## Reading risk state
+
+```typescript
+const market = await mintRedeem.account.market.fetch(marketPDA);
+
+// market.riskState is an enum object: { normal: {} } | { proxyMode: {} } | ...
+const riskState = Object.keys(market.riskState)[0];
+const priceAge = Date.now() / 1000 - market.twapUpdatedAt.toNumber();
+
+console.log("Risk state:", riskState);
+console.log("Price age (s):", priceAge.toFixed(0), priceAge > 300 ? "(frozen)" : "(fresh)");
+console.log("Posted fees (bps):", market.mintFeeBps, "/", market.redeemFeeBps);
+```
+
+The risk state can lag reality by one keeper tick. Outside `Normal`, the price age is the authoritative "will my transaction go through" signal.
+
+## State during maintenance
+
+For a hard halt, the market authority sets `market.is_active = false` with `update_market`. Mint and redeem then revert (`MarketNotActive`), and so do `commit_swap` and `clp_swap` (`MarketInactive`). `pool_swap` and `settle_swap` don't check the flag, so the books keep trading and pending orders can still settle; `cancel_swap` refunds after the TTL whatever the state.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="Oracle" icon="tower-broadcast" href="/concepts/oracle">
+    The price source, the push pipeline and the staleness chain in full.
+  </Card>
+  <Card title="Solvency" icon="shield" href="/concepts/solvency">
+    What the program enforces independently of risk state.
+  </Card>
+</CardGroup>

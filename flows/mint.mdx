@@ -1,0 +1,192 @@
+---
+title: Mint paired tokens
+description: Deposit cUSDC and receive matched long and short tokens, each priced at a worst-case quote.
+---
+
+`mint_paired(collateral_amount)` moves cUSDC from the user into the market's collateral vault and mints the long (L) and short (S) tokens to the user. After the fee, half the value goes into each leg.
+
+## Math
+
+Prices and amounts use 6 decimals (`1_000_000` is 1 cUSDC). Every devnet market runs in `ProxyMode`, where the price `P` is `Market.user_twap_price`. Despite its name, that field holds the keeper's latest spot price, adjusted for corporate actions.
+
+```
+K        = initial_l_price * initial_s_price
+γ        = s_gamma_index / 1e9                    // short-leg volatility decay, at most 1
+c        = oracle_confidence * state_mult / 100   // 0 when worst_case_config.enabled is false
+
+L_quote  = P + c
+S_quote  = K / (P - c) * γ
+
+fee_bps  = mint_fee_bps * state_mult / 100
+fee      = collateral_amount * fee_bps / 10_000
+net      = collateral_amount - fee
+qty_L    = (net / 2) / L_quote
+qty_S    = (net - net / 2) / S_quote
+```
+
+Every division rounds down. Both quotes run against the user. L is priced at `P + c`, above its NAV, and S at `K / (P - c) * γ`, above its NAV too, so the user gets slightly fewer of each. `state_mult` is 150 (1.5×) in `ProxyMode`; the other states are in the [risk-state table](#behavior-across-risk-states).
+
+A worked example: SPY's last push before the weekend, at 20:10 UTC on 9 Oct 2026, set `P` to 778.569999 with `oracle_confidence` 0.123159 and γ 0.99854103. That gives `c` = 0.184738, an L quote of 778.754737 and an S quote of 655.818093 (S's NAV was 655.662481). At those quotes a 1,000 cUSDC mint pays a 24 bps fee of 2.40 cUSDC and receives 0.640509 SPYL and 0.760576 SPYS.
+
+QQQ is the exception. As of 10 Oct 2026 its `worst_case_config.enabled` is false, so `c` is 0 and both legs are quoted at NAV. The other 13 markets have it on.
+
+## Fees
+
+The keeper posts one fee per market and writes it to both `mint_fee_bps` and `redeem_fee_bps`. The value is `clamp(fee_mult × half-spread, 10, 100)` bps. The half-spread comes from the keeper's volatility model for that market, and `fee_mult` defaults to 1.0. As of 10 Oct 2026 the posted fees run from 10 bps (EUR, GBP, JPY) to 52 bps (MSTR); QQQ posts 18 bps, SPY 16 and NVDA 31.
+
+The program multiplies the posted fee by the risk-state multiplier. In `ProxyMode`, which every devnet market is in, that is 1.5×, so QQQ's 18 bps is charged as 27 bps. The multiplier never lowers a fee.
+
+The dev tax, `fee × dev_tax_pct / 100`, goes to the fee recipient; `dev_tax_pct` is 10 on every market (10 Oct 2026). The other 90% of the fee stays in the collateral vault and counts toward `total_collateral`, where it backs the market. [Fee waivers](#fee-waivers) can remove the fee entirely.
+
+## Price freshness
+
+Outside `Normal` state, mint reverts with `TwapNotAvailable` when `user_twap_price` is 0 or `twap_updated_at` is more than 300 seconds old. While the underlying market is closed (nights, weekends and holidays), the keeper normally withholds pushes, so minting stops until trading resumes. Any push restarts the 300-second clock. The [bin books](/flows/trade) keep trading off-hours.
+
+In `Normal` state the program reads the price from the market's oracle account instead. No devnet market runs in `Normal`.
+
+## Accounts
+
+Names are as in Anchor's TypeScript client.
+
+| Account | Notes |
+|---|---|
+| `market` (mut) | Market PDA, seeds `[b"market", symbol]` under mint_redeem |
+| `user` (signer, mut) | Pays `collateral_amount` |
+| `userCollateral` (mut) | The user's cUSDC account |
+| `userLongAccount` (mut) | Token account for `market.long_mint`. Must already exist |
+| `userShortAccount` (mut) | Token account for `market.short_mint`. Must already exist |
+| `longMint`, `shortMint` (mut) | `market.long_mint` and `market.short_mint` |
+| `collateralVault` (mut) | `market.collateral_vault`. QQQ, SPY and XAU share the unified vault `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`; the other 11 markets each have their own |
+| `devTokenAccount` (mut) | A cUSDC account owned by `market.fee_recipient` (its ATA) |
+| `oracle` | `market.oracle_address`. The program checks the address; outside `Normal` it reads no price from it |
+| `tokenProgram` | SPL Token |
+
+The program creates no accounts. The app adds an idempotent ATA creation for each leg in front of every mint, and the sample below does the same. The cUSDC account must exist and hold the amount. The program doesn't check the balance, so a short balance fails inside the SPL Token transfer.
+
+## TypeScript
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import idl from "./mint_redeem.json"; // idl/mint_redeem.json in the docs repo
+
+const program = new Program(idl, provider); // provider: an AnchorProvider for the user's wallet
+const user = provider.wallet.publicKey;
+
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  program.programId,
+);
+const market = await program.account.market.fetch(marketPda);
+
+const userCollateral = getAssociatedTokenAddressSync(market.collateralMint, user);
+const userLongAccount = getAssociatedTokenAddressSync(market.longMint, user);
+const userShortAccount = getAssociatedTokenAddressSync(market.shortMint, user);
+// The fee recipient is a PDA, so allow an off-curve owner.
+const devTokenAccount = getAssociatedTokenAddressSync(market.collateralMint, market.feeRecipient, true);
+
+const mintIx = await program.methods
+  .mintPaired(new BN(100_000_000)) // 100 cUSDC
+  .accounts({
+    market: marketPda,
+    user,
+    userCollateral,
+    userLongAccount,
+    userShortAccount,
+    longMint: market.longMint,
+    shortMint: market.shortMint,
+    collateralVault: market.collateralVault,
+    devTokenAccount,
+    oracle: market.oracleAddress,
+    tokenProgram: TOKEN_PROGRAM_ID,
+  })
+  .instruction();
+
+// Both leg accounts must exist. Creating them idempotently does nothing if they do.
+const tx = new Transaction().add(
+  createAssociatedTokenAccountIdempotentInstruction(user, userLongAccount, user, market.longMint),
+  createAssociatedTokenAccountIdempotentInstruction(user, userShortAccount, user, market.shortMint),
+  mintIx,
+);
+await provider.sendAndConfirm(tx);
+```
+
+For a full script with wallet setup, see [Mint and redeem example](/build/example-mint-redeem).
+
+## Minimum mint size
+
+`collateral_amount` must be at least 10 cUSDC (`10_000_000` base units). A smaller amount, zero included, fails with `BelowMinimum`.
+
+## Errors
+
+| Error | Code | Cause |
+|---|---|---|
+| `MarketNotActive` | 6000 | `market.is_active` is false |
+| `BelowMinimum` | 6019 | `collateral_amount` is below 10 cUSDC, including 0 |
+| `TwapNotAvailable` | 6012 | The price is 0 or more than 300 s old. Usually the underlying market is closed |
+| `MintNotAllowedInStress` | 6009 | The market is in `Stress`. `allow_mint_in_stress` is false on every live market |
+| `ExceedsStressMintCap` | 6011 | Only in `Stress` with minting allowed, when the amount exceeds `stress_mint_cap`. The cap is 0 (off) on every market |
+| `OraclePriceUnavailable` | 6005 | A worst-case quote came out as 0 because the confidence band reached the price |
+| `InvalidAmount` | 6001 | A token account, mint or the vault doesn't match the market |
+| `Unauthorized` | 6021 | `devTokenAccount` isn't owned by `market.fee_recipient` |
+| `AccountNotInitialized` | 3012 | A leg account doesn't exist yet |
+| SPL Token error `0x1` | | The cUSDC balance is below `collateral_amount` |
+
+See the [full error catalog](/reference/errors).
+
+## Behavior across risk states
+
+| Risk state | Price | Fee and confidence multiplier | Mint |
+|---|---|---|---|
+| `Normal` | The market's oracle account | 1× | Allowed |
+| `ProxyMode` (every devnet market) | `user_twap_price`, at most 300 s old | 1.5× | Allowed |
+| `Stress` | `user_twap_price`, at most 300 s old | 3× | Blocked by default |
+| `Recovery` | `user_twap_price`, at most 300 s old | Falls linearly from 3× to 1× over the hour after `risk_state_updated_at` | Allowed |
+
+These multipliers are surcharges. No state discounts the fee, and there is no size throttle outside `Stress`. Every keeper push rewrites `risk_state_updated_at`, so in `Recovery` the multiplier stays close to 3× while pushes continue. See [Risk states](/concepts/risk-states).
+
+## Fee waivers
+
+`mint_paired_with_waiver` takes the same accounts plus the user's `FeeWaiver` PDA, seeds `[b"fee_waiver", user, market]`. It charges no fee when all three of these hold, and the normal fee otherwise:
+
+- The waiver hasn't expired (`waiver_end_at` is now or later).
+- The price push is at most 300 s old.
+- The vault's collateral ratio at the current price is at or above the market's target. The target is 100% plus `buffer_target_bps`, clamped to between 101% and 150%. An unset value reads as 102%, and every market had 200 bps (102%) on 10 Oct 2026.
+
+Waivers were earned with `donate_to_vault`. The app stopped offering donations on 9 Oct 2026. Waivers already earned still apply, and the app uses them automatically.
+
+## What you receive
+
+```
+dev_tax = fee * dev_tax_pct / 100              // dev_tax_pct = 10
+
+user cUSDC account        -collateral_amount
+collateral vault          +(collateral_amount - dev_tax)
+fee recipient             +dev_tax
+user L account            +qty_L
+user S account            +qty_S
+
+market.total_l_supply    += qty_L
+market.total_s_supply    += qty_S
+market.total_collateral  += collateral_amount - dev_tax
+```
+
+The program then emits `PairedActionExecuted` with `action` 0, the amounts minted, `fee_amount` and `dev_tax`.
+
+L and S are classic SPL tokens with 6 decimals and no freeze authority. You can transfer them, trade them on the [bin books](/flows/trade), or hold them in other programs. There is no lockup.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Redeem" icon="arrow-rotate-left" href="/flows/redeem">
+    The inverse: burn both legs and receive cUSDC.
+  </Card>
+  <Card title="End-to-end TypeScript example" icon="terminal" href="/build/example-mint-redeem">
+    A full script with wallet setup, IDL load, mint and verify.
+  </Card>
+</CardGroup>

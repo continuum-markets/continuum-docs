@@ -1,0 +1,188 @@
+---
+title: Reading prices
+description: Read a market's price, confidence and γ from its Market account, compute L and S NAV and the worst-case quotes, and check freshness.
+---
+
+Mint, redeem and committed orders all price from the market's `Market` account in the mint-redeem program. Read that account; you don't need an off-chain feed.
+
+| Field | Scale | Meaning |
+|---|---|---|
+| `user_twap_price` | 1e6 | The reference price P. |
+| `twap_updated_at` | Unix seconds | When the keeper last wrote P. Mint and redeem revert 300 s after it. |
+| `oracle_confidence` | 1e6 | The confidence band, before the risk-state multiplier. |
+| `s_gamma_index` | 1e9 | γ, the volatility decay on the short leg. 0 means unset and reads as 1.0. |
+| `initial_l_price`, `initial_s_price` | 1e6 | Their product is the constant K. |
+| `worst_case_config`, `risk_fee_config`, `risk_state` | | Confidence and fee multipliers, and the current risk state. |
+
+Despite its name, `user_twap_price` is a spot price, not a time-weighted average. The keeper writes it with mint-redeem's `update_risk_state_v2`, already adjusted for corporate actions, and the same call stamps `twap_updated_at`.
+
+On devnet the keeper prices markets from a free public quote source, because Pyth's public Hermes endpoint now needs an API key. A GJR-GARCH volatility model sets the confidence band. The keeper checks every print against Hyperliquid and skips the push when the two disagree, so Hyperliquid can veto a price but never sets one. Mainnet will use Pyth (Pyth Pro). See [Oracle](/concepts/oracle).
+
+## NAV and worst-case quotes
+
+```
+L NAV = P
+S NAV = K / P × γ        where K = initial_l_price × initial_s_price
+```
+
+Mint and redeem don't trade at NAV. They quote each leg against the user, with c = `oracle_confidence` × the confidence multiplier for the current risk state:
+
+| | L | S |
+|---|---|---|
+| Mint (the user pays) | P + c | K / (P − c) × γ |
+| Redeem (the user receives) | P − c | K / (P + c) × γ |
+
+The multipliers live in `worst_case_config`: 1× in Normal, 1.5× in ProxyMode and 3× in Stress. In Recovery the multiplier falls from 3× to 1× over one hour. Every devnet market runs in ProxyMode. When `worst_case_config.enabled` is false, c is 0 and both legs trade at NAV; as of 10 Oct 2026 that is true for QQQ only. Fees are separate and use `risk_fee_config` (see [Mint and redeem example](/build/example-mint-redeem)).
+
+## Sample
+
+```typescript
+// read-prices.ts
+import { Connection, PublicKey } from "@solana/web3.js";
+import { Program, type Idl } from "@coral-xyz/anchor";
+
+const IDL_URL =
+  "https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/mint_redeem.json";
+const MAX_AGE = 300; // seconds; mint and redeem revert past this
+const ONE = 1_000_000_000n; // γ scale
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const idl = (await (await fetch(IDL_URL)).json()) as Idl;
+const mintRedeem: any = new Program(idl, { connection }); // fetched IDL: untyped
+
+const big = (x: { toString(): string }) => BigInt(x.toString());
+const fmt = (x: bigint) => (Number(x) / 1e6).toFixed(6);
+
+// Risk-state multiplier in percent (150 = 1.5x). Recovery falls linearly
+// from the Stress value to the Normal value over one hour.
+function stateMult(m: any, normal: number, proxy: number, stress: number, now: number) {
+  const state = Object.keys(m.riskState)[0];
+  if (state === "normal") return BigInt(normal);
+  if (state === "proxyMode") return BigInt(proxy);
+  if (state === "stress") return BigInt(stress);
+  const t = Math.min(Math.max(now - m.riskStateUpdatedAt.toNumber(), 0), 3600);
+  return BigInt(stress - Math.floor(((stress - normal) * t) / 3600));
+}
+
+function prices(m: any, now: number) {
+  const P = big(m.userTwapPrice); // 1e6, corporate-action adjusted
+  const K = big(m.initialLPrice) * big(m.initialSPrice);
+  const g = big(m.sGammaIndex);
+  const gamma = g === 0n || g > ONE ? ONE : g; // 0 means unset: read as 1.0
+  const sNav = (p: bigint) => ((K / p) * gamma) / ONE;
+  const wc = m.worstCaseConfig;
+  const mult = stateMult(m, wc.normalConfidenceMultiplier, wc.proxyConfidenceMultiplier,
+    wc.stressConfidenceMultiplier, now);
+  const c = wc.enabled ? (big(m.oracleConfidence) * mult) / 100n : 0n;
+  const age = now - m.twapUpdatedAt.toNumber();
+  return {
+    P, c, gamma, age, fresh: P > 0n && age <= MAX_AGE,
+    nav: { l: P, s: sNav(P) },
+    mint: { l: P + c, s: sNav(P - c) },   // what a minter pays per token
+    redeem: { l: P - c, s: sNav(P + c) }, // what a redeemer receives per token
+  };
+}
+
+const symbols = ["QQQ", "SPY", "EUR"];
+const pdas = symbols.map((s) => PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from(s)], mintRedeem.programId)[0]);
+const markets = await mintRedeem.account.market.fetchMultiple(pdas);
+const now = Math.floor(Date.now() / 1000);
+
+for (let i = 0; i < symbols.length; i++) {
+  const m = markets[i];
+  if (!m) continue;
+  const p = prices(m, now);
+  console.log(`${symbols[i]}  ${Object.keys(m.riskState)[0]}  age ${p.age}s  fresh ${p.fresh}`);
+  console.log(`  P ${fmt(p.P)}  c ${fmt(p.c)}  gamma ${(Number(p.gamma) / 1e9).toFixed(9)}`);
+  console.log(`  NAV     L ${fmt(p.nav.l)}  S ${fmt(p.nav.s)}`);
+  console.log(`  mint    L ${fmt(p.mint.l)}  S ${fmt(p.mint.s)}`);
+  console.log(`  redeem  L ${fmt(p.redeem.l)}  S ${fmt(p.redeem.s)}`);
+}
+```
+
+Output on Saturday 10 Oct 2026 at 19:32 UTC. The underlying markets were closed, so every price was stale:
+
+```
+QQQ  proxyMode  age 83828s  fresh false
+  P 751.270000  c 0.000000  gamma 0.993214606
+  NAV     L 751.270000  S 304.599737
+  mint    L 751.270000  S 304.599737
+  redeem  L 751.270000  S 304.599737
+SPY  proxyMode  age 84128s  fresh false
+  P 778.569999  c 0.184738  gamma 0.998541030
+  NAV     L 778.569999  S 655.662481
+  mint    L 778.754737  S 655.818093
+  redeem  L 778.385261  S 655.506943
+EUR  proxyMode  age 81188s  fresh false
+  P 1.120099  c 0.000102  gamma 1.000000000
+  NAV     L 1.120099  S 1.175489
+  mint    L 1.120201  S 1.175596
+  redeem  L 1.119997  S 1.175382
+```
+
+QQQ's c is 0 because its worst-case quoting is off. SPY's c is its confidence of 0.123159 times 1.5. EUR's `s_gamma_index` is 0 (never written), so γ reads as 1.0.
+
+## Freshness
+
+Mint and redeem revert with `TwapNotAvailable` when P is 0 or `twap_updated_at` is more than 300 s old. There is no fallback price. The keeper withholds a push whenever its source price is stale. That happens every time the underlying market closes, so outside trading hours mint and redeem stop working 300 s after the last push.
+
+Committed orders (enabled on QQQ, SPY and XAU only as of 10 Oct 2026) settle only at a push newer than the commit, and expire 180 s after it. The bin books keep trading off-hours against a capped free-float book that the keeper posts.
+
+Apply the same rule in your UI: mark prices older than 300 s as stale and disable mint and redeem.
+
+## `OracleConfig` is not the live price
+
+The oracle program's `OracleConfig` accounts are not updated on devnet; the keeper writes prices only to `Market`. As of 10 Oct 2026, QQQ's `OracleConfig` still holds a `last_price` of `562330000000`, written on 4 Apr 2026. `OracleConfig` prices are scaled to 1e9, not 1e6, so that is \$562.33. Don't read `OracleConfig` for live prices.
+
+## Book centre (`Pool` account)
+
+Each side of a market has a bin book: a `Pool` account in the CLP program at `[b"pool", market, [side]]`. Its `base_price_1e6` is the centre the keeper last posted. The keeper shifts that centre for the protocol's inventory, so it can sit away from NAV. With a CLP client loaded from `clp.json` the same way:
+
+```typescript
+const [poolPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPda.toBuffer(), Buffer.from([0])], // 0 = long, 1 = short
+  clp.programId,
+);
+const pool = await clp.account.pool.fetch(poolPda);
+// Anchor renders base_price_1e6 as basePrice1E6 (capital E).
+const centre = Number(pool.basePrice1E6) / 1e6;
+```
+
+On 10 Oct 2026 QQQ's long book was centred at 751.27 and its short book at 304.599737, the same as the NAVs above.
+
+## Subscribe or poll
+
+- Subscribe with `connection.onAccountChange(marketPda, ...)` to see each push as it lands.
+- Poll every 15 to 30 s for dashboards, and batch markets into one `fetchMultiple` call.
+
+The Continuum app reads all market accounts in one batched call every 30 s.
+
+## Decimals
+
+Token amounts and `Market` prices use 6 decimals. γ and `OracleConfig` prices use 9. Keep raw values in `BN` or `bigint` math and convert once, for display:
+
+```typescript
+// WRONG: multiplies two 1e6-scaled numbers
+const wrong = market.userTwapPrice.toNumber() * market.totalLSupply.toNumber();
+
+// UI value
+const ui = (market.userTwapPrice.toNumber() / 1e6) *
+           (market.totalLSupply.toNumber() / 1e6);
+
+// Raw, still 1e6-scaled
+const raw = market.userTwapPrice.mul(market.totalLSupply).div(new BN(1e6));
+```
+
+`BN` has arbitrary precision, so prefer it over `toNumber()` for anything you multiply.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    Full state-fetch patterns (markets, vaults, positions).
+  </Card>
+  <Card title="Risk states" icon="shield-check" href="/concepts/risk-states">
+    What `Stress`, `ProxyMode` and `Recovery` mean and how to surface them.
+  </Card>
+</CardGroup>

@@ -1,0 +1,150 @@
+---
+title: CLP - Continuous Liquidity Provider
+description: The on-chain program that hosts Continuum's three trading venues and the vaults that stock them with inventory.
+---
+
+The **CLP** (Continuous Liquidity Provider) is the on-chain program where all trading happens. It hosts the three venues (native bin books, committed orders and the instant oracle swap) plus the per-market vaults that stock them with inventory.
+
+Users call the CLP every time they trade a leg. Inventory and treasury operations, such as funding books, sweeping excess and minting pairs into vaults, are gated to the keeper or an admin.
+
+## Venue 1: native bin books
+
+Each market has one `Pool` account **per side**, a long pool and a short pool (PDA seeds `[b"pool", market, side]`), so there are 28 native pools across the 14 live markets.
+
+- Up to 16 price bins live inline in the `Pool` account itself (live books use 12, and XAU's long book uses 6). There are no separate bin-array accounts and no rent churn on a reposition.
+- The geometry has two zones: fine core steps near the centre and wide wings further out. QQQ uses three 20 bps core steps, then 300 bps wings. `configure_pool_geom(wing_step_bps, core_bins)` sets it.
+- The keeper posts the shape. `set_pool_shape(base_price_1e6, asks, bids)` writes the centre and the per-bin sizes in one call, and the program checks the sums against the pool's vault balances. The keeper centres each book on NAV plus a small inventory shift, and repositions it when NAV drifts past a gate of at most 20 bps.
+
+`pool_swap(params: PoolSwapParams { direction, amount_in, min_out })` walks the bins with real slippage and charges no swap fee. It is pure inventory trading: nothing is minted or burned. It needs no fresh price, so the books keep trading while mint and redeem are frozen. Nothing in the program can set `pool.frozen` or disable a pool, so there is no pool-level kill switch. `pool_swap` shares a rolling notional cap with `clp_swap`; that cap is 1,000,000 cUSDC per hour on QQQ, SPY and XAU and unset (uncapped) on the other markets, as of 10 Oct 2026.
+
+### What the book actually is
+
+The keeper's env vars carry a `CLMM_` prefix and its pricing module is `clmm.rs`. Those are legacy names. The venue is a bin book, and it works differently from a Uniswap v3 pool:
+
+| | Uniswap v3 pool | Continuum's bin book |
+|---|---|---|
+| Liquidity shape | Continuous `x·y=k` curve inside a tick range | Discrete bins; a fixed reserve at a fixed price |
+| Price inside a unit | Moves continuously along the curve | Constant within a bin; a fill walks to the next bin |
+| Who supplies it | Many permissionless LPs choosing their own ranges | One quoter: the protocol is the sole LP |
+| How the shape is set | Emerges from LP deposits | Posted by the keeper (`set_pool_shape`) at each reposition |
+
+Mechanically it is a **discrete-bin liquidity book**, the same family as Trader Joe's Liquidity Book and Meteora's DLMM (the "D" is for *discrete*), which is what the program's `clmm.rs` header means by "DLMM-style". Ask bin `i` sits `i + 1` steps above the centre and bid bin `i` sits `i + 1` steps below. Each step multiplies the price by `1 + step/1e4`, using the core step for the first `core_bins` steps and the wing step beyond. A bin holds a reserve and fills at its own price until it runs out.
+
+It differs from those too, by being *less* of an AMM. The whole book lives inline in one `Pool` account with no per-bin accounts, and the keeper **posts** the ladder; deposits don't shape it. There is no bonding curve. The most accurate description is a **keeper-quoted bin book**: an on-chain market maker whose quotes are settled by an AMM-style swap instruction.
+
+We keep the `CLMM_*` env-var prefix and the `clmm.rs` filename for compatibility with deployed configuration; the docs say "book" or "bin book".
+
+### Lean by design
+
+Book depth is sized to **demand, never to TVL**:
+
+- Loss to toxic arbitrage grows with deployed depth, while organic revenue is capped by demand, so depth beyond demand is pure downside.
+- Bid cUSDC sitting in bins earns nothing, so bids are capped at about \$5k per side. The excess is swept to the CLP vault, where it provisions committed orders.
+- Asks trim to at most 1.5× bids via `pool_sweep_synth`.
+
+The keeper's refill loop works both ways. Drained asks restock by sweeping bids, minting pairs with `vault_mint_pairs` and funding both sides; bloated sides trim back. On QQQ, SPY and XAU, large sells don't need standing bids at all: they can route through committed orders, and the keeper provisions cUSDC at settle time with `vault_redeem_pairs`.
+
+## Venue 2: committed orders
+
+The large-order path uses three instructions and one account:
+
+```
+commit_swap(side, direction, amount_in, min_out, nonce)
+    → escrows the input into an Order PDA [b"order", user, market, nonce]
+      (TTL 180 s)
+settle_swap()                   ── permissionless
+    → fills at NAV ± max(commit_spread_bps, 10) bps at the latest push,
+      which must be newer than the commit; min_out miss → full refund
+cancel_swap()                   ── signed by the user, after the TTL
+    → refund; checks nothing else
+```
+
+As of 10 Oct 2026, committed orders run on QQQ, SPY and XAU only. Those are the markets whose CLP has the swap path enabled (`swap_guards.enabled`); on the other 11, `commit_swap` fails with `SwapDisabled`.
+
+How the venue behaves:
+
+- There is no size cap. The fill price is set after the commitment, so latency arbitrage is impossible by construction. The limits are oracle health, the collateral floor and keeper-provisioned inventory. An inventory shortfall reverts the settle and leaves the order pending.
+- `COMMIT_SPREAD_BPS = 10` is only a floor. The keeper posts `commit_spread_bps = clamp(half-spread, 10, 500)` from the books' vol model: 18 bps for QQQ, 15 for SPY and 18 for XAU as of 10 Oct 2026. The post-commit price removes latency arbitrage, and the spread prices the protocol's convexity exposure on large fills.
+- Funds are always recoverable. After the 180 s TTL (`COMMIT_TTL_SECS`), the user can sign `cancel_swap` for a refund whatever the oracle, keeper or admin state. Every terminal path (settle, refund, cancel) closes the `Order` account and returns its rent.
+- Anyone can call `settle_swap`. The keeper cranks it every 20 s, or every 5 s while orders are pending.
+
+The `Order` account layout supports `getProgramAccounts` filters: `user` at offset 8, `market` at 40, `status` at 74.
+
+<Warning>
+  `settle_swap` fills at the keeper-written `user_twap_price`, and its freshness check uses the keeper-written `twap_updated_at`. Both come from one key; nothing on chain checks them against an independent price.
+</Warning>
+
+## Venue 3: instant oracle swap
+
+`clp_swap(side, direction, amount_in, min_out)` fills instantly from CLP inventory at NAV ± `spread_bps`. It predates the books and is kept for small instant trades. As of 10 Oct 2026 it is enabled on QQQ, SPY and XAU only, with these guards, set by `configure_swap`:
+
+- A 30 bps spread.
+- The price must be no more than 600 s old, with confidence within 5,000 bps of price and a move of at most 2,500 bps since the last accepted price.
+- A rolling cap of 1,000,000 cUSDC per hour, shared with `pool_swap`.
+- A collateral floor of 50% that must hold after the swap.
+
+`settle_swap` runs the same price checks and floor, but committed fills don't use up the window.
+
+## Vaults and capital flow
+
+```
+Admin funding (GlobalClp → allocate_to_market)
+    ▼
+Per-market CLP vault (cUSDC)
+    │ vault_mint_pairs        → CLP-PDA-signed CPI into mint-redeem;
+    ▼                            paired L+S land in CLP custody
+CLP inventory (L + S + cUSDC)
+    │ clp_fund_pool_synth /   → stock the per-side books
+    │ set_pool_shape
+    ▼
+bin books ◄──── pool_sweep_usdc / pool_sweep_synth ──── excess back to the CLP
+    │
+    └─ committed orders provision from the vault at settle time
+       (vault_redeem_pairs converts pairs back to cUSDC)
+```
+
+`vault_mint_pairs`, `vault_redeem_pairs` and `vault_redeem_single` are CPIs into mint-redeem signed by the CLP PDA. The paired ones go through the ordinary `mint_paired` and `redeem_paired`, at NAV and with the same fee and price checks as any user.
+
+Collateral sits in two kinds of vault. QQQ, SPY and XAU share one unified vault (PDA `[b"unified_vault"]`); the other 11 markets each have their own vault, owned by the Market PDA. Either way each market keeps its own `total_collateral` ledger, and every outflow is limited to that market's liquid share, `total_collateral − deployed_to_yield`. A cross-market rebalancer moves only excess above the source market's own dynamic buffer target, and `rebalance_collateral` on mint-redeem enforces that floor on-chain. Between two unified-vault markets the move is a ledger update with no token transfer.
+
+## Where protocol revenue accumulates
+
+- Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only through `donate_to_vault`, which anyone can call; the keeper doesn't call it in its default configuration.
+- Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient.
+- Harvested collateral yield, when yield is on, goes to the fee recipient's cUSDC account. Yield is off on every market as of 10 Oct 2026.
+
+See [Solvency](/concepts/solvency) for how these channels affect the collateral ratio.
+
+## Reading pool state
+
+```typescript
+import { web3 } from "@coral-xyz/anchor";
+
+const side = 0; // 0 = long, 1 = short
+const [poolPDA] = web3.PublicKey.findProgramAddressSync(
+  [Buffer.from("pool"), marketPDA.toBuffer(), Buffer.from([side])],
+  clpProgram.programId,
+);
+const pool = await clpProgram.account.pool.fetch(poolPDA);
+console.log("Centre price:", pool.basePrice1E6.toString());
+console.log("Bins:", pool.numBins, "core step:", pool.stepBps, "x", pool.coreBins, "wing step:", pool.wingStepBps);
+```
+
+The app's [/pools](https://continuum.markets/pools) page renders this directly: the per-leg pool price, a deviation-from-NAV badge, instant depth and the per-market spread.
+
+## Read more
+
+<CardGroup cols={2}>
+  <Card title="CLP program reference" icon="square-terminal" href="/programs/clp">
+    All instructions, account fields, errors.
+  </Card>
+  <Card title="Keeper" icon="robot" href="/concepts/keeper">
+    The spread engine and book-management loop behind set_pool_shape.
+  </Card>
+  <Card title="Solvency" icon="shield" href="/concepts/solvency">
+    How lean books and depth caps defend the collateral ratio.
+  </Card>
+  <Card title="Trading flows" icon="route" href="/flows/trade">
+    Choosing a venue and executing trades end to end.
+  </Card>
+</CardGroup>

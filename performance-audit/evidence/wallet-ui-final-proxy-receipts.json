@@ -1,0 +1,85 @@
+{
+  "method": "Read-only verification through the application's existing configured /api/rpc service and normal established same-origin session.",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "cluster": "devnet",
+  "publicRpcGapRetained": "wallet-ui-final-receipts-initial.jsonl",
+  "calls": [
+    {
+      "fetchedAt": "2026-10-09T01:18:26.187Z",
+      "ms": 99.60000002384186,
+      "results": [
+        {
+          "id": 1,
+          "receipt": {
+            "blockTime": 1791508459,
+            "computeUnitsConsumed": 45971,
+            "err": null,
+            "instructions": [
+              "Program log: Instruction: MintPaired"
+            ],
+            "signature": "2obHGd12RbMvYsQq4QuaMfWBGmoDCgtB1dPEZDgmxknmwcmrpyVFBdteftRGG3N7tSMpsUcQfPFAAqAPuNenR7nL",
+            "slot": 509009243
+          }
+        },
+        {
+          "id": 2,
+          "jsonrpc": "2.0",
+          "result": [
+            {
+              "blockTime": 1791508498,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "4G3iFi8ptwy1Q1tsjm2sboJoUJhaxaq7WYW5rwFsjwbQkXMcDa9cMmhdFakwMTiotQpCCup1WBE9W29955g1gNGw",
+              "slot": 509009408,
+              "transactionIndex": 1
+            },
+            {
+              "blockTime": 1791508479,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "uQoBQVLUffTE73oG69FnThqYF6iLnbBQpiZLwzbmNZMsW3arb22dnfNo7pT56LMbqqbvfjLJp4kVaT4VwSbbH6R",
+              "slot": 509009327,
+              "transactionIndex": 10
+            }
+          ]
+        }
+      ],
+      "status": 200
+    },
+    {
+      "fetchedAt": "2026-10-09T01:18:35.370Z",
+      "ms": 707.3000000119209,
+      "results": [
+        {
+          "id": 0,
+          "receipt": {
+            "blockTime": 1791508498,
+            "computeUnitsConsumed": 41059,
+            "err": null,
+            "instructions": [
+              "Program log: Instruction: SettleSwap"
+            ],
+            "signature": "4G3iFi8ptwy1Q1tsjm2sboJoUJhaxaq7WYW5rwFsjwbQkXMcDa9cMmhdFakwMTiotQpCCup1WBE9W29955g1gNGw",
+            "slot": 509009408
+          }
+        },
+        {
+          "id": 1,
+          "receipt": {
+            "blockTime": 1791508479,
+            "computeUnitsConsumed": 53866,
+            "err": null,
+            "instructions": [
+              "Program log: Instruction: CommitSwap"
+            ],
+            "signature": "uQoBQVLUffTE73oG69FnThqYF6iLnbBQpiZLwzbmNZMsW3arb22dnfNo7pT56LMbqqbvfjLJp4kVaT4VwSbbH6R",
+            "slot": 509009327
+          }
+        }
+      ],
+      "status": 200
+    }
+  ]
+}

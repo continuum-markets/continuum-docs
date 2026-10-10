@@ -1,0 +1,137 @@
+---
+title: How Continuum works
+description: The mental model, covering paired tokens at NAV, three protocol-native trading venues, and the keeper that prices them.
+---
+
+Continuum has three moving parts. Two are on-chain programs and one runs off-chain.
+
+- `mint-redeem` issues and burns paired long and short tokens against cUSDC collateral at NAV. It also stores each market's price, risk state and solvency target.
+- `clp` is the protocol's trading and treasury program. It hosts all three trading venues and the vaults that stock them.
+- The keeper is an off-chain service run by the protocol. It pushes prices on-chain, manages the bin books, settles committed orders, and posts fees and volatility decay.
+
+## The system at a glance
+
+```
+                  ┌────────────────────────────────────────┐
+                  │             Frontend / SDK             │
+                  └───────┬───────────────────┬────────────┘
+                          │                   │
+              mint / redeem at NAV      trade either leg
+                          │                   │
+                          ▼                   ▼
+   ┌──────────────────────────┐   ┌─────────────────────────────────┐
+   │       mint-redeem        │   │              clp                │
+   │                          │   │                                 │
+   │  mint_paired             │   │  1. Bin books      (pool_swap)  │
+   │  redeem_paired           │◄──┤  2. Committed      (commit_swap │
+   │  price + risk state      │CPI│     orders          settle_swap)│
+   │  buffer target, γ index  │   │  3. Oracle swap    (clp_swap)   │
+   │  collateral vaults       │   │  per-market inventory vaults    │
+   └──────────────────────────┘   └─────────────────────────────────┘
+                          ▲                   ▲
+                          │                   │
+              ┌───────────┴───────────────────┴───────────┐
+              │              Keeper (off-chain)           │
+              │  price push · book manager · settler ·    │
+              │  refill/trim · buffer, fees, γ · yield    │
+              └───────────────────────────────────────────┘
+```
+
+Everything a user touches is protocol-native. There is no external AMM in the call path.
+
+## Minting and redeeming
+
+The only program a user writes to for issuance is `mint-redeem`:
+
+- `mint_paired(collateral_amount)` deposits cUSDC and mints matched long (`L`) and short (`S`) tokens at NAV.
+- `redeem_paired(l_amount, s_amount)` burns long and short tokens and returns cUSDC at NAV. Both amounts must be above zero, but they don't have to match.
+
+Both need at least 10 cUSDC of value and a keeper price push no more than 300 s old.
+
+NAV comes from one price `P` and a constant `K = initial_l_price × initial_s_price`. `L_NAV = P` and `S_NAV = K / P × γ`, where γ (at most 1) is the short leg's [volatility decay](/concepts/nav#volatility-decay). So `L_NAV × S_NAV = K·γ`, and as one leg rises the other falls reciprocally. A paired mint deposits exactly the NAV value of the tokens it creates. No user path mints one side alone; see [Solvency](/concepts/solvency).
+
+→ [Paired tokens](/concepts/paired-tokens) · [NAV math](/concepts/nav) · [Full reference](/programs/mint-redeem)
+
+## The three trading venues
+
+Trading a single leg happens in the `clp` program, which splits flow across three venues:
+
+| Venue | Instruction | Fill | Best for |
+|---|---|---|---|
+| Bin book | `pool_swap` | Instant, walks on-chain bins with real slippage | Small trades, immediate execution |
+| Committed order | `commit_swap` → `settle_swap` | At a keeper push after the commit, NAV ± the committed spread (10 bps floor), any size | Large trades |
+| Oracle swap | `clp_swap` | Instant at NAV ± 30 bps, with price and size guards | Small instant trades (legacy path) |
+
+Every market has its two bin books. As of 10 Oct 2026, committed orders and the oracle swap are switched on for QQQ, SPY and XAU only. On the other 11 markets the CLP's swap path is off (`swap_guards.enabled = false`), so `commit_swap` and `clp_swap` fail with `SwapDisabled`.
+
+### 1. Bin books: instant, small
+
+Each market has one protocol-owned pool per side: 28 books across the 14 live markets. The bins sit inline in the `Pool` account in two zones, with fine core steps near the centre and wide wings further out (QQQ: three 20 bps core steps, then 300 bps wings). The keeper centres each book on NAV plus a small inventory shift, and repositions it when NAV drifts past a gate of at most 20 bps.
+
+Standing depth is deliberately lean. It is sized to organic demand rather than TVL, because the loss to toxic arbitrage grows with deployed depth. Books hold about \$5k of bids and at most \$7.5k of asks per side. When mint and redeem freeze off-hours, the keeper replaces them with a capped [free-float book](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes).
+
+### 2. Committed orders: any size
+
+This is the large-order path. You escrow your input into an `Order` PDA. The order fills at a keeper push made after your commit (not necessarily the first one), at NAV ± `max(commit_spread_bps, 10)` bps, where the keeper posts `commit_spread_bps` from the books' volatility model. Because the price is set after you commit, there is no stale quote to pick off, so there is no size or window cap. The limits are oracle health, the collateral floor and the inventory the keeper has provisioned.
+
+- Settlement is permissionless; the keeper cranks it.
+- A `min_out` miss refunds in full and closes the order, so it can't loop on reverts.
+- After the 180 s TTL, the user can sign `cancel_swap` for a refund. It checks nothing else, so escrowed funds come back whatever the oracle, keeper or admin state.
+- Every terminal path closes the `Order` account and returns its rent to the user.
+
+In the app, an amount above 5,000 switches to a committed order on markets where the path is on. You can also pick it by hand.
+
+### 3. Oracle swap: the legacy path
+
+`clp_swap` fills instantly from CLP inventory at NAV ± a configured spread (30 bps on QQQ, SPY and XAU). It checks the price's age, confidence and recent move, caps notional per rolling window, and enforces a collateral floor. Committed orders skip it and don't use up its window.
+
+## End-to-end mint flow
+
+```
+1. User wallet            ─── mint_paired(100 cUSDC)       ──►  mint-redeem program
+2. mint-redeem reads      ─── user_twap_price (≤ 300 s old)      from the Market account
+3. mint-redeem transfers  ─── 100 cUSDC less the dev tax   ──►  collateral vault
+4. mint-redeem mints      ─── L_qty long tokens            ──►  user's long ATA
+5. mint-redeem mints      ─── S_qty short tokens           ──►  user's short ATA
+```
+
+The keeper isn't part of the transaction, but the transaction depends on its pushes. Mint and redeem revert with `TwapNotAvailable` when the last push is more than 300 s old.
+
+## End-to-end committed-order flow
+
+```
+1. User    ─── commit_swap(side, direction, amount_in, min_out, nonce) ──►  clp
+            input escrowed into an Order PDA, TTL = 180 s
+2. Keeper  ─── update_risk_state_v2 (a price push after the commit)    ──►  mint-redeem
+3. Anyone  ─── settle_swap() with the Order account                    ──►  clp
+            fills at NAV ± committed spread at the latest push;
+            min_out miss → full refund; either way the Order closes
+4. (fallback) after 180 s: the user signs cancel_swap for a refund
+```
+
+## Why this design
+
+| Question | Answer |
+|---|---|
+| Why no funding rate? | Long and short supply is issued in pairs and every token is fully backed when minted, so there is no open-interest imbalance to fund. One-sided demand shows up as inventory in the CLP, and the keeper prices it by shifting the book centres: a lone long buyer pays a small premium that funds a lone short buyer's discount. The short leg does carry [volatility decay](/concepts/nav#volatility-decay) for the pair's convexity. Longs carry nothing. |
+| Why no liquidations? | A paired position prepays full collateral. There is no margin to call. |
+| Why three venues? | Each fits a different trade. Small instant trades get an on-chain book with real slippage. Large trades get a NAV fill that can't be latency-arbitraged. The oracle swap covers small instant flow behind guards. Splitting them lets each venue be priced for its own adverse selection. |
+| Why is the committed spread thinner than the oracle swap's 30 bps? | The price is set after the commitment, so there is nothing stale to select against. The spread still prices the protocol's convexity exposure on large fills, so it follows the book's half-spread with a 10 bps floor. |
+| Why is book depth so lean? | Toxic loss grows with deployed depth, while organic revenue is capped by demand. Depth is sized to demand, and the excess goes back to the CLP vault, where it provisions committed orders. See [CLP](/concepts/clp). |
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Paired tokens" icon="layer-group" href="/concepts/paired-tokens">
+    Why mint is paired, how the long/short pair settles.
+  </Card>
+  <Card title="NAV math" icon="calculator" href="/concepts/nav">
+    The constant-product formula, volatility decay and what they imply for P&L.
+  </Card>
+  <Card title="CLP and the venues" icon="arrows-rotate" href="/concepts/clp">
+    Book geometry, committed-order mechanics, vault plumbing.
+  </Card>
+  <Card title="Keeper" icon="robot" href="/concepts/keeper">
+    Price pushes, book management, settlement crank, fee and decay posting.
+  </Card>
+</CardGroup>

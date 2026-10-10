@@ -1,0 +1,18 @@
+{
+  "canRedeploy": true,
+  "canRollback": true,
+  "createdAt": "2026-10-09T02:25:17.892Z",
+  "environmentId": "76457ef2-7675-4239-a336-f0a09f244052",
+  "id": "1579d4dd-8d51-43c3-a326-a78717745a11",
+  "meta": {
+    "reason": "deploy"
+  },
+  "regions": [
+    "europe-west4-drams3a"
+  ],
+  "serviceId": "a558e432-23f9-47b1-acd6-0e0a7ee559d0",
+  "snapshotId": "5cefd82f-e28b-4e34-8952-70491334909c",
+  "status": "SUCCESS",
+  "updatedAt": "2026-10-09T02:26:14.840Z",
+  "url": null
+}

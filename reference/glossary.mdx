@@ -1,0 +1,151 @@
+---
+title: Glossary
+description: Continuum-specific terms in one place.
+---
+
+## A to C
+
+**Anchor** - The Solana smart-contract framework Continuum is built on. Version 0.32.1.
+
+**Ask trim** - Keeper inventory rule: ask-side synth worth more than 1.5× the bid side sweeps back to CLP custody (`pool_sweep_synth`). Ask depth the bid side cannot absorb only invites arbitrage.
+
+**`asset_symbol`** - The market's ticker, for example `"QQQ"`. Up to 10 characters. It seeds the Market PDA.
+
+**ATA** (Associated Token Account) - Solana's standard derivation for a wallet's token account: `getAssociatedTokenAddressSync(mint, owner)`. Always derived, not always created, so create it idempotently before instructions that expect it.
+
+**Authority** - A signer with rights over an account: `market.authority` (the market admin), `market.keeper_authority`, `oracle_config.admin_authority`, `oracle_config.keeper_authority`, and the CLP authority on `GlobalClp` and each `Clp`.
+
+**Base price** - A book's posted centre, `Pool.base_price_1e6`: NAV moved by the inventory centre-shift, or the last price during free float. Ask bins ladder above it, bid bins below.
+
+**Bid cap** - Keeper inventory rule: standing bid cUSDC is capped at $5,000 per side (`CLMM_BID_TARGET_USD`) and the excess goes to the CLP vault. Large sells use committed orders on the markets that have them.
+
+**Bin step** - The spacing between bins, in bps. Books use a fine core step for the first `core_bins` bins and a wide wing step beyond. On the live books the core is 10 to 50 bps over 3 bins and the wings 200 to 700 bps.
+
+**bps** (basis points) - 1 bps = 0.01%. Fees are quoted in bps: `mint_fee_bps = 18` means 0.18%.
+
+**CLP** (Continuous Liquidity Provider) - Continuum's on-chain treasury and trading program. It holds protocol capital and hosts the bin books, committed orders and the instant oracle swap. → [CLP concept](/concepts/clp).
+
+**CNTM** - Continuum's planned governance token. Not active.
+
+**Committed order** - The large-trade venue. `commit_swap(side, direction, amount_in, min_out, nonce)` escrows the input, which fills at NAV ± `max(commit_spread_bps, 10)` bps at any keeper push after the commit. The keeper posts `clamp(half-spread, 10, 500)` bps. As of 10 Oct 2026 only QQQ (18), SPY (15) and XAU (18) accept committed orders. After the 180 s TTL, the owner can sign `cancel_swap` to refund an unfilled order. → [Trade flow](/flows/trade).
+
+**Confidence interval** - The uncertainty band around a pushed price, stored as `Market.oracle_confidence`. On devnet it comes from a GJR-GARCH volatility model. Worst-case quoting widens mint and redeem quotes by it.
+
+**Constant-product invariant** - `L_NAV × S_NAV = K × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index. As one leg rises the other falls.
+
+**CPI** (Cross-Program Invocation) - Solana's mechanism for one program to call another. The CLP calls mint-redeem by CPI to mint and redeem pairs from its own vault (`vault_mint_pairs`, `vault_redeem_pairs`).
+
+**cUSDC** - Continuum's devnet collateral mint (`B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`). On mainnet the collateral is real USDC. These docs say "cUSDC" to avoid confusion.
+
+## D to L
+
+**Drift gate (reposition gate)** - The move in a book's target centre that triggers a re-centre: 20 bps by default (`CLMM_REPOSITION_BPS`), cut further so the book moves before NAV reaches the floor of its first funded bin.
+
+**Dynamic buffer** - The overcollateralization target the keeper posts per market (`set_buffer_target`): `B = δ²/2 + |q|·δ + margin`, with δ scaled to volatility and `q` fixed at 0.3. The keeper never posts below 102%; the program clamps any target to 101% to 150%.
+
+**Fee waiver** - A grant created by `donate_to_vault` that lets the donor mint and redeem fee-free for a period, through `mint_paired_with_waiver` and `redeem_paired_with_waiver`. It applies only while the market's vault is above its target ratio. The app no longer offers it.
+
+**Force price** - The oracle program's `force_price` instruction, compiled only into devnet builds. An operator emergency tool.
+
+**Free float** - The book the keeper posts while mint and redeem are frozen (last push over 300 s old): anchored at the last price, inventory spread evenly, capped at $10,000 per side ($1,250 for single-name stocks). A guard can pull bins that other venues show have gone stale. → [Book management](/keeper/book-management).
+
+**γ index** - `Market.s_gamma_index`, the short leg's volatility-decay index (1e9 = 1.0), which multiplies its NAV. The keeper lowers it as realized volatility accrues (`set_s_gamma_index`); the program rejects writes that raise it or fall out of range. `reanchor_gamma` (authority only, at least 14 days apart) folds γ into `initial_s_price` and resets it to 1. It is not a reset to the spot price. → [Volatility decay](/concepts/nav#volatility-decay).
+
+**`initial_l_price` / `initial_s_price`** - Anchors set when a market is initialized. Their product is K in the NAV formulas. NAV never falls back to them. `reanchor_gamma` folds γ into `initial_s_price`.
+
+**Instant depth** - The book's standing bin liquidity: what a `pool_swap` can fill immediately. Deliberately lean.
+
+**Inventory centre-shift** - The keeper's shift of each book's centre to work off the protocol's own inventory. When the public holds more L than S, the CLP holds the extra S, so the long book is quoted dearer and the short book cheaper. At most half the narrower leg's half-spread. On by default.
+
+**`is_long`** - Boolean argument to the single-leg instructions (`keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `permissionless_burn`). `true` means the long leg, `false` the short leg.
+
+**Keeper** - The off-chain Rust service the protocol runs: price pushes, book management, committed-order settlement, inventory moves and parameter posting. Its source is not published. → [Keeper overview](/keeper/overview).
+
+**`keeper_authority`** - The pubkey stored on `Market` that may push prices (`update_risk_state_v2`), post buffer targets and γ, rebalance collateral between markets, and call the keeper-only single-leg instructions.
+
+**L** (Long) - One half of a Continuum paired position. Rises in value as the underlying rises.
+
+**`L_NAV`** - Long-leg NAV: `Market.user_twap_price`, the spot price the keeper pushes, scaled to 1e6 and adjusted for corporate actions. If it is 0 or more than 300 s old, mint and redeem revert with `TwapNotAvailable`.
+
+**LP** (Liquidity Provider) - The protocol is the only LP, through the CLP. There are no user LP shares.
+
+## M to R
+
+**`mint_fee_bps`** - Per-market mint fee, posted by the keeper as `clamp(fee_mult × half-spread, 10, 100)` bps. As of 10 Oct 2026: QQQ 18, SPY 16, NVDA 31, MSTR 52, EUR/GBP/JPY 10. The risk-state multiplier applies on top (1.5× in ProxyMode), and 10% of the fee is a dev tax.
+
+**`mint_paired`** - User-facing instruction. Deposits at least 10 cUSDC and returns L and S at NAV, half the net value each. → [Mint flow](/flows/mint).
+
+**Mint authority** - The signer that can mint new SPL tokens. For Continuum's L and S mints it is the Market PDA. There is no freeze authority.
+
+**MVP** - The release deployed on devnet today. It has no governance, no user LP and no collateral yield.
+
+**NAV** (Net Asset Value) - The on-chain protocol price for L and S, used by mint and redeem. → [NAV math](/concepts/nav).
+
+**Native book / bin book** - Continuum's own per-leg quote book: one `Pool` account per market and side, up to 16 bins stored inline (no per-bin rent), filled by `pool_swap`. Each bin holds a fixed amount at a fixed price, and a swap walks outward from the centre. The `CLMM_*` keeper variables and `clmm.rs` keep an older label. → [What the book actually is](/concepts/clp#what-the-book-actually-is).
+
+**OI** (Open Interest) - Outstanding token supply, tracked per leg on the `Market` account (`total_l_supply`, `total_s_supply`).
+
+**`oi_cap`** - A cap stored on each market's `Clp` account (250,000 cUSDC on every live market as of 10 Oct 2026). It is not enforced: only the authority-only `update_oi` checks it, and nothing calls that.
+
+**Oracle** - The oracle program, which holds a per-market `OracleConfig` with feeds, TWAPs and health state. On devnet the keeper does not update it; mint and redeem use the price the keeper writes to `Market`. → [Oracle concept](/concepts/oracle).
+
+**Paired** - As in `mint_paired` and `redeem_paired`: the user-facing entry points, where L and S are minted or burned together at NAV-weighted values rather than in equal quantities.
+
+**PDA** (Program Derived Address) - Solana's deterministic pubkey derived from seeds. Continuum has many: `Market`, `Clp`, `OracleConfig` and others. → [PDA derivations](/build/idls-and-pdas#pda-derivation-cheatsheet).
+
+**Protective skew** - The spread engine's trend response: the side a continuing trend would hit widens with the drift z-score, and the other side never tightens below the symmetric shape. An antisymmetric variant, which also tightened the other side, failed in backtests.
+
+**ProxyMode** - The risk state every devnet market runs in. The programs price from `Market.user_twap_price`, and fees and the confidence band are multiplied by 1.5. → [Risk states](/concepts/risk-states).
+
+**Pyth** - The oracle network mainnet will use (Pyth Pro). On devnet the keeper prices markets from a free public quote source, because Pyth's public price endpoint now needs an API key.
+
+**Realized ratchet** - The spread engine's fast term: a trailing empirical q90 of window moves, warm after about 8 windows. One of four terms in the half-spread.
+
+**Recovery** - The risk state after Stress. The fee and confidence multiplier falls from 3× to 1× over 1 hour.
+
+**`redeem_fee_bps`** - Per-market redeem fee. The keeper posts the same value as `mint_fee_bps`.
+
+**`redeem_paired`** - User-facing instruction. Burns L and S, both amounts above zero and worth at least 10 cUSDC together, and returns cUSDC at NAV less the redeem fee. → [Redeem flow](/flows/redeem).
+
+**Registry** - The on-chain symbol-to-market index (`Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau`). It is deployed and initialized, but it holds no markets and nothing reads it yet. Its only venue type is `MeteoraDlmm`. → [Registry program](/programs/registry).
+
+**`risk_state`** - `Normal`, `ProxyMode`, `Stress` or `Recovery`, stored on `Market` and written by the keeper with `update_risk_state_v2`. Devnet markets are always in `ProxyMode`. Fee and confidence multipliers: 1×, 1.5×, 3×, and 3× falling to 1× over 1 hour. → [Risk states](/concepts/risk-states).
+
+## S to Z
+
+**S** (Short) - One half of a Continuum paired position. Rises in value as the underlying falls.
+
+**`S_NAV`** - Short-leg NAV: `K / L_NAV × s_gamma_index / 1e9`, with `K = initial_l_price × initial_s_price`.
+
+**Slippage** - The difference between the expected and the actual swap output. On the bin books it is the real cost of walking the bin ladder. Committed orders have none: they fill at NAV ± `max(commit_spread_bps, 10)` bps whatever their size.
+
+**Slow auto-floor** - The spread engine's slow term: `floor_mult × σ_60d`, never below 5 bps. It needs about 10 days of history in memory to engage, and the static floor applies before then.
+
+**Solvency invariant** - A property the protocol enforces at all times. → [Solvency invariants](/concepts/solvency).
+
+**Stress** - The risk state for extreme confidence or staleness. Mint and redeem are both blocked by default: `allow_mint_in_stress` and `allow_redeem_in_stress` are false on every live market.
+
+**TWAP** (Time-Weighted Average Price) - A price averaged over a window. The oracle program keeps TWAPs in `OracleConfig`, but nothing updates them on devnet. `Market.user_twap_price` is a spot price despite its name.
+
+**Two-zone geometry** - The book's bin layout: a fine core step near the centre for tight instant pricing, and wide wing steps beyond `core_bins`, so a free-float book covers large off-hours moves with few bins.
+
+**`user_twap_price`** - The `Market` field that drives `L_NAV`. The keeper writes it with mint-redeem `update_risk_state_v2`, along with `twap_updated_at`.
+
+**Vault** (collateral vault) - The token account holding a market's backing cUSDC (`market.collateral_vault`). QQQ, SPY and XAU share the unified vault (PDA `[b"unified_vault"]`, `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`), so redeeming from them needs the `collateral_authority` PDA. The other 11 markets have vaults owned by their Market PDA.
+
+**Venue split** - Routing by size: bin books for instant trades on all 14 markets, and committed orders plus the instant oracle swap (`clp_swap`) on QQQ, SPY and XAU. All price off the same keeper-pushed NAV.
+
+**Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ`, redeem L at P − c and S at `K / (P + c) × γ`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
+
+**Yield router** - The keeper task that would lend idle collateral to lending venues. It is off by default, and every devnet market has `yield_enabled = false` as of 10 Oct 2026.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Errors" icon="circle-exclamation" href="/reference/errors">
+    Per-program error catalog.
+  </Card>
+  <Card title="Live markets" icon="address-book" href="/markets/live">
+    All current devnet pubkeys.
+  </Card>
+</CardGroup>

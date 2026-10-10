@@ -1,0 +1,54 @@
+{
+  "measuredAt": "2026-10-09T00:11:05.895912+00:00",
+  "readOnly": true,
+  "rows": [
+    {
+      "surface": "faucet-health",
+      "sample": 0,
+      "status": 200,
+      "ms": 8871.578166959807,
+      "bytes": 221,
+      "inFlight": 0,
+      "maxConcurrency": 1
+    },
+    {
+      "surface": "faucet-health",
+      "sample": 1,
+      "status": 200,
+      "ms": 248.52079199627042,
+      "bytes": 221,
+      "inFlight": 0,
+      "maxConcurrency": 1
+    },
+    {
+      "surface": "faucet-health",
+      "sample": 2,
+      "status": 200,
+      "ms": 272.7499579777941,
+      "bytes": 221,
+      "inFlight": 0,
+      "maxConcurrency": 1
+    },
+    {
+      "surface": "discord-guild-read",
+      "sample": 0,
+      "status": 200,
+      "ms": 379.66162501834333,
+      "payloadBytes": 3643
+    },
+    {
+      "surface": "discord-guild-read",
+      "sample": 1,
+      "status": 200,
+      "ms": 231.89354198984802,
+      "payloadBytes": 3643
+    },
+    {
+      "surface": "discord-guild-read",
+      "sample": 2,
+      "status": 200,
+      "ms": 231.70587501954287,
+      "payloadBytes": 3643
+    }
+  ]
+}

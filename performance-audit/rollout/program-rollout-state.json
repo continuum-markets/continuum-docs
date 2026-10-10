@@ -1,0 +1,254 @@
+{
+  "target": "devnet",
+  "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+  "phases": {
+    "oracle-extend": {
+      "status": "verified",
+      "startedAt": "2026-10-09T01:50:05Z",
+      "before": {
+        "readSlot": 509018227,
+        "lastUpgradeSlot": 458990884,
+        "allocatedBytes": 295688,
+        "programDataLamports": 2059192560,
+        "payerLamports": 7415815120,
+        "binarySha256": "8fdd7d80c01e69142d8389b162a83ef56476ea03ddf8668f89b5bf01b87db955",
+        "matchesCandidate": false,
+        "matchesBackup": true,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "command": [
+        "solana",
+        "program",
+        "extend",
+        "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "11992",
+        "--url",
+        "https://api.devnet.solana.com",
+        "--keypair",
+        "/Users/nafironato/.config/solana/id.json",
+        "--commitment",
+        "finalized",
+        "--use-quic",
+        "--output",
+        "json"
+      ],
+      "privateLog": "/tmp/continuum-performance-rollout/private/oracle-extend-1791510605.log",
+      "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+      "artifactSha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+      "cliExitCode": 0,
+      "privateLogSha256": "0c7d19559a916702f4212e664c50a847c167a62fe8b6a5b1fe80318d2c03a258",
+      "signature": "gLtVMcuh4KbkC3L6fjdaE2gxEfTmwg5WXpgLiaitE1uAbrPh4scrrMHuLWVDz46fNPVKf9BJrGdwYVaHKTudQKQ",
+      "after": {
+        "readSlot": 509018241,
+        "lastUpgradeSlot": 509018241,
+        "allocatedBytes": 307680,
+        "programDataLamports": 2059192560,
+        "payerLamports": 7415810120,
+        "binarySha256": "93b15d9331b6d2982da6274bed304930f965dff0bd90a0a30ebaebb57d1cd070",
+        "matchesCandidate": false,
+        "matchesBackup": true,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "completedAt": "2026-10-09T01:50:09Z",
+      "signatureProvenance": "finalized program history at exact post-extension slot",
+      "receipt": {
+        "slot": 509018241,
+        "blockTime": 1791510608,
+        "fee": 5000,
+        "computeUnitsConsumed": 2370,
+        "err": null
+      }
+    },
+    "oracle-upgrade": {
+      "status": "verified",
+      "startedAt": "2026-10-09T01:50:51Z",
+      "before": {
+        "readSlot": 509018417,
+        "lastUpgradeSlot": 509018241,
+        "allocatedBytes": 307680,
+        "programDataLamports": 2059192560,
+        "payerLamports": 7415810120,
+        "binarySha256": "93b15d9331b6d2982da6274bed304930f965dff0bd90a0a30ebaebb57d1cd070",
+        "matchesCandidate": false,
+        "matchesBackup": true,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "command": [
+        "solana",
+        "program",
+        "deploy",
+        "/tmp/continuum-performance-release-sbf/optimized/oracle.so",
+        "--program-id",
+        "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+        "--buffer",
+        "/tmp/continuum-performance-rollout/private/oracle-buffer.json",
+        "--upgrade-authority",
+        "/Users/nafironato/.config/solana/id.json",
+        "--fee-payer",
+        "/Users/nafironato/.config/solana/id.json",
+        "--max-sign-attempts",
+        "1",
+        "--url",
+        "https://api.devnet.solana.com",
+        "--keypair",
+        "/Users/nafironato/.config/solana/id.json",
+        "--commitment",
+        "finalized",
+        "--use-quic",
+        "--output",
+        "json"
+      ],
+      "privateLog": "/tmp/continuum-performance-rollout/private/oracle-upgrade-1791510651.log",
+      "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+      "artifactSha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+      "cliExitCode": 0,
+      "privateLogSha256": "81eb5b0b66c7bd76d247c9ae0cc2223f54e777bc32e09a4b4ccc88af2d52bd2d",
+      "signature": "237m6yt5mpcmBffnEFfhc98mkiTP5CopzugzMRHGsjUck6CvNtMyym1mUgj62vGvtvyAQQ5vsPpV5SBHZb59EMHN",
+      "after": {
+        "readSlot": 509018503,
+        "lastUpgradeSlot": 509018501,
+        "allocatedBytes": 307680,
+        "programDataLamports": 1563893240,
+        "payerLamports": 7909569440,
+        "binarySha256": "f168f19075c3b6829ba53b3c977067f9587b784c2528e58f0d4bf3e1a6135e02",
+        "matchesCandidate": true,
+        "matchesBackup": false,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "receipt": {
+        "slot": 509018501,
+        "blockTime": 1791510669,
+        "fee": 5000,
+        "computeUnitsConsumed": 2370,
+        "err": null
+      },
+      "bufferAfter": {
+        "publicKey": "EcLrN9u6pymWVdaoJBhD4goexAEtdkpxtx79TGoV7fhx",
+        "readSlot": 509018503,
+        "exists": false,
+        "lamports": 0,
+        "owner": null,
+        "bytes": 0
+      },
+      "completedAt": "2026-10-09T01:51:11Z"
+    },
+    "clp-upgrade": {
+      "status": "verified",
+      "startedAt": "2026-10-09T01:56:40Z",
+      "before": {
+        "readSlot": 509019879,
+        "lastUpgradeSlot": 509011058,
+        "allocatedBytes": 828248,
+        "programDataLamports": 4208378680,
+        "payerLamports": 7909494440,
+        "binarySha256": "4988d5e07edbba8f9ebdf890414672ffe78d338765e3d8ebec682c871d80b412",
+        "matchesCandidate": false,
+        "matchesBackup": true,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "command": [
+        "solana",
+        "program",
+        "deploy",
+        "/tmp/continuum-performance-release-sbf/optimized/clp.so",
+        "--program-id",
+        "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES",
+        "--buffer",
+        "/tmp/continuum-performance-rollout/private/clp-buffer.json",
+        "--upgrade-authority",
+        "/Users/nafironato/.config/solana/id.json",
+        "--fee-payer",
+        "/Users/nafironato/.config/solana/id.json",
+        "--max-sign-attempts",
+        "1",
+        "--url",
+        "https://api.devnet.solana.com",
+        "--keypair",
+        "/Users/nafironato/.config/solana/id.json",
+        "--commitment",
+        "finalized",
+        "--use-quic",
+        "--output",
+        "json"
+      ],
+      "privateLog": "/tmp/continuum-performance-rollout/private/clp-upgrade-1791511000.log",
+      "sourceSha256": "cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14",
+      "artifactSha256": "0830f8c0acba63aa6fd26090462d5ba7e82922362dffd72c2ce3a57b01a5c56e",
+      "cliExitCode": 0,
+      "privateLogSha256": "1fc112ba0315265d76a9cc80881c806a255538fd1c7938d24b254af469e635a7",
+      "signature": "4Co6Mz4wj1Hcgk1Z6xXUio3XdxS83yrq2s4rFz8BjYvsWLkFWE4wy7FvX3cEM3w31L4Fp9wp5TYxeaCbXPcAtdh5",
+      "after": {
+        "readSlot": 509019971,
+        "lastUpgradeSlot": 509019969,
+        "allocatedBytes": 828248,
+        "programDataLamports": 4208378680,
+        "payerLamports": 7905489440,
+        "binarySha256": "c2de04cc0b104ec70040e97ecdb77bc23dd624d325cc33e5e384ce2f455bde55",
+        "matchesCandidate": true,
+        "matchesBackup": false,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "receipt": {
+        "slot": 509019969,
+        "blockTime": 1791511020,
+        "fee": 5000,
+        "computeUnitsConsumed": 2370,
+        "err": null
+      },
+      "bufferAfter": {
+        "publicKey": "AWPytPRPiw8ep2RN9vL13M9GkJZJdCoTmtrM53XsGyXr",
+        "readSlot": 509019971,
+        "exists": false,
+        "lamports": 0,
+        "owner": null,
+        "bytes": 0
+      },
+      "completedAt": "2026-10-09T01:57:01Z"
+    }
+  },
+  "preflight": {
+    "checkedAt": "2026-10-09T01:50:02Z",
+    "programs": {
+      "oracle": {
+        "readSlot": 509018212,
+        "lastUpgradeSlot": 458990884,
+        "allocatedBytes": 295688,
+        "programDataLamports": 2059192560,
+        "payerLamports": 7415815120,
+        "binarySha256": "8fdd7d80c01e69142d8389b162a83ef56476ea03ddf8668f89b5bf01b87db955",
+        "matchesCandidate": false,
+        "matchesBackup": true,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      },
+      "clp": {
+        "readSlot": 509018213,
+        "lastUpgradeSlot": 509011058,
+        "allocatedBytes": 828248,
+        "programDataLamports": 4208378680,
+        "payerLamports": 7415815120,
+        "binarySha256": "4988d5e07edbba8f9ebdf890414672ffe78d338765e3d8ebec682c871d80b412",
+        "matchesCandidate": false,
+        "matchesBackup": true,
+        "upgradeAuthority": "8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni"
+      }
+    },
+    "buffers": {
+      "oracle": {
+        "publicKey": "EcLrN9u6pymWVdaoJBhD4goexAEtdkpxtx79TGoV7fhx",
+        "readSlot": 509018213,
+        "exists": false,
+        "lamports": 0,
+        "owner": null,
+        "bytes": 0
+      },
+      "clp": {
+        "publicKey": "AWPytPRPiw8ep2RN9vL13M9GkJZJdCoTmtrM53XsGyXr",
+        "readSlot": 509018213,
+        "exists": false,
+        "lamports": 0,
+        "owner": null,
+        "bytes": 0
+      }
+    }
+  }
+}

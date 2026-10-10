@@ -1,0 +1,38 @@
+{
+  "sample": "baseline",
+  "wallet": "3cQH4Wep65MrSkDRwhcGnMdFSvydouY7Xr6fzhj2fPns",
+  "cluster": "devnet",
+  "scope": "One memo transaction; no token movement; automatic approval; current app confirmation and parallel bounded 250ms observer",
+  "startedAt": "2026-10-09T01:00:38.854Z",
+  "phases": [
+    {
+      "phase": "preparing",
+      "ms": 0.9034169999999904
+    },
+    {
+      "phase": "awaiting-wallet",
+      "ms": 25.940582999999947
+    },
+    {
+      "phase": "submitting",
+      "ms": 42.879624999999976
+    },
+    {
+      "phase": "pending",
+      "ms": 64.33974999999998
+    }
+  ],
+  "probe": [
+    {
+      "ms": 480.018834,
+      "status": null
+    }
+  ],
+  "appReads": [
+    {
+      "ms": 255.12733399999996,
+      "status": null
+    }
+  ],
+  "signature": "5qHCXQGkZb5ziXNhtQ2mLFns3DLkWzBRRzUiT6dGZCXz5NMoTHnQTaQ3rimmxkHZCz7h7Be1M4vQKStrSiuHHvSd"
+}

@@ -1,0 +1,1773 @@
+{
+  "address": "5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC",
+  "metadata": {
+    "name": "oracle",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Continuum Markets Oracle Integration"
+  },
+  "instructions": [
+    {
+      "name": "configure_health_thresholds",
+      "discriminator": [
+        110,
+        75,
+        172,
+        234,
+        146,
+        148,
+        112,
+        247
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "max_staleness_seconds",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "max_confidence_bps",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "configure_twap_windows",
+      "discriminator": [
+        98,
+        205,
+        67,
+        2,
+        53,
+        244,
+        164,
+        64
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "keeper_window_seconds",
+          "type": {
+            "option": "u32"
+          }
+        },
+        {
+          "name": "user_window_seconds",
+          "type": {
+            "option": "u32"
+          }
+        }
+      ]
+    },
+    {
+      "name": "emergency_pause",
+      "discriminator": [
+        21,
+        143,
+        27,
+        142,
+        200,
+        181,
+        210,
+        255
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "get_keeper_price",
+      "discriminator": [
+        18,
+        160,
+        139,
+        152,
+        169,
+        216,
+        224,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "get_keeper_twap",
+      "discriminator": [
+        185,
+        242,
+        8,
+        201,
+        19,
+        62,
+        10,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "get_market_state",
+      "discriminator": [
+        74,
+        119,
+        46,
+        170,
+        247,
+        12,
+        188,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "MarketState"
+        }
+      }
+    },
+    {
+      "name": "get_oracle_health",
+      "discriminator": [
+        248,
+        80,
+        2,
+        228,
+        55,
+        96,
+        102,
+        32
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "get_price",
+      "discriminator": [
+        238,
+        38,
+        193,
+        106,
+        228,
+        32,
+        210,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pyth_oracle"
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "get_user_price",
+      "discriminator": [
+        253,
+        203,
+        126,
+        203,
+        219,
+        73,
+        246,
+        5
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "get_user_twap",
+      "discriminator": [
+        88,
+        56,
+        215,
+        129,
+        187,
+        28,
+        247,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": "u64"
+    },
+    {
+      "name": "initialize_oracle_config",
+      "discriminator": [
+        131,
+        55,
+        232,
+        105,
+        168,
+        248,
+        10,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "max_confidence_interval",
+          "type": "u64"
+        },
+        {
+          "name": "max_staleness",
+          "type": "i64"
+        },
+        {
+          "name": "keeper_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "realloc_oracle_config",
+      "discriminator": [
+        57,
+        24,
+        250,
+        200,
+        119,
+        24,
+        36,
+        90
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin_authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "oracle_config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reset_volatility_counters",
+      "discriminator": [
+        10,
+        10,
+        180,
+        208,
+        45,
+        65,
+        155,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_feed",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  102,
+                  101,
+                  101,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config"
+              },
+              {
+                "kind": "account",
+                "path": "pyth_oracle"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pyth_oracle"
+        },
+        {
+          "name": "keeper",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_oracle_config",
+      "discriminator": [
+        83,
+        16,
+        11,
+        254,
+        57,
+        99,
+        156,
+        58
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "max_confidence_interval",
+          "type": {
+            "option": "u64"
+          }
+        },
+        {
+          "name": "max_staleness",
+          "type": {
+            "option": "i64"
+          }
+        },
+        {
+          "name": "is_paused",
+          "type": {
+            "option": "bool"
+          }
+        },
+        {
+          "name": "keeper_authority",
+          "type": {
+            "option": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_price_observation",
+      "discriminator": [
+        250,
+        181,
+        117,
+        33,
+        189,
+        88,
+        163,
+        1
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_feed",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  102,
+                  101,
+                  101,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config"
+              },
+              {
+                "kind": "account",
+                "path": "pyth_oracle"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pyth_oracle"
+        },
+        {
+          "name": "keeper",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "upsert_oracle_feed",
+      "discriminator": [
+        118,
+        212,
+        155,
+        201,
+        180,
+        29,
+        173,
+        248
+      ],
+      "accounts": [
+        {
+          "name": "oracle_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config.market_id",
+                "account": "OracleConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_feed",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  99,
+                  108,
+                  101,
+                  95,
+                  102,
+                  101,
+                  101,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "oracle_config"
+              },
+              {
+                "kind": "account",
+                "path": "pyth_oracle"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pyth_oracle"
+        },
+        {
+          "name": "admin_authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "oracle_config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "priority",
+          "type": "u16"
+        },
+        {
+          "name": "kind",
+          "type": {
+            "defined": {
+              "name": "OracleFeedKind"
+            }
+          }
+        },
+        {
+          "name": "is_active",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Market",
+      "discriminator": [
+        219,
+        190,
+        213,
+        55,
+        0,
+        227,
+        198,
+        154
+      ]
+    },
+    {
+      "name": "OracleConfig",
+      "discriminator": [
+        133,
+        196,
+        152,
+        50,
+        27,
+        21,
+        145,
+        254
+      ]
+    },
+    {
+      "name": "OracleFeed",
+      "discriminator": [
+        102,
+        96,
+        193,
+        204,
+        107,
+        0,
+        111,
+        27
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "OraclePaused",
+      "msg": "Oracle is paused"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidPythAccount",
+      "msg": "Invalid Pyth account"
+    },
+    {
+      "code": 6002,
+      "name": "PriceUnavailable",
+      "msg": "Price unavailable"
+    },
+    {
+      "code": 6003,
+      "name": "ConfidenceTooHigh",
+      "msg": "Confidence interval too high"
+    },
+    {
+      "code": 6004,
+      "name": "PriceStale",
+      "msg": "Price is stale"
+    },
+    {
+      "code": 6005,
+      "name": "PriceMovementTooLarge",
+      "msg": "Price movement too large (>20% in one update)"
+    },
+    {
+      "code": 6006,
+      "name": "TwapNotReady",
+      "msg": "TWAP not ready - insufficient observations"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidTwapWindow",
+      "msg": "Invalid TWAP window duration"
+    },
+    {
+      "code": 6008,
+      "name": "MarketStateRestriction",
+      "msg": "Operation not allowed in current market state"
+    },
+    {
+      "code": 6009,
+      "name": "UnauthorizedKeeper",
+      "msg": "Unauthorized keeper"
+    },
+    {
+      "code": 6010,
+      "name": "UnauthorizedAdmin",
+      "msg": "Unauthorized admin"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidRegisteredFeed",
+      "msg": "Invalid registered oracle feed"
+    },
+    {
+      "code": 6012,
+      "name": "InactiveOracleFeed",
+      "msg": "Registered oracle feed is inactive"
+    },
+    {
+      "code": 6013,
+      "name": "MathOverflow",
+      "msg": "Math Overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "CollateralType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "USDC"
+          },
+          {
+            "name": "USDT"
+          },
+          {
+            "name": "PYUSD"
+          },
+          {
+            "name": "USDe"
+          },
+          {
+            "name": "Other"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CollateralVault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_type",
+            "type": {
+              "defined": {
+                "name": "CollateralType"
+              }
+            }
+          },
+          {
+            "name": "total_deposited",
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "weight_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Market",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_symbol",
+            "type": "string"
+          },
+          {
+            "name": "oracle_address",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_type",
+            "type": {
+              "defined": {
+                "name": "OracleType"
+              }
+            }
+          },
+          {
+            "name": "long_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "multi_collateral_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "collateral_vault_count",
+            "type": "u8"
+          },
+          {
+            "name": "collateral_vaults",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "CollateralVault"
+                }
+              }
+            }
+          },
+          {
+            "name": "initial_l_price",
+            "type": "u64"
+          },
+          {
+            "name": "initial_s_price",
+            "type": "u64"
+          },
+          {
+            "name": "mint_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "redeem_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "total_l_supply",
+            "type": "u64"
+          },
+          {
+            "name": "total_s_supply",
+            "type": "u64"
+          },
+          {
+            "name": "total_collateral",
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "risk_state",
+            "type": {
+              "defined": {
+                "name": "RiskState"
+              }
+            }
+          },
+          {
+            "name": "risk_state_updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "risk_fee_config",
+            "type": {
+              "defined": {
+                "name": "RiskFeeConfig"
+              }
+            }
+          },
+          {
+            "name": "user_twap_price",
+            "type": "u64"
+          },
+          {
+            "name": "twap_updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "worst_case_config",
+            "type": {
+              "defined": {
+                "name": "WorstCaseQuotingConfig"
+              }
+            }
+          },
+          {
+            "name": "oracle_confidence",
+            "type": "u64"
+          },
+          {
+            "name": "keeper_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "dev_tax_pct",
+            "type": "u8"
+          },
+          {
+            "name": "yield_ceiling_bps",
+            "type": "u16"
+          },
+          {
+            "name": "deployed_to_yield",
+            "type": "u64"
+          },
+          {
+            "name": "total_yield_harvested",
+            "type": "u64"
+          },
+          {
+            "name": "yield_enabled",
+            "type": "bool"
+          },
+          {
+            "name": "buffer_target_bps",
+            "type": "u16"
+          },
+          {
+            "name": "s_gamma_index",
+            "type": "u64"
+          },
+          {
+            "name": "gamma_day_start_ts",
+            "type": "i64"
+          },
+          {
+            "name": "gamma_day_decay_1e9",
+            "type": "u64"
+          },
+          {
+            "name": "gamma_last_write_ts",
+            "type": "i64"
+          },
+          {
+            "name": "gamma_epoch",
+            "type": "u32"
+          },
+          {
+            "name": "reanchor_count",
+            "type": "u32"
+          },
+          {
+            "name": "genesis_s_price",
+            "type": "u64"
+          },
+          {
+            "name": "last_reanchor_ts",
+            "type": "i64"
+          },
+          {
+            "name": "short_payoff_cap_c_1e9",
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_num",
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_den",
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_pending_num",
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_pending_den",
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_effective_ts",
+            "type": "i64"
+          },
+          {
+            "name": "price_adjust_last_effective_ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Passive"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "pyth_oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "switchboard_oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "max_confidence_interval",
+            "type": "u64"
+          },
+          {
+            "name": "max_staleness",
+            "type": "i64"
+          },
+          {
+            "name": "is_paused",
+            "type": "bool"
+          },
+          {
+            "name": "last_price",
+            "type": "u64"
+          },
+          {
+            "name": "last_confidence",
+            "type": "u64"
+          },
+          {
+            "name": "last_update_time",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "keeper_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "keeper_twap",
+            "type": {
+              "defined": {
+                "name": "TwapState"
+              }
+            }
+          },
+          {
+            "name": "user_twap",
+            "type": {
+              "defined": {
+                "name": "TwapState"
+              }
+            }
+          },
+          {
+            "name": "market_state",
+            "type": {
+              "defined": {
+                "name": "MarketState"
+              }
+            }
+          },
+          {
+            "name": "state_changed_at",
+            "type": "i64"
+          },
+          {
+            "name": "health_config",
+            "type": {
+              "defined": {
+                "name": "OracleHealthConfig"
+              }
+            }
+          },
+          {
+            "name": "recent_volatility_bps",
+            "type": "u16"
+          },
+          {
+            "name": "recent_move_count",
+            "type": "u8"
+          },
+          {
+            "name": "observation_index",
+            "type": "u8"
+          },
+          {
+            "name": "observations",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "PriceObservation"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleFeed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "oracle_config",
+            "type": "pubkey"
+          },
+          {
+            "name": "pyth_oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "priority",
+            "type": "u16"
+          },
+          {
+            "name": "kind",
+            "type": {
+              "defined": {
+                "name": "OracleFeedKind"
+              }
+            }
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleFeedKind",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Primary"
+          },
+          {
+            "name": "PreMarket"
+          },
+          {
+            "name": "PostMarket"
+          },
+          {
+            "name": "Overnight"
+          },
+          {
+            "name": "Fallback"
+          },
+          {
+            "name": "Custom"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleHealthConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "max_staleness_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": "u16"
+          },
+          {
+            "name": "_reserved",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pyth"
+          },
+          {
+            "name": "Switchboard"
+          },
+          {
+            "name": "Continuum"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceObservation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "confidence",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RiskFeeConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proxy_fee_multiplier",
+            "type": "u16"
+          },
+          {
+            "name": "stress_fee_multiplier",
+            "type": "u16"
+          },
+          {
+            "name": "stress_mint_cap",
+            "type": "u64"
+          },
+          {
+            "name": "allow_mint_in_stress",
+            "type": "bool"
+          },
+          {
+            "name": "allow_redeem_in_stress",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RiskState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Normal"
+          },
+          {
+            "name": "ProxyMode"
+          },
+          {
+            "name": "Stress"
+          },
+          {
+            "name": "Recovery"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TwapState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cumulative_price",
+            "type": "u128"
+          },
+          {
+            "name": "cumulative_time",
+            "type": "u64"
+          },
+          {
+            "name": "last_twap",
+            "type": "u64"
+          },
+          {
+            "name": "last_update",
+            "type": "i64"
+          },
+          {
+            "name": "window_seconds",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WorstCaseQuotingConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "normal_confidence_multiplier",
+            "type": "u16"
+          },
+          {
+            "name": "proxy_confidence_multiplier",
+            "type": "u16"
+          },
+          {
+            "name": "stress_confidence_multiplier",
+            "type": "u16"
+          }
+        ]
+      }
+    }
+  ]
+}

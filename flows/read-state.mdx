@@ -1,0 +1,287 @@
+---
+title: Reading on-chain state
+description: Read prices, NAV, freshness, bin book depth, positions and pending orders from devnet.
+---
+
+Everything the app shows comes from on-chain accounts. This page covers the reads you need for a UI, a bot or a monitoring dashboard. The samples run against `https://api.devnet.solana.com` with the published IDLs (`idl/mint_redeem.json` and `idl/clp.json` in the docs repo).
+
+## What lives where
+
+| Data | Account | Program |
+|---|---|---|
+| Symbol, mints, fees, price, confidence, risk state, γ, supplies, collateral | `Market` PDA `[b"market", symbol]` | mint_redeem |
+| Swap guards, commit spread, rolling-window counter, OI cap | `Clp` PDA `[b"clp", market]` | clp |
+| Book centre, bins and depth, one book per leg | `Pool` PDA `[b"pool", market, [side]]` | clp |
+| Pending committed orders | `Order` PDA `[b"order", user, market, nonce]` | clp |
+| Swap revenue from keeper and external traders | `RevenueAttribution` PDA `[b"revenue_attribution"]` | clp |
+| A user's L, S and cUSDC balances | The user's token accounts | SPL Token |
+
+The price is `Market.user_twap_price`. Despite the name, it holds the keeper's latest spot price, scaled to 1e6 and adjusted for corporate actions. The oracle program's `OracleConfig` accounts are not updated on devnet, so don't read prices from them.
+
+`Clp.oi_cap` is set (250,000 cUSDC on every market as of 10 Oct 2026), but nothing enforces it. `Clp.current_oi` is not maintained and reads 0 on every market.
+
+## Fetch one market
+
+```typescript
+import { Program, BN } from "@coral-xyz/anchor";
+import { Connection, PublicKey } from "@solana/web3.js";
+import mintRedeemIdl from "./mint_redeem.json"; // idl/ in the docs repo
+import clpIdl from "./clp.json";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const mintRedeem = new Program(mintRedeemIdl, { connection }); // read-only: no wallet needed
+const clp = new Program(clpIdl, { connection });
+
+const GAMMA_ONE = new BN(1_000_000_000);
+const MAX_PRICE_AGE_SECS = 300; // mint and redeem revert with TwapNotAvailable past this
+
+// Each leg's NAV in 1e6 units, rounded like the program. null while the market has no price.
+function getNav(market: any): { lNav: BN; sNav: BN } | null {
+  const p: BN = market.userTwapPrice; // spot price, corporate-action adjusted
+  if (p.isZero()) return null;
+  const gamma = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+  const k = market.initialLPrice.mul(market.initialSPrice);
+  return { lNav: p, sNav: k.div(p).mul(gamma).div(GAMMA_ONE) };
+}
+
+const [marketPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("market"), Buffer.from("QQQ")],
+  mintRedeem.programId,
+);
+const [clpPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("clp"), marketPda.toBuffer()],
+  clp.programId,
+);
+
+const [marketInfo, clpInfo] = await connection.getMultipleAccountsInfo([marketPda, clpPda]); // one RPC call
+const market = mintRedeem.coder.accounts.decode("market", marketInfo!.data);
+const clpAccount = clp.coder.accounts.decode("clp", clpInfo!.data);
+
+const nav = getNav(market);
+const priceAgeSec = Math.floor(Date.now() / 1000) - market.twapUpdatedAt.toNumber();
+const riskState = Object.keys(market.riskState)[0]; // "normal" | "proxyMode" | "stress" | "recovery"
+
+console.log({
+  symbol: market.assetSymbol,
+  riskState,
+  lNav: nav && nav.lNav.toNumber() / 1e6,
+  sNav: nav && nav.sNav.toNumber() / 1e6,
+  gamma: market.sGammaIndex.toNumber() / 1e9,
+  confidenceBps: nav && +((market.oracleConfidence.toNumber() / nav.lNav.toNumber()) * 10_000).toFixed(1),
+  priceAgeSec,
+  mintRedeemOpen: nav !== null && priceAgeSec <= MAX_PRICE_AGE_SECS && riskState !== "stress",
+  feeBps: { mint: market.mintFeeBps, redeem: market.redeemFeeBps },
+  totalCollateral: market.totalCollateral.toNumber() / 1e6,
+  committedOrders: clpAccount.swapGuards.enabled && !clpAccount.swapGuards.frozen,
+  commitSpreadBps: Math.max(clpAccount.commitSpreadBps, 10),
+});
+```
+
+Output on devnet at 19:30 UTC on Saturday 10 Oct 2026 (Node 26):
+
+```
+{
+  symbol: 'QQQ',
+  riskState: 'proxyMode',
+  lNav: 751.27,
+  sNav: 304.599737,
+  gamma: 0.993214606,
+  confidenceBps: 2.5,
+  priceAgeSec: 83754,
+  mintRedeemOpen: false,
+  feeBps: { mint: 18, redeem: 18 },
+  totalCollateral: 1883044.749247,
+  committedOrders: true,
+  commitSpreadBps: 18
+}
+```
+
+`totalCollateral` is this market's own collateral. QQQ, SPY and XAU keep their cUSDC in one unified vault, so that vault's token balance covers all three. Read `market.totalCollateral`, not the vault balance.
+
+`committedOrders` reads `swap_guards` from the `Clp` account. It is true only for QQQ, SPY and XAU as of 10 Oct 2026. On the other 11 markets `commit_swap` and `clp_swap` revert with `SwapDisabled`, while their bin books still trade.
+
+## NAV
+
+NAV is derived, not stored:
+
+```
+L_NAV = P
+S_NAV = K / P * γ        // K = initial_l_price * initial_s_price, γ = s_gamma_index / 1e9
+```
+
+`P` is `user_twap_price`, and `getNav` above computes both legs with the program's integer rounding. A price of 0 means the market has no price yet. Mint and redeem revert then, and the app leaves the market out. Don't fall back to the `initial_l_price` field.
+
+Mint and redeem don't fill at NAV. They quote each leg against the user by the confidence band; see [Mint](/flows/mint#math) and [Redeem](/flows/redeem#math).
+
+## Price freshness and risk
+
+`twapUpdatedAt` holds the publish time of the price the keeper pushed, or the push's block time if the keeper gave none. Mint and redeem revert with `TwapNotAvailable` when that is more than 300 s ago or the price is 0, and `Stress` blocks both. The `priceAgeSec` and `mintRedeemOpen` fields in the sample check exactly these conditions. While the underlying market is closed the keeper normally withholds pushes, which is why the output above shows a closed market on a Saturday.
+
+`oracleConfidence` is the keeper's confidence band in price units (1e6), from a GJR-GARCH volatility model. The program widens mint and redeem quotes by the band times the risk-state multiplier (1.5× in `ProxyMode`) on every market with worst-case quoting on. Before a push, the keeper checks each price against Hyperliquid and holds the push if they disagree.
+
+## Batch-fetch all 14 markets
+
+One `getMultipleAccountsInfo` call returns every live market:
+
+```typescript
+const SYMBOLS = ["QQQ", "SPY", "XAU", "XAG", "NVDA", "AAPL", "EUR",
+                 "MSFT", "TSLA", "AMZN", "GOOGL", "GBP", "JPY", "MSTR"];
+const marketPdas = SYMBOLS.map((symbol) =>
+  PublicKey.findProgramAddressSync([Buffer.from("market"), Buffer.from(symbol)], mintRedeem.programId)[0],
+);
+
+const infos = await connection.getMultipleAccountsInfo(marketPdas); // one RPC call
+const markets = infos.map((info) => (info ? mintRedeem.coder.accounts.decode("market", info.data) : null));
+
+const now = Math.floor(Date.now() / 1000);
+console.table(markets.map((m) => m && {
+  symbol: m.assetSymbol,
+  lNav: m.userTwapPrice.toNumber() / 1e6,
+  priceAgeSec: now - m.twapUpdatedAt.toNumber(),
+  mintFeeBps: m.mintFeeBps,
+  totalCollateral: Math.round(m.totalCollateral.toNumber() / 1e6),
+}));
+```
+
+Output at the same time:
+
+```
+┌─────────┬─────────┬────────────┬─────────────┬────────────┬─────────────────┐
+│ (index) │ symbol  │ lNav       │ priceAgeSec │ mintFeeBps │ totalCollateral │
+├─────────┼─────────┼────────────┼─────────────┼────────────┼─────────────────┤
+│ 0       │ 'QQQ'   │ 751.27     │ 83754       │ 18         │ 1883045         │
+│ 1       │ 'SPY'   │ 778.569999 │ 84054       │ 16         │ 1691837         │
+│ 2       │ 'XAU'   │ 4193.83    │ 35701       │ 18         │ 1575888         │
+│ 3       │ 'XAG'   │ 60.8052    │ 34761       │ 25         │ 1279808         │
+│ 4       │ 'NVDA'  │ 229.28     │ 84654       │ 31         │ 1269810         │
+│ 5       │ 'AAPL'  │ 336.64     │ 83754       │ 22         │ 1270252         │
+│ 6       │ 'EUR'   │ 1.120099   │ 81114       │ 10         │ 1271043         │
+│ 7       │ 'MSFT'  │ 535.069999 │ 84654       │ 29         │ 1249813         │
+│ 8       │ 'TSLA'  │ 382.7      │ 84654       │ 38         │ 1249813         │
+│ 9       │ 'AMZN'  │ 262.43     │ 84654       │ 32         │ 1249813         │
+│ 10      │ 'GOOGL' │ 351.659999 │ 84654       │ 32         │ 1249813         │
+│ 11      │ 'GBP'   │ 1.3232     │ 73589       │ 10         │ 1249813         │
+│ 12      │ 'JPY'   │ 158.287    │ 71799       │ 10         │ 1249813         │
+│ 13      │ 'MSTR'  │ 154.34     │ 84654       │ 52         │ 1249813         │
+└─────────┴─────────┴────────────┴─────────────┴────────────┴─────────────────┘
+```
+
+## Bin books
+
+Each market has two books, one per leg. Derive their addresses from the market PDA:
+
+```typescript
+const poolPdas = marketPdas.flatMap((m) =>
+  [0, 1].map((side) => // 0 = long book, 1 = short book
+    PublicKey.findProgramAddressSync(
+      [Buffer.from("pool"), m.toBuffer(), Buffer.from([side])],
+      clp.programId,
+    )[0],
+  ),
+);
+const pools = (await connection.getMultipleAccountsInfo(poolPdas)) // all 28 books, one call
+  .map((info) => (info ? clp.coder.accounts.decode("pool", info.data) : null));
+
+const book = pools[0]; // QQQ long
+const total = (bins: BN[]) => bins.slice(0, book.numBins).reduce((s, x) => s + x.toNumber(), 0) / 1e6;
+const centre = book.basePrice1E6.toNumber() / 1e6;
+console.log({
+  centre,
+  askTokens: total(book.asks),
+  askValue: Math.round(total(book.asks) * centre),
+  bidUsdc: total(book.bids),
+  coreStepBps: book.stepBps,
+  wingStepBps: book.wingStepBps,
+  coreBins: book.coreBins,
+  numBins: book.numBins,
+});
+```
+
+Output for the QQQ long book at the same time:
+
+```
+{
+  centre: 751.27,
+  askTokens: 10.12728,
+  askValue: 7608,
+  bidUsdc: 5000,
+  coreStepBps: 20,
+  wingStepBps: 300,
+  coreBins: 3,
+  numBins: 12
+}
+```
+
+`basePrice1E6` is the book's centre; Anchor turns `base_price_1e6` into `basePrice1E6`, with a capital E. Asks are tokens of the leg and bids are cUSDC. The keeper sets the centre from NAV, shifted by the CLP's inventory, and off-hours it posts a capped free-float book (see [Book management](/keeper/book-management)). Compare the centre with NAV to see how far a book sits from it. To price a trade, walk the bins as in [Quote and swap](/flows/trade#quote-and-swap).
+
+## User position value
+
+```typescript
+import { getAssociatedTokenAddressSync, unpackAccount } from "@solana/spl-token";
+
+const owner = new PublicKey("YOUR_WALLET_ADDRESS");
+const atas = [market.longMint, market.shortMint].map((mint) => getAssociatedTokenAddressSync(mint, owner));
+const [longInfo, shortInfo] = await connection.getMultipleAccountsInfo(atas);
+const longUnits = longInfo ? unpackAccount(atas[0], longInfo).amount : 0n; // base units
+const shortUnits = shortInfo ? unpackAccount(atas[1], shortInfo).amount : 0n;
+
+const { lNav, sNav } = getNav(market)!;
+const value = (longUnits * BigInt(lNav.toString()) + shortUnits * BigInt(sNav.toString())) / 1_000_000n;
+console.log("Position value at NAV:", Number(value) / 1e6, "cUSDC");
+```
+
+This values the position at NAV. A redeem pays the worst-case quotes minus the fee, and a sale pays the book's prices. To value a single leg at the book instead, use its book's centre.
+
+## Pending committed orders
+
+There's no index of open orders, and some RPC providers, Helius among them, disable `getProgramAccounts`. Track your orders yourself. When you commit, store the order PDA or the `nonce`; the PDA's seeds are the user, the market and the nonce, so those three find it again.
+
+```typescript
+const nonce = new BN("1791660000000"); // the nonce you passed to commit_swap
+const [orderPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("order"), owner.toBuffer(), marketPda.toBuffer(), nonce.toArrayLike(Buffer, "le", 8)],
+  clp.programId,
+);
+const orderInfo = await connection.getAccountInfo(orderPda);
+const order = orderInfo && clp.coder.accounts.decode("order", orderInfo.data);
+if (!order) {
+  console.log("closed (settled, refunded or cancelled), or never created");
+} else if (Date.now() / 1000 > order.expiresAt.toNumber()) {
+  console.log("expired: the owner can call cancel_swap to get the escrow back");
+} else {
+  console.log("pending until", new Date(order.expiresAt.toNumber() * 1000).toISOString());
+}
+```
+
+Every outcome closes the order account, so a missing account means the order is finished. The closing transaction's event says how: `OrderSettled`, `OrderRefunded` or `OrderCancelled`. If you lost the nonce, the `OrderCommitted` event in your commit transaction carries the order address. Where `getProgramAccounts` works, you can filter `Order` accounts by `user` at byte offset 8 and `market` at offset 40.
+
+## Subscribing to live updates
+
+```typescript
+const subscription = connection.onAccountChange(marketPda, (info) => {
+  const m = mintRedeem.coder.accounts.decode("market", info.data);
+  console.log("price", m.userTwapPrice.toNumber() / 1e6, "published at", m.twapUpdatedAt.toNumber());
+}, "confirmed");
+
+// Later:
+await connection.removeAccountChangeListener(subscription);
+```
+
+The Market account changes on every keeper price push, every mint and redeem, and whenever the keeper posts a fee, γ or the buffer target. The keeper's price cycle runs every 15 s by default, and it normally withholds pushes while the underlying market is closed. For book updates, subscribe to the two `Pool` accounts; each book is one account.
+
+## Common pitfalls
+
+- After a mint, redeem or swap, fetch again once the transaction is confirmed. Values read before it are stale.
+- `getMultipleAccountsInfo` returns null for a book that doesn't exist. All 28 books existed on 10 Oct 2026. Take addresses from [Addresses](/reference/addresses) or derive them as above.
+- Amounts in account state are base units with 6 decimals, for cUSDC and for every L and S token. Divide by `10 ** 6` to display them.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Mint flow" icon="circle-plus" href="/flows/mint">
+    What `mint_paired` does on chain.
+  </Card>
+  <Card title="SDK setup" icon="terminal" href="/build/sdk-setup">
+    Setting up a project to make these reads.
+  </Card>
+</CardGroup>

@@ -1,0 +1,3 @@
+{"kind": "gap", "order": {"orderPda": "dyvnMCszM5dWHdN8qQn61DfoF5e2VtUGMbYTD23EWcN", "side": "long", "direction": "buy", "amountIn": 1, "expiresAt": 1791508659, "market": "XAU", "cluster": "devnet"}, "error": "HTTP Error 429: Too Many Requests"}
+{"kind": "gap", "signature": "2obHGd12RbMvYsQq4QuaMfWBGmoDCgtB1dPEZDgmxknmwcmrpyVFBdteftRGG3N7tSMpsUcQfPFAAqAPuNenR7nL", "error": "HTTP Error 429: Too Many Requests"}
+{"kind": "receipt", "action": "redeem", "signature": "Lzy7sY2P9taT8tWNNFzeYJZsggQhvLm93oZxVWUqCS5paCyMLheWNo9qnZmJtBa21fZGzUdwZCKcXeDG8TLPbrE", "slot": 509009273, "blockTime": 1791508467, "computeUnitsConsumed": 41001, "err": null, "instructions": ["Program log: Instruction: RedeemPaired"], "rpcMs": 65.77591702807695, "fetchedEpoch": 1791508556.462502}

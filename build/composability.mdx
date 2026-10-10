@@ -1,0 +1,220 @@
+---
+title: Composability
+description: What you can build on Continuum's L and S tokens, and the protocol limits each design has to respect.
+---
+
+L and S are plain SPL tokens, and the instructions users call (`mint_paired`, `redeem_paired`, `pool_swap`, `commit_swap`) are public. Here are concrete things you can build on them.
+
+## Token facts
+
+Every L and S mint is a classic SPL Token mint (program `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`) with no Token-2022 extensions. Each has 6 decimals and no freeze authority, so no one can freeze a holder's tokens. The mint authority is the market's Market PDA, so only mint-redeem can create new tokens. All 28 mints matched this on chain on 10 Oct 2026; for QQQ, the L mint `E4xJxBPyDXXJK2uqF17cq9kch1xHCTBZ6vjMxKWKANgZ` and the S mint `BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG` both have mint authority `F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5`.
+
+These are devnet tokens backed by devnet cUSDC. They can't be used on mainnet protocols such as Kamino.
+
+## 1. Long-only or short-only wrapper
+
+Most users want a one-click long or short, not a pair. Wrap it:
+
+```
+User clicks "Buy QQQ long" with 100 cUSDC
+   │
+   ▼
+1. mint_paired(100 cUSDC)   → 0.066374 QQQ L + 0.163706 QQQ S
+2. sell the S leg           → 0.066374 QQQ L + about 49.86 cUSDC, less the spread
+3. the wallet holds long-only QQQ exposure
+```
+
+The short wrapper sells the L leg instead. The amounts use QQQ's devnet state on 10 Oct 2026, where the 27 bps mint fee leaves 99.73 cUSDC split evenly between the legs.
+
+Build both instructions into one transaction: `mint_paired` and `pool_swap` settle atomically for amounts the bin book can absorb. For larger size on QQQ, SPY or XAU, mint and then sell the unwanted leg with `commit_swap`. A committed order fills at NAV ± `max(commit_spread_bps, 10)` bps at a keeper price push after the commit. The keeper posts the spread as `clamp(half-spread, 10, 500)` bps: 18 for QQQ, 15 for SPY and 18 for XAU as of 10 Oct 2026. Settlement still fails if the CLP's inventory or the market's collateral floor can't cover the order. An unfilled order expires after 180 s, and the user signs `cancel_swap` to get the escrow back.
+
+Committed orders work only on QQQ, SPY and XAU today. On the other 11 markets the CLP's `swap_guards.enabled` is false, so `commit_swap` reverts with `SwapDisabled`. The bin books ignore swap guards and trade on all 14 markets.
+
+## 2. Arb bot
+
+Every venue prices off the same keeper-posted price. Mint and redeem quote worst-case NAVs (every market except QQQ, where worst-case quoting is switched off as of 10 Oct 2026), committed orders fill at NAV ± the committed spread, and the bin books sit around an inventory-shifted centre. That leaves little to arbitrage:
+
+```
+loop:
+    for each (market, side) book:
+        nav    = NAV from the Market account (see /build/reading-prices)
+        centre = Pool.base_price_1e6
+        if a fast move left in-the-money bins before the keeper re-posted the book:
+            take them with pool_swap (no privilege needed)
+            close the position with the paired round trip (mint or redeem)
+```
+
+What to know before building one:
+
+- The window lasts until the keeper re-posts the book, and the take is capped by the depth of the in-the-money bins.
+- Closing a one-sided position without price risk needs the paired round trip. Its hurdle is the mint or redeem fee (posted at 10 to 52 bps as of 10 Oct 2026, then multiplied by 1.5 in ProxyMode) plus the book's spread. Near NAV it rarely clears.
+- `settle_swap` is permissionless: anyone can crank a pending committed order, for no reward. It still depends on the keeper, because an order settles only at a price push newer than its commit. If the keeper stops pushing, orders expire after 180 s and each user has to sign `cancel_swap`.
+
+A settlement watchdog is more useful here than an arb engine: crank pending orders after each push, and tell users when an order has expired.
+
+## 3. Structured products
+
+Combine positions across markets to express more specific views.
+
+### Dispersion: long index, short components
+
+```
+Buy QQQ long   (mint the pair, sell the S leg)
+Buy NVDA short (mint the pair, sell the L leg)
+Buy AAPL short
+Buy TSLA short
+```
+
+This pays off when the index rises while the named components lag.
+
+The product can be an off-chain orchestrator: a service that mints and sells across markets when the user clicks once. It can also be an on-chain wrapper program that does everything in one instruction through [CPI](/build/cpi). The wrapper is atomic but needs many more accounts.
+
+### Holding the pair
+
+```
+Hold QQQ L and QQQ S as minted
+Small moves:            the pair's value barely changes
+Large moves either way: the pair gains, because L + S = P + K·γ / P is convex in P
+```
+
+The convexity has a cost. The keeper lowers `s_gamma_index` (γ) in step with the market's realized variance, and `set_s_gamma_index` can only lower it, so the S leg loses value over time even if the price comes back. A pair gains from large moves and pays that decay while it waits for them.
+
+### Equity against the dollar
+
+```
+Long S&P 500   long SPY L
+Short USD      long EUR L + long JPY S
+```
+
+EUR and GBP track EUR/USD and GBP/USD, so their L tokens are long the foreign currency. JPY tracks USD/JPY (yen per dollar), so its L token is long the dollar and its S token is short the dollar.
+
+## 4. Portfolio analytics
+
+L and S NAVs are on chain, so valuing a wallet needs no outside feed. Read the wallet's balances and multiply by NAV:
+
+```typescript
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync, unpackAccount } from "@solana/spl-token";
+
+// `markets` are fetched Market accounts; prices() is from /build/reading-prices.
+async function portfolioValue(connection: Connection, owner: PublicKey, markets: any[]) {
+  const now = Math.floor(Date.now() / 1000);
+  const atas: PublicKey[] = markets.flatMap((m) =>
+    [m.longMint, m.shortMint].map((mint) => getAssociatedTokenAddressSync(mint, owner, true)));
+  const infos = await connection.getMultipleAccountsInfo(atas); // one RPC call
+  const balance = (i: number) => {
+    const info = infos[i];
+    return info ? unpackAccount(atas[i]!, info).amount : 0n;
+  };
+  let total = 0n;
+  markets.forEach((m, i) => {
+    const p = prices(m, now);
+    total += (balance(2 * i) * p.nav.l + balance(2 * i + 1) * p.nav.s) / 1_000_000n;
+  });
+  return total; // cUSDC value at NAV, 6 decimals
+}
+```
+
+Use `p.redeem` instead of `p.nav` for what the pairs would pay out now. Treat the result as the keeper's number: `keeper_authority` writes the price, and nothing on chain checks it against an independent source today.
+
+## 5. Custodial UX
+
+A custodian (a wallet provider, broker or fintech app) takes user deposits and:
+
+1. Mints Continuum positions on the user's behalf.
+2. Shows them as "QQQ exposure" without exposing the paired primitive.
+3. Absorbs fees and slippage itself.
+
+The user sees "100 USD long QQQ, currently \$103.40" in the app, and the custodian handles the on-chain steps. The custodial path is regulatory-sensitive. The protocol allows it but doesn't depend on it.
+
+## 6. Borrowing against L tokens (mainnet only)
+
+Continuum has no margin or borrowing. A lending market that accepted L tokens as collateral would allow a loop:
+
+```
+1. Mint a QQQ pair               → QQQ L + QQQ S
+2. Sell QQQ S                    → QQQ L + cUSDC
+3. Borrow against QQQ L          → more cash to mint with
+4. Mint again                    → repeat
+```
+
+No lending market lists Continuum tokens today, and devnet tokens can't be used on mainnet protocols such as Kamino. Each loop would pay the mint fee, the book's spread and the borrow rate. The liquidation risk would sit with the lender; Continuum positions themselves can't be liquidated. Don't offer this to retail users without disclosure.
+
+## 7. Vault that rebalances
+
+A program takes cUSDC deposits, mints a target basket across markets, rebalances with mint and redeem, and charges a management fee. Build it as an Anchor program that holds positions in a PDA and calls Continuum by [CPI](/build/cpi).
+
+Schedule rebalances inside market hours. Mint and redeem revert once a price is 300 s old, and Stress blocks both by default.
+
+## 8. Cross-protocol routing
+
+A user who wants short QQQ exposure has two paths inside Continuum:
+
+1. Mint a pair and sell the L leg on the bin book.
+2. Buy QQQ S on the bin book with `pool_swap`, or, for size, with a committed order.
+
+A router can quote both, along with any outside venue, and take the cheaper. On markets other than QQQ, SPY and XAU, the committed-order path isn't available today.
+
+## 9. Pre-trade quotes
+
+Quote a mint before the user signs, with the worst-case NAVs and the fee multiplier that `mint_paired` applies:
+
+```typescript
+// prices() and stateMult() are from /build/reading-prices.
+function simulateMint(m: any, amount: bigint, now: number) {
+  const p = prices(m, now);
+  const rf = m.riskFeeConfig;
+  const feeBps = (BigInt(m.mintFeeBps) *
+    stateMult(m, 100, rf.proxyFeeMultiplier, rf.stressFeeMultiplier, now)) / 100n;
+  const net = amount - (amount * feeBps) / 10_000n;
+  const half = net / 2n;
+  return {
+    fresh: p.fresh,
+    feeBps,
+    l: (half * 1_000_000n) / p.mint.l,
+    s: ((net - half) * 1_000_000n) / p.mint.s,
+  };
+}
+```
+
+For QQQ on 10 Oct 2026, `simulateMint(m, 100_000_000n, now)` returns 0.066374 L and 0.163706 S at 27 bps. The transaction mints the same amounts unless the keeper posts a new price or fee, or the risk state changes, before it lands. Show no quote when `fresh` is false: the program rejects prices more than 300 s old.
+
+## 10. Data product
+
+Continuum's activity is on chain. An indexer can follow:
+
+- mint-redeem's `PairedActionExecuted` events: every mint and redeem, with its fee and dev tax.
+- The CLP's `SwapExecuted`, `OrderCommitted`, `OrderSettled`, `OrderRefunded` and `OrderCancelled` events.
+- `update_risk_state_v2` price pushes, which carry the source's publish time.
+- The `RevenueAttribution` account, which splits fees and volume between the keeper and external traders.
+
+A history of book depth, NAV and spreads is a useful dataset for trading and analytics firms.
+
+## Patterns we like
+
+- Use the Market price as the price of record. Every mint, redeem and committed order uses it, and the keeper writes it.
+- Route by size. Send small trades to `pool_swap`. On QQQ, SPY and XAU, send anything that would walk the book to `commit_swap`, which fills at NAV ± the committed spread within the CLP's inventory and the collateral floor. Mint or redeem when you want the pair itself.
+- Watch the risk state. Stress blocks mint and redeem by default, so show it to the user.
+- Plan for gaps in keeper pushes. After 300 s without a push, mint and redeem revert with `TwapNotAvailable` and committed orders can't settle. That happens whenever the underlying market is closed. The bin books keep trading.
+
+## Patterns to avoid
+
+- Don't pre-mint and hold inventory. Positions track NAV, so mint when you need them; the S leg also loses value to γ while it sits.
+- Don't assume markets move together. Each market prices from its own feed, so treat them independently in basket math.
+- Don't skip ATA creation. Idempotent creation costs about 0.002 SOL of rent, once per user and mint.
+- Don't count on the OI cap. Each CLP stores an `oi_cap` (250,000 cUSDC per market on 10 Oct 2026), but no user instruction enforces it. It is checked only in the authority-only `update_oi`, which nothing calls. Size is limited by book depth, CLP inventory and the collateral floor.
+
+## Talk to us
+
+If you're building on Continuum, drop a note in [Discord](https://discord.gg/U5hPCB8ufJ). We can help with the integration, and mainnet partner integrations get priority listing slots.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="CPI integration" icon="link" href="/build/cpi">
+    On-chain integration via Cross-Program Invocation.
+  </Card>
+  <Card title="Reading state" icon="magnifying-glass" href="/flows/read-state">
+    Pull all the data your integration needs.
+  </Card>
+</CardGroup>

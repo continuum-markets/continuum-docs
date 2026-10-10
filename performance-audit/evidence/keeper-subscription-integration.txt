@@ -1,0 +1,7 @@
+
+running 1 test
+local subscription event to wake: 0.698 ms
+test settlement_subscription::tests::local_websocket_delivers_wakeups_and_unsubscribes_on_shutdown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 374 filtered out; finished in 0.21s
+

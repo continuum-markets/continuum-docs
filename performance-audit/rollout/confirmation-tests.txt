@@ -1,0 +1,27 @@
+bun test v1.3.11 (af24e281)
+{"control":"web3.js unavailable WS","durationMs":31.497874999999993,"httpStatusReads":0}
+{"variant":"HTTP confirmed fixture","durationMs":1.8092910000000018}
+
+lib/solana/http-confirmation.test.ts:
+(pass) control: installed web3.js never checks HTTP while WebSocket subscription is unavailable [33.56ms]
+(pass) HTTP confirmation completes without a WebSocket and preserves the status context [1.90ms]
+(pass) null and processed are not confirmed; finalized callers retain the stronger requirement [4.89ms]
+(pass) legacy confirmation counts and commitment aliases have the same strength [4.20ms]
+(pass) confirmed execution errors stay errors, including errors observed before the requested commitment [3.98ms]
+(pass) unknown status reaches the original unknown-outcome timeout and retains its signature [16.12ms]
+(pass) malformed, mismatched, and incomplete responses never become successful confirmations [0.62ms]
+(pass) HTTP 403 is not retried; exhausted 429 retries remain unknown, and transient failures can recover [8.52ms]
+(pass) a permanent JSON-RPC failure remains unknown and is not retried [0.18ms]
+(pass) Retry-After is honored and the total deadline aborts its wait without a retry storm [15.26ms]
+(pass) hung HTTP requests are bounded, aborted, and never overlap [16.72ms]
+(pass) blockheight expiry checks status again and cannot mask a just-confirmed transaction [0.22ms]
+(pass) a processed transaction can still confirm after its blockhash validity window [1.63ms]
+(pass) an earlier processed observation cannot be erased by a lagging backend null at expiry [15.47ms]
+(pass) external cancellation preserves the abort reason and prevents later reads [6.14ms]
+(pass) invalid signatures fail before making any request [0.04ms]
+(pass) the installed Anchor provider signs/sends exactly once and resolves via shared HTTP confirmation [29.96ms]
+(pass) Anchor does not resend a transaction when confirmation reads are unavailable or time out [22.92ms]
+
+ 18 pass
+ 0 fail
+Ran 18 tests across 1 file. [402.00ms]

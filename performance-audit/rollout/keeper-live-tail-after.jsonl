@@ -1,0 +1,3 @@
+{"endpoint":"/api/data/devnet/protocol_snapshot?limit=500","sample":1,"status":200,"seconds":1.151454,"bytes":3578}
+{"endpoint":"/api/data/devnet/protocol_snapshot?limit=500","sample":2,"status":200,"seconds":0.968471,"bytes":3578}
+{"endpoint":"/api/data/devnet/protocol_snapshot?limit=500","sample":3,"status":200,"seconds":1.015492,"bytes":3578}

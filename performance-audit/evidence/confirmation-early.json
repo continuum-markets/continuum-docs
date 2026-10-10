@@ -1,0 +1,93 @@
+{
+  "sample": "early",
+  "wallet": "3cQH4Wep65MrSkDRwhcGnMdFSvydouY7Xr6fzhj2fPns",
+  "cluster": "devnet",
+  "scope": "One memo transaction; no token movement; automatic approval; current app confirmation and parallel bounded 250ms observer",
+  "startedAt": "2026-10-09T01:03:52.464Z",
+  "phases": [
+    {
+      "phase": "preparing",
+      "ms": 0.6502909999999815
+    },
+    {
+      "phase": "awaiting-wallet",
+      "ms": 18.584249999999997
+    },
+    {
+      "phase": "submitting",
+      "ms": 29.351165999999978
+    },
+    {
+      "phase": "pending",
+      "ms": 45.80770799999999
+    },
+    {
+      "phase": "confirmed",
+      "ms": 890.4234580000001
+    }
+  ],
+  "probe": [
+    {
+      "ms": 308.04300000000006,
+      "status": {
+        "confirmationStatus": "processed",
+        "confirmations": "0",
+        "err": null,
+        "slot": "509006612",
+        "status": {
+          "Ok": null
+        }
+      }
+    },
+    {
+      "ms": 575.767625,
+      "status": {
+        "confirmationStatus": "processed",
+        "confirmations": "0",
+        "err": null,
+        "slot": "509006612",
+        "status": {
+          "Ok": null
+        }
+      }
+    },
+    {
+      "ms": 843.593208,
+      "status": {
+        "confirmationStatus": "finalized",
+        "confirmations": null,
+        "err": null,
+        "slot": "509006612",
+        "status": {
+          "Ok": null
+        }
+      }
+    }
+  ],
+  "appReads": [
+    {
+      "ms": 261.77166700000004,
+      "status": null
+    },
+    {
+      "ms": 795.6074170000002,
+      "status": {
+        "confirmationStatus": "finalized",
+        "confirmations": null,
+        "err": null,
+        "slot": "509006612",
+        "status": {
+          "Ok": null
+        }
+      }
+    }
+  ],
+  "signature": "6559SbosvCH2kuC4J5QcUeb8xCRirJ9TMeiLavjnZAH2C5phGivVoupbV9qm3tjiPFJutqAFKnZAMEdQFLPYhQV",
+  "appConfirmationMs": 795.6132500000001,
+  "outcome": {
+    "kind": "confirmed",
+    "signature": "6559SbosvCH2kuC4J5QcUeb8xCRirJ9TMeiLavjnZAH2C5phGivVoupbV9qm3tjiPFJutqAFKnZAMEdQFLPYhQV"
+  },
+  "totalMs": 890.4359579999999,
+  "complete": true
+}
