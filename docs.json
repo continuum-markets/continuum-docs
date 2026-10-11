@@ -53,6 +53,7 @@
               "flows/mint",
               "flows/redeem",
               "flows/trade",
+              "flows/auction",
               "flows/read-state"
             ]
           },

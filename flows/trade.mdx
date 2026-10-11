@@ -15,7 +15,7 @@ As of 10 Oct 2026, committed orders and `clp_swap` work only on QQQ, SPY and XAU
 
 The instant venues carry adverse-selection risk, so their depth and spread are sized for small trades. Committed orders are the path for size.
 
-The app trades on the bin book. While the market is open, it switches to a committed order when the input amount is above 5,000 and the market's swap guards are enabled and not frozen. The input is cUSDC on a buy but tokens of the leg on a sell, so a sale switches at 5,000 tokens. You can also force a committed order at any size. While the market is closed or its price updates are paused, the app disables committed orders and fills every order instantly from the book, because no price push would arrive to settle one.
+The app trades on the bin book. While the market is open, it switches to a committed order when the input amount is above 5,000 and the market's swap guards are enabled and not frozen. The input is cUSDC on a buy but tokens of the leg on a sell, so a sale switches at 5,000 tokens. You can also force a committed order at any size. While the market is closed or its price updates are paused, the app disables committed orders, because no price push would arrive to settle one. It then offers two venues: the book, which fills instantly up to its capped size, and the [off-hours auction](/flows/auction), where you trade any size with other traders at a single price every 5 minutes.
 
 <Note>
   Mint and redeem open and close a *paired* position (see [Mint](/flows/mint) and [Redeem](/flows/redeem)). The venues on this page buy or sell one leg.

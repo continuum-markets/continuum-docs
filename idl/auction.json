@@ -1,0 +1,2557 @@
+{
+  "address": "HJ9AaPoBtGDEe7qVrdP2iakQ8qGtoEHWFK75NKpCuej5",
+  "metadata": {
+    "name": "auction",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Continuum Markets call auction: users trade synths with each other at one clearing price"
+  },
+  "instructions": [
+    {
+      "name": "clear_batch",
+      "docs": [
+        "Clear a batch that has ended. Permissionless and deterministic: the",
+        "result depends only on the batch's own tick totals."
+      ],
+      "discriminator": [
+        194,
+        215,
+        191,
+        209,
+        220,
+        20,
+        81,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "book",
+          "writable": true,
+          "relations": [
+            "batch"
+          ]
+        },
+        {
+          "name": "batch",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_batch",
+      "docs": [
+        "Once every order has settled, sweep what the batch kept (the fee and",
+        "rounding dust) to the fee recipient and return the rent."
+      ],
+      "discriminator": [
+        166,
+        174,
+        35,
+        253,
+        209,
+        211,
+        181,
+        28
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "book",
+          "relations": [
+            "batch"
+          ]
+        },
+        {
+          "name": "batch",
+          "writable": true
+        },
+        {
+          "name": "rent_payer",
+          "writable": true,
+          "relations": [
+            "batch"
+          ]
+        },
+        {
+          "name": "synth_vault",
+          "writable": true
+        },
+        {
+          "name": "usdc_vault",
+          "writable": true
+        },
+        {
+          "name": "fee_synth",
+          "writable": true
+        },
+        {
+          "name": "fee_usdc",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "configure_book",
+      "docs": [
+        "Changes apply to batches opened afterwards; an open batch keeps the grid",
+        "and fee it opened with. `batch_secs` cannot change: batch ids derive from it."
+      ],
+      "discriminator": [
+        128,
+        131,
+        71,
+        112,
+        159,
+        116,
+        111,
+        171
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "book",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ConfigureBookParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_book",
+      "discriminator": [
+        96,
+        122,
+        49,
+        43,
+        63,
+        61,
+        118,
+        152
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "book",
+          "writable": true
+        },
+        {
+          "name": "synth_mint"
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "synth_vault",
+          "docs": [
+            "The book PDA's associated token accounts, created beforehand by the",
+            "caller (createAssociatedTokenAccountIdempotent with an off-curve owner)."
+          ]
+        },
+        {
+          "name": "usdc_vault"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "InitBookParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_config",
+      "docs": [
+        "One-time setup, by the program's upgrade authority only, so nobody can",
+        "squat the config PDA between deploy and init."
+      ],
+      "discriminator": [
+        23,
+        235,
+        115,
+        232,
+        168,
+        96,
+        1,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program_data",
+          "docs": [
+            "checked byte by byte in the handler (bincode would add ~20KB to the binary)."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "InitConfigParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "open_batch",
+      "docs": [
+        "Open the current or the next batch if nobody has yet. Safe to include in",
+        "every order transaction: on a live batch it does nothing. The next batch",
+        "may open early so an order signed just before a match can join the one",
+        "after it instead of failing at the boundary."
+      ],
+      "discriminator": [
+        103,
+        163,
+        23,
+        69,
+        63,
+        155,
+        108,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "book"
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "batch",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "book"
+              },
+              {
+                "kind": "arg",
+                "path": "params.batch_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "OpenBatchParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "place_order",
+      "discriminator": [
+        51,
+        194,
+        155,
+        175,
+        109,
+        130,
+        96,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "book",
+          "writable": true,
+          "relations": [
+            "batch"
+          ]
+        },
+        {
+          "name": "market",
+          "relations": [
+            "book"
+          ]
+        },
+        {
+          "name": "batch",
+          "writable": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "book"
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "params.nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner_in",
+          "writable": true
+        },
+        {
+          "name": "vault_in",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "PlaceOrderParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_config",
+      "discriminator": [
+        108,
+        158,
+        154,
+        175,
+        212,
+        98,
+        52,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SetConfigParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "settle_order",
+      "docs": [
+        "Pay an order's fill from its cleared batch, then roll the rest into the",
+        "current batch or refund it. Permissionless; a live order can only be",
+        "rolled, never refunded early by a third party.",
+        "",
+        "With `cancel` set it is the owner's cancel, and the owner must sign.",
+        "Orders are firm for the batch they are in, so while that batch is open a",
+        "cancel only stops the order rolling (the settlement after clearing then",
+        "refunds it); once the batch has cleared it refunds at once."
+      ],
+      "discriminator": [
+        80,
+        74,
+        204,
+        34,
+        12,
+        183,
+        66,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "book",
+          "writable": true,
+          "relations": [
+            "batch",
+            "order",
+            "next_batch"
+          ]
+        },
+        {
+          "name": "batch",
+          "writable": true
+        },
+        {
+          "name": "order",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "close, and must sign a cancel."
+          ],
+          "writable": true,
+          "relations": [
+            "order"
+          ]
+        },
+        {
+          "name": "owner_synth",
+          "writable": true
+        },
+        {
+          "name": "owner_usdc",
+          "writable": true
+        },
+        {
+          "name": "synth_vault",
+          "writable": true
+        },
+        {
+          "name": "usdc_vault",
+          "writable": true
+        },
+        {
+          "name": "next_batch",
+          "docs": [
+            "The current batch, to roll into. Leave it out only when the order is done."
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SettleOrderParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "void_batch",
+      "docs": [
+        "Admin escape hatch for a batch that must not clear: every order in it is",
+        "refunded in full at settlement."
+      ],
+      "discriminator": [
+        178,
+        173,
+        174,
+        123,
+        114,
+        154,
+        223,
+        236
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "batch",
+          "writable": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AuctionConfig",
+      "discriminator": [
+        195,
+        54,
+        8,
+        51,
+        28,
+        231,
+        33,
+        142
+      ]
+    },
+    {
+      "name": "Batch",
+      "discriminator": [
+        156,
+        194,
+        70,
+        44,
+        22,
+        88,
+        137,
+        44
+      ]
+    },
+    {
+      "name": "Book",
+      "discriminator": [
+        121,
+        34,
+        121,
+        35,
+        91,
+        62,
+        85,
+        222
+      ]
+    },
+    {
+      "name": "Market",
+      "discriminator": [
+        219,
+        190,
+        213,
+        55,
+        0,
+        227,
+        198,
+        154
+      ]
+    },
+    {
+      "name": "Order",
+      "discriminator": [
+        134,
+        173,
+        223,
+        185,
+        77,
+        86,
+        28,
+        51
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "BatchCleared",
+      "discriminator": [
+        8,
+        207,
+        38,
+        149,
+        136,
+        1,
+        85,
+        160
+      ]
+    },
+    {
+      "name": "BatchClosed",
+      "discriminator": [
+        192,
+        76,
+        201,
+        211,
+        10,
+        212,
+        139,
+        232
+      ]
+    },
+    {
+      "name": "BatchOpened",
+      "discriminator": [
+        232,
+        120,
+        56,
+        150,
+        9,
+        193,
+        191,
+        96
+      ]
+    },
+    {
+      "name": "BatchVoided",
+      "discriminator": [
+        41,
+        216,
+        67,
+        18,
+        157,
+        182,
+        74,
+        155
+      ]
+    },
+    {
+      "name": "BookConfigured",
+      "discriminator": [
+        45,
+        163,
+        86,
+        209,
+        202,
+        148,
+        119,
+        12
+      ]
+    },
+    {
+      "name": "ConfigUpdated",
+      "discriminator": [
+        40,
+        241,
+        230,
+        122,
+        11,
+        19,
+        198,
+        194
+      ]
+    },
+    {
+      "name": "OrderCancelRequested",
+      "discriminator": [
+        205,
+        134,
+        43,
+        251,
+        151,
+        152,
+        143,
+        164
+      ]
+    },
+    {
+      "name": "OrderClosed",
+      "discriminator": [
+        237,
+        77,
+        101,
+        123,
+        72,
+        43,
+        149,
+        123
+      ]
+    },
+    {
+      "name": "OrderPlaced",
+      "discriminator": [
+        96,
+        130,
+        204,
+        234,
+        169,
+        219,
+        216,
+        227
+      ]
+    },
+    {
+      "name": "OrderSettled",
+      "discriminator": [
+        32,
+        21,
+        123,
+        33,
+        68,
+        59,
+        136,
+        131
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Signer is not the auction admin"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidProgramData",
+      "msg": "ProgramData does not belong to this program"
+    },
+    {
+      "code": 6002,
+      "name": "Paused",
+      "msg": "New orders are paused"
+    },
+    {
+      "code": 6003,
+      "name": "BookDisabled",
+      "msg": "This book is not taking orders"
+    },
+    {
+      "code": 6004,
+      "name": "MarketInactive",
+      "msg": "The market is not active"
+    },
+    {
+      "code": 6005,
+      "name": "NoReferencePrice",
+      "msg": "The market has no posted price to centre the batch on"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidBookParams",
+      "msg": "Book parameters are out of range"
+    },
+    {
+      "code": 6007,
+      "name": "MintMismatch",
+      "msg": "Mint does not match the market"
+    },
+    {
+      "code": 6008,
+      "name": "AccountMismatch",
+      "msg": "Token account does not match the order or book"
+    },
+    {
+      "code": 6009,
+      "name": "WrongBatch",
+      "msg": "Batch id is not the current batch"
+    },
+    {
+      "code": 6010,
+      "name": "BatchNotOpen",
+      "msg": "Batch is not open for orders"
+    },
+    {
+      "code": 6011,
+      "name": "BatchStillOpen",
+      "msg": "Batch has not closed yet"
+    },
+    {
+      "code": 6012,
+      "name": "BatchNotCleared",
+      "msg": "Batch has not been cleared"
+    },
+    {
+      "code": 6013,
+      "name": "BatchHasOrders",
+      "msg": "Batch still has orders to settle"
+    },
+    {
+      "code": 6014,
+      "name": "OrderBatchMismatch",
+      "msg": "Order is not in this batch"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidQuantity",
+      "msg": "Quantity is zero or above the per-order maximum"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidLimit",
+      "msg": "Limit price must be positive"
+    },
+    {
+      "code": 6017,
+      "name": "BelowMinimum",
+      "msg": "Order is below the minimum size"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidExpiry",
+      "msg": "Expiry must be in the future and within the book's maximum"
+    },
+    {
+      "code": 6019,
+      "name": "LimitOutsideBand",
+      "msg": "Limit price is outside this batch's price band"
+    },
+    {
+      "code": 6020,
+      "name": "TickFull",
+      "msg": "This price level is full"
+    },
+    {
+      "code": 6021,
+      "name": "NextBatchRequired",
+      "msg": "The order is still live: pass the current batch to roll it"
+    },
+    {
+      "code": 6022,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "AuctionConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_recipient",
+            "docs": [
+              "Owner of the token accounts that receive each batch's fees and rounding dust."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Stops new orders and rolls. Clearing, settling and refunds keep working."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Batch",
+      "docs": [
+        "One auction round. Scalars come first so their offsets stay fixed for",
+        "getProgramAccounts filters (book at 8, status at 76); the tick arrays last."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "opens_at",
+            "type": "i64"
+          },
+          {
+            "name": "closes_at",
+            "type": "i64"
+          },
+          {
+            "name": "ref_price",
+            "docs": [
+              "The side's posted NAV when the batch opened: the centre of the grid."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tick_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "rent_payer",
+            "docs": [
+              "Paid the rent; gets it back when the batch closes."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "order_count",
+            "type": "u32"
+          },
+          {
+            "name": "settled_count",
+            "type": "u32"
+          },
+          {
+            "name": "usdc_in",
+            "docs": [
+              "Escrow this batch took in and paid out, per mint. What is left once every",
+              "order has settled is the fee plus rounding dust, swept at close."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "usdc_out",
+            "type": "u64"
+          },
+          {
+            "name": "synth_in",
+            "type": "u64"
+          },
+          {
+            "name": "synth_out",
+            "type": "u64"
+          },
+          {
+            "name": "cleared_at",
+            "type": "i64"
+          },
+          {
+            "name": "units_epoch",
+            "docs": [
+              "The market's units regime when the batch opened (the last split or",
+              "other price adjustment). Orders never roll across a change of units."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "clear_tick",
+            "type": "u8"
+          },
+          {
+            "name": "clear_price",
+            "type": "u64"
+          },
+          {
+            "name": "volume",
+            "type": "u64"
+          },
+          {
+            "name": "buy_marginal",
+            "type": "u8"
+          },
+          {
+            "name": "buy_num",
+            "type": "u64"
+          },
+          {
+            "name": "buy_den",
+            "type": "u64"
+          },
+          {
+            "name": "sell_marginal",
+            "type": "u8"
+          },
+          {
+            "name": "sell_num",
+            "type": "u64"
+          },
+          {
+            "name": "sell_den",
+            "type": "u64"
+          },
+          {
+            "name": "buy_qty",
+            "type": {
+              "array": [
+                "u64",
+                129
+              ]
+            }
+          },
+          {
+            "name": "sell_qty",
+            "type": {
+              "array": [
+                "u64",
+                129
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BatchCleared",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "volume",
+            "type": "u64"
+          },
+          {
+            "name": "notional",
+            "type": "u64"
+          },
+          {
+            "name": "tick",
+            "type": "u8"
+          },
+          {
+            "name": "ref_price",
+            "type": "u64"
+          },
+          {
+            "name": "orders",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BatchClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "usdc_kept",
+            "type": "u64"
+          },
+          {
+            "name": "synth_kept",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BatchOpened",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "opens_at",
+            "type": "i64"
+          },
+          {
+            "name": "closes_at",
+            "type": "i64"
+          },
+          {
+            "name": "ref_price",
+            "type": "u64"
+          },
+          {
+            "name": "tick_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BatchVoided",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "orders",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Book",
+      "docs": [
+        "One order book: a market's long or short token against its collateral."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "synth_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "synth_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_secs",
+            "docs": [
+              "Batch length. Fixed at creation, because batch ids are `now / batch_secs`."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "tick_bps",
+            "docs": [
+              "Grid spacing for new batches; the band is ±64 ticks around the posted NAV."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "docs": [
+              "Charged to each side of a fill, on the clearing notional."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "min_notional",
+            "docs": [
+              "Minimum order size at the limit price, in cUSDC atoms."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "max_order_secs",
+            "type": "u32"
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "open_orders",
+            "docs": [
+              "Orders placed and not yet closed."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "last_cleared_batch",
+            "type": "u64"
+          },
+          {
+            "name": "last_price",
+            "docs": [
+              "Clearing price and volume of the last batch that traded."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_volume",
+            "type": "u64"
+          },
+          {
+            "name": "last_traded_at",
+            "type": "i64"
+          },
+          {
+            "name": "total_volume",
+            "type": "u64"
+          },
+          {
+            "name": "total_notional",
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BookConfigured",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "batch_secs",
+            "type": "u32"
+          },
+          {
+            "name": "tick_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "min_notional",
+            "type": "u64"
+          },
+          {
+            "name": "max_order_secs",
+            "type": "u32"
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CollateralType",
+      "docs": [
+        "Collateral type identifier"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "USDC"
+          },
+          {
+            "name": "USDT"
+          },
+          {
+            "name": "PYUSD"
+          },
+          {
+            "name": "USDe"
+          },
+          {
+            "name": "Other"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CollateralVault",
+      "docs": [
+        "Individual collateral vault for a specific stablecoin",
+        "Each stablecoin has its own vault for blast-radius containment"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "docs": [
+              "Mint address of this collateral token"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vault",
+            "docs": [
+              "Vault token account address"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_type",
+            "docs": [
+              "Type of collateral (for provenance)"
+            ],
+            "type": {
+              "defined": {
+                "name": "CollateralType"
+              }
+            }
+          },
+          {
+            "name": "total_deposited",
+            "docs": [
+              "Total amount deposited in this vault"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "docs": [
+              "Whether this vault is active for deposits"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "weight_bps",
+            "docs": [
+              "Weight for collateral (100 = 1:1, 95 = 0.95:1 for riskier stables)"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureBookParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tick_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "min_notional",
+            "type": "u64"
+          },
+          {
+            "name": "max_order_secs",
+            "type": "u32"
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitBookParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "batch_secs",
+            "type": "u32"
+          },
+          {
+            "name": "tick_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "min_notional",
+            "type": "u64"
+          },
+          {
+            "name": "max_order_secs",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitConfigParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fee_recipient",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Market",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_symbol",
+            "type": "string"
+          },
+          {
+            "name": "oracle_address",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_type",
+            "type": {
+              "defined": {
+                "name": "OracleType"
+              }
+            }
+          },
+          {
+            "name": "long_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_mint",
+            "docs": [
+              "Primary collateral mint (legacy single-collateral mode)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_vault",
+            "docs": [
+              "Primary collateral vault (legacy)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "multi_collateral_enabled",
+            "docs": [
+              "Whether multi-collateral mode is enabled"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "collateral_vault_count",
+            "docs": [
+              "Number of active collateral vaults"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "collateral_vaults",
+            "docs": [
+              "Collateral vaults for multi-stable support"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "CollateralVault"
+                }
+              }
+            }
+          },
+          {
+            "name": "initial_l_price",
+            "docs": [
+              "Initial Long token price (used for Short NAV calculation)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "initial_s_price",
+            "docs": [
+              "Initial Short token price"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "mint_fee_bps",
+            "docs": [
+              "Mint fee in basis points (e.g., 10 = 0.1%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "redeem_fee_bps",
+            "docs": [
+              "Redeem fee in basis points"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "total_l_supply",
+            "docs": [
+              "Total supply of Long tokens. Paired mint/redeem keeps this equal to",
+              "`total_s_supply`; single-side keeper mint/redeem (`keeper_mint_single`,",
+              "see lib.rs) intentionally moves only one side, so the two supplies can",
+              "diverge — a first-order (directional) delta the γ decay does NOT charge."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_s_supply",
+            "docs": [
+              "Total supply of Short tokens. Equal to `total_l_supply` under paired",
+              "mint/redeem, but single-side keeper mint/redeem deliberately lets it",
+              "diverge (see `total_l_supply` above)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_collateral",
+            "docs": [
+              "Total collateral locked (sum across all vaults)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "risk_state",
+            "docs": [
+              "Current risk state (updated by keepers from oracle)"
+            ],
+            "type": {
+              "defined": {
+                "name": "RiskState"
+              }
+            }
+          },
+          {
+            "name": "risk_state_updated_at",
+            "docs": [
+              "Last time risk state was updated"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "risk_fee_config",
+            "docs": [
+              "Risk-based fee configuration"
+            ],
+            "type": {
+              "defined": {
+                "name": "RiskFeeConfig"
+              }
+            }
+          },
+          {
+            "name": "user_twap_price",
+            "docs": [
+              "TWAP price for user quoting (updated by keepers)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "twap_updated_at",
+            "docs": [
+              "Last TWAP update time"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "worst_case_config",
+            "docs": [
+              "Configuration for worst-case quoting"
+            ],
+            "type": {
+              "defined": {
+                "name": "WorstCaseQuotingConfig"
+              }
+            }
+          },
+          {
+            "name": "oracle_confidence",
+            "docs": [
+              "Oracle confidence interval (updated by keepers)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "keeper_authority",
+            "docs": [
+              "Whitelisted keeper authority that is allowed to update risk state"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "dev_tax_pct",
+            "docs": [
+              "Dev tax percentage (updated by keeper based on CLP TVL tiers)"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "yield_ceiling_bps",
+            "docs": [
+              "Maximum fraction of total_collateral deployable to yield protocols (basis points).",
+              "Default: 6000 (60%). Remaining 40% stays liquid to cover redemptions."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "deployed_to_yield",
+            "docs": [
+              "Amount of collateral currently deployed to external lending protocols.",
+              "Invariant: deployed_to_yield <= total_collateral * yield_ceiling_bps / 10_000"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_yield_harvested",
+            "docs": [
+              "Cumulative yield harvested to CLP vault (never decrements, informational)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yield_enabled",
+            "docs": [
+              "Whether collateral yield deployment is enabled for this market."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "buffer_target_bps",
+            "docs": [
+              "Keeper-posted overcollateralization buffer (bps OVER parity) — the dynamic",
+              "solvency target. Target ratio = 10_000 + buffer_target_bps, clamped to",
+              "[MIN_BUFFER_BPS, MAX_BUFFER_BPS]. 0 (legacy/unset) is treated as the default",
+              "200 (102%) by `target_ratio_bps()`, so old accounts behave as before until the",
+              "keeper posts a value. Sized from σ-regime + live inventory (vol_model::dynamic_buffer)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "s_gamma_index",
+            "docs": [
+              "Keeper-posted decay scalar on the SHORT NAV, in 1e9 fixed point",
+              "(1_000_000_000 = 1.0 = no decay). The effective short NAV is",
+              "`(K / l_nav) · s_gamma_index / 1e9`. It only ever ratchets DOWN, by the",
+              "realized variance the short pair accrues, so holding the short across a",
+              "choppy path costs the decay — which banks as collateral surplus (the",
+              "long leg is never touched). `0` (legacy/unset) is read as 1e9 by",
+              "`short_gamma_index()`, so old accounts behave exactly as before until",
+              "the keeper posts a value. NOT a perp funding rate — there is no periodic",
+              "cash transfer; it is a structural mark on the short token's value, so the",
+              "1:1 paired round-trip and buy-and-hold mechanics are unchanged at a fixed γ."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "gamma_day_start_ts",
+            "docs": [
+              "Unix ts the current γ day-bucket opened. 0 = no bucket yet."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "gamma_day_decay_1e9",
+            "docs": [
+              "γ index units (1e9) decayed inside the current day-bucket. TELEMETRY",
+              "ONLY — tracked so an auditor can see the day's total, never enforced."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "gamma_last_write_ts",
+            "docs": [
+              "Unix ts of the last accepted γ write. Lets an auditor alarm on writer",
+              "SILENCE — the failure mode no cap can catch, because it looks like calm."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "gamma_epoch",
+            "docs": [
+              "Bumped by a re-anchor. Carried in `SetGammaParams` as a CAS so a decay",
+              "post computed against a pre-re-anchor γ can never land after the fold",
+              "and re-charge the whole epoch."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "reanchor_count",
+            "docs": [
+              "How many re-anchors this market has seen. 0 = never."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "genesis_s_price",
+            "docs": [
+              "`initial_s_price` as of genesis, before any re-anchor folded γ into it.",
+              "Backfilled lazily on the first re-anchor; 0 = never re-anchored, so the",
+              "live `initial_s_price` IS the genesis value."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_reanchor_ts",
+            "docs": [
+              "Unix ts of the last re-anchor. 0 = never."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "short_payoff_cap_c_1e9",
+            "docs": [
+              "Reserved for the capped short payoff `S = γ·min(K/P, C·K/P₀)` (1e9",
+              "fixed). The instruction ships in upgrade #2; the FIELD lands here so",
+              "that upgrade is instructions-only and needs no second realloc.",
+              "0 = unset = uncapped, i.e. exactly today's behavior."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_num",
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_den",
+            "docs": [
+              "Denominator of the cumulative corporate-action ratio. See",
+              "`price_adjust_num`. 0 = unset = identity."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_pending_num",
+            "docs": [
+              "A corporate action ARMED AHEAD of its ex-date: the cumulative pair that",
+              "becomes live at `price_adjust_effective_ts`. Until then the current",
+              "`price_adjust_num/den` keeps applying.",
+              "",
+              "This exists because arming a ratio early is otherwise actively harmful,",
+              "not merely useless. The adjustment multiplies the NEXT raw print, and",
+              "before the ex-date that print is still PRE-split — so an early 2:1 would",
+              "double the stored price, the 25% move guard would reject every push, and",
+              "the market would halt from the moment of arming until the split actually",
+              "happened. Gating on a timestamp is what makes \"schedule it weeks ahead\"",
+              "a true statement instead of a longer outage."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_pending_den",
+            "docs": [
+              "Denominator of the pending pair. See `price_adjust_pending_num`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price_adjust_effective_ts",
+            "docs": [
+              "Unix ts from which the pending pair applies. 0 = nothing pending.",
+              "",
+              "Set it to the ex-date OPEN — the first instant a venue quotes the",
+              "post-action price. Misalignment is bounded and self-correcting for",
+              "ratios above ~1.333: a print on the wrong side of the boundary is",
+              "REJECTED by the 25% guard, not absorbed, so an early or late `ts` costs",
+              "rejected pushes rather than a mispriced book. Below ~1.333 nothing",
+              "rejects it and the alignment is the only control."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "price_adjust_last_effective_ts",
+            "docs": [
+              "Most recent activated units boundary, retained after promotion and rescheduling."
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OpenBatchParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "batch_id",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pyth"
+          },
+          {
+            "name": "Switchboard"
+          },
+          {
+            "name": "Continuum"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Order",
+      "docs": [
+        "A limit order. It joins the current batch when placed and, while it has",
+        "quantity left and has not expired, rolls into each following batch."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "docs": [
+              "The batch it is in now."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "is_buy",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "batch_tick",
+            "docs": [
+              "Tick it occupies in the current batch, valid when `batch_qty > 0`."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "limit_price",
+            "docs": [
+              "cUSDC per whole token, 6 decimals: the most a buyer pays or the least a",
+              "seller takes, before the fee."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "remaining_qty",
+            "docs": [
+              "Tokens still to buy or sell."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "escrow",
+            "docs": [
+              "What the order still holds in the vault: cUSDC for a buy, tokens for a sell."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "batch_qty",
+            "docs": [
+              "Quantity it put into the current batch: 0 when its limit is off the band."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "filled_qty",
+            "docs": [
+              "Tokens bought or sold so far, and the cUSDC paid or received for them."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "filled_value",
+            "type": "u64"
+          },
+          {
+            "name": "units_epoch",
+            "docs": [
+              "Units regime its limit price is quoted in; see `Batch::units_epoch`."
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderCancelRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": "u8"
+          },
+          {
+            "name": "refund",
+            "type": "u64"
+          },
+          {
+            "name": "filled_qty",
+            "type": "u64"
+          },
+          {
+            "name": "filled_value",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderPlaced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "is_buy",
+            "type": "bool"
+          },
+          {
+            "name": "limit_price",
+            "type": "u64"
+          },
+          {
+            "name": "quantity",
+            "type": "u64"
+          },
+          {
+            "name": "escrow",
+            "type": "u64"
+          },
+          {
+            "name": "tick",
+            "type": "u8"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "book",
+            "type": "pubkey"
+          },
+          {
+            "name": "batch_id",
+            "type": "u64"
+          },
+          {
+            "name": "filled_qty",
+            "type": "u64"
+          },
+          {
+            "name": "value",
+            "type": "u64"
+          },
+          {
+            "name": "remaining_qty",
+            "type": "u64"
+          },
+          {
+            "name": "rolled_to",
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlaceOrderParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "is_buy",
+            "type": "bool"
+          },
+          {
+            "name": "limit_price",
+            "docs": [
+              "cUSDC per whole token, 6 decimals."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "quantity",
+            "docs": [
+              "Token atoms (6 decimals)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RiskFeeConfig",
+      "docs": [
+        "Configuration for risk-based fee adjustments"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proxy_fee_multiplier",
+            "docs": [
+              "Fee multiplier for Proxy Mode (100 = 1x, 200 = 2x)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "stress_fee_multiplier",
+            "docs": [
+              "Fee multiplier for Stress mode (100 = 1x, 300 = 3x)",
+              "Also the starting point for Recovery Dutch auction (decays to 1.0x over 1 hour)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "stress_mint_cap",
+            "docs": [
+              "Mint cap per transaction in Stress mode (0 = disabled)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "allow_mint_in_stress",
+            "docs": [
+              "Whether to allow new mints in Stress mode"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "allow_redeem_in_stress",
+            "docs": [
+              "Whether to allow redeems in Stress mode"
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RiskState",
+      "docs": [
+        "Risk state for graduated oracle gating (mirrors oracle program)"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Normal"
+          },
+          {
+            "name": "ProxyMode"
+          },
+          {
+            "name": "Stress"
+          },
+          {
+            "name": "Recovery"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetConfigParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "fee_recipient",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "paused",
+            "type": {
+              "option": "bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleOrderParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cancel",
+            "docs": [
+              "The owner's cancel; the owner must sign."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WorstCaseQuotingConfig",
+      "docs": [
+        "Configuration for worst-case quoting",
+        "Protects protocol from informed traders exploiting confidence interval edges"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "enabled",
+            "docs": [
+              "Whether worst-case quoting is enabled"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "normal_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Normal state (100 = 1x, 150 = 1.5x)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "proxy_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Proxy state"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "stress_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Stress state (also the starting point for Recovery Dutch auction)"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    }
+  ]
+}
