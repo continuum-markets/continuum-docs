@@ -77,7 +77,7 @@ description: Continuum-specific terms in one place.
 
 **Mint authority** - The signer that can mint new SPL tokens. For Continuum's L and S mints it is the Market PDA. There is no freeze authority.
 
-**MVP** - The release deployed on devnet today. It has no governance, no user LP and no collateral yield.
+**MVP** - The release deployed on devnet today. It has no governance and no user LP, and its collateral yield is emulated rather than earned.
 
 **NAV** (Net Asset Value) - The on-chain protocol price for L and S, used by mint and redeem. → [NAV math](/concepts/nav).
 
@@ -137,7 +137,7 @@ description: Continuum-specific terms in one place.
 
 **Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ`, redeem L at P − c and S at `K / (P + c) × γ`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
 
-**Yield router** - The keeper task that would lend idle collateral to lending venues. It is off by default, and every live devnet market has `yield_enabled = false` as of 11 Oct 2026. New markets start with it true. Harvested yield is added to the market's own collateral.
+**Yield allocator** - The keeper task that decides how much of each market's collateral to lend, and where, from live mainnet venue state. It lends only on mainnet with `COLLATERAL_YIELD_ENABLED=true`. On devnet an emulator credits the interest its plan would earn. Every live market has `yield_enabled = true` as of 11 Oct 2026, and new markets start with it true. Harvested yield is added to the market's own collateral.
 
 ## See also
 

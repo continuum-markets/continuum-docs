@@ -94,7 +94,7 @@ S_NAV = K / P × γ        γ = s_gamma_index / 1e9
 - `reanchor_gamma` starts a new epoch. Only the market authority can call it, at least 14 days after the last one. It sets `initial_s_price` to `initial_s_price × γ` and resets γ to 1.0, which leaves every claim unchanged at every price. What it renews is the decay budget. It is not a re-anchor to the current spot price.
 - It is not a funding rate. No cash moves between holders; γ is a mark on the short token's value. An instant mint→redeem round trip at a fixed γ is unaffected, and **long positions never pay it**. The app labels it "volatility decay" on the short side.
 
-As of 10 Oct 2026 no market has been re-anchored, and γ runs from 1.0 (EUR) down to about 0.944 (MSTR).
+As of 11 Oct 2026 no market has been re-anchored, and γ runs from about 0.9998 (GBP) down to about 0.944 (MSTR).
 
 See [Solvency](/concepts/solvency) for why this covers the variance regime but leaves a directional run uncovered.
 

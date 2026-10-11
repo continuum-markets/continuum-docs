@@ -82,7 +82,7 @@ Five channels push the ratio up over time:
 4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. CLP trading profits reach a market's collateral only through these two, and the keeper calls neither in its default configuration. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
 5. Harvested collateral yield is added to `total_collateral` by `harvest_collateral_yield`.
 
-Collateral yield adds nothing today: `yield_enabled` is false on every live market and nothing is deployed, as of 11 Oct 2026. On devnet, yield would be simulated, with the keeper minting cUSDC.
+On devnet, collateral yield is emulated. Every live market has `yield_enabled = true` as of 11 Oct 2026. Each hour the keeper mints the cUSDC that its mainnet lending plan would have earned on a market's collateral and harvests it into that market, which raises its collateral ratio. Nothing is actually lent on devnet.
 
 ## Supporting structural protections
 

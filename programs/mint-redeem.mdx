@@ -53,10 +53,10 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `oracle_confidence` | u64 | Confidence band c, adjusted like the price. |
 | `keeper_authority` | Pubkey | Keeper signer. |
 | `dev_tax_pct` | u8 | Percent of each fee sent to the fee recipient (10 on every market). |
-| `yield_ceiling_bps` | u16 | Largest share of `total_collateral` that may be deployed to yield. 0 until `configure_yield_ceiling` sets it. |
+| `yield_ceiling_bps` | u16 | Largest share of `total_collateral` that may be deployed to yield. 0 until `configure_yield_ceiling` sets it. As of 11 Oct 2026 every live market is set to the keeper's derived liquid share, 6,992 to 7,019 bps. |
 | `deployed_to_yield` | u64 | Collateral deployed to yield. |
 | `total_yield_harvested` | u64 | Cumulative harvested yield. |
-| `yield_enabled` | bool | Gates `deploy_collateral_to_yield` and `harvest_collateral_yield`. `initialize_market` sets it to true. It is false on all 14 live markets as of 11 Oct 2026. |
+| `yield_enabled` | bool | Gates `deploy_collateral_to_yield` and `harvest_collateral_yield`. `initialize_market` sets it to true. It is true on all 14 live markets as of 11 Oct 2026. |
 | `buffer_target_bps` | u16 | Keeper-posted buffer over parity. The target ratio is 10,000 plus this value clamped to 100 to 5,000 bps; 0 reads as 200 (a 102% target). |
 | `s_gamma_index` | u64 | γ at 1e9 scale. 0 reads as 1.0. Moves only down, never below 0.5. |
 | `gamma_day_start_ts` | i64 | Start of the current γ day bucket (telemetry). |
@@ -182,7 +182,7 @@ Both vaults must be owned by their Market PDAs, as every live market's vault is.
 
 Harvest moves `yield_amount` from the keeper's token account into `market.collateral_vault` and adds it to `total_collateral` and `total_yield_harvested`, so harvested yield raises the market's collateral ratio. Collateral above the target can still reach the CLP through `withdraw_excess_to_clp`. Harvest's fourth account was named `clp_vault` and received the yield until 11 Oct 2026. It is now `collateral_vault`, in the same position, and must be the market's own vault.
 
-Every live market has `yield_enabled = false`, so deploy and harvest revert on them today.
+Every live market has `yield_enabled = true`. Nothing is deployed on devnet: the keeper's emulator calls harvest every hour with cUSDC minted at the rate its mainnet lending plan would earn.
 
 ### CLP PDA (CPI only)
 

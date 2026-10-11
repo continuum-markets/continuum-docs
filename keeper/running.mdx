@@ -12,7 +12,7 @@ The keeper's source and binary are not published. This page documents how the pr
 - **The mint-redeem program ID.** Without `DEVNET_MINT_REDEEM_PROGRAM_ID` or `MINT_REDEEM_PROGRAM_ID`, market discovery fails and the keeper runs QQQ only, with a warning.
 - **Storage for the transaction journal.** Every transaction that moves funds is journaled first, in Cloudflare R2 or under a persistent `DATA_DIR`. Without a working journal the keeper disables those transactions; price pushes still go out.
 
-The protocol deploys the keeper as a Docker image built with Rust 1.88. The image sets `RUST_LOG=info` and `UPDATE_INTERVAL_MS=5000` and exposes port 8484. The process exits as soon as any of its loops returns, so it runs under a supervisor that restarts it.
+The protocol deploys the keeper as a Docker image built with Rust 1.88. The image sets `RUST_LOG=info` and `UPDATE_INTERVAL_MS=5000` and exposes port 8484. The process exits with a non-zero code as soon as any of its loops ends, so it runs under a supervisor that restarts it on failure.
 
 ## Environment variables
 
@@ -103,18 +103,36 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | Variable | Default | Meaning |
 |---|---|---|
 | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | unset | Journal in R2. Setting any one selects R2 and requires all four. |
-| `DATA_DIR` | `/data` | Journal root when R2 is unset. It must persist across restarts and support OS file locks, and only one process can hold it. |
+| `DATA_DIR` | `/data` | Root for the journal and the γ and off-hours checkpoints when R2 is unset. It must persist across restarts and support OS file locks, and only one process can hold it. |
 | `PORT`, then `DASHBOARD_PORT` | `8484` | The single dashboard port. |
 | `KEEPER_PEERS` | unset | Dashboard URLs of other keeper instances (see below). |
 | `RUST_LOG` | `info` | Log filter (see [Logging](#logging)). |
 | `KEEPER_LOG_FILE` | unset | Write logs to this file instead of stderr. |
+
+### Collateral yield
+
+The allocator's limits come from the stress assumptions below rather than from fixed percentages. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300-s).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `YIELD_ALLOCATOR_ENABLED` | `true` | Yield planning, on every cluster. The devnet emulator uses its mainnet snapshots, so turning it off also stops emulated yield. |
+| `YIELD_ALLOCATOR_INTERVAL_SECS` | `300` | Planning cadence, at least 60 s. |
+| `YIELD_STRESS_REDEEM_FRAC_PER_DAY` | `0.5` | Share of a market's collateral a stressed run can redeem in a day. |
+| `YIELD_RECALL_HORIZON_HOURS` | `12` | Time to get lent collateral back. With the line above it sets the liquid share, 29.3% by default. |
+| `YIELD_MIN_LIQUID_USD` | `10000` | Liquid floor per market, in dollars. |
+| `YIELD_VENUE_LOSS_BUDGET` | `0.5` | Cap per venue, as a share of the market's collateral above 100%. |
+| `YIELD_EXIT_LIQUIDITY_SHARE` | `0.5` | Largest share of a venue's withdrawable liquidity the protocol may hold. |
+| `YIELD_SPOT_WEIGHT` | `0.25` | Weight of today's rate against the 30-day mean. |
+| `YIELD_MIN_MARGINAL_APR` | `0.01` | Hurdle: no more is lent once the marginal rate falls below it. |
+| `DEVNET_YIELD_EMULATION` | `true` (devnet only) | Emulated harvests at the rate the mainnet plan would earn. |
+| `DEVNET_YIELD_INTERVAL_SECS` | `3600` | Emulator cadence. |
 
 ### Off by default
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `LEGACY_METEORA_ENABLED` | `false` | The legacy Meteora layer: DLMM position manager, depth balancer, LP-fee claimer, arbitrage scanner with its boot-time sweep, and liquidity seeder. |
-| `COLLATERAL_YIELD_ENABLED` | `false` | Yield router. It also needs `yield_enabled` on the market, which is off on every live devnet market as of 11 Oct 2026. |
+| `COLLATERAL_YIELD_ENABLED` | `false` | Lending collateral. It acts only on mainnet USDC, and the market also needs `yield_enabled` and a non-zero `yield_ceiling_bps`. |
 
 ## Primary and standby
 
