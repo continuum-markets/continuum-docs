@@ -34,7 +34,7 @@ Redeem has the same gate as mint. Outside `Normal` it reverts with `TwapNotAvail
 
 ## Accounts
 
-Redeem takes the mint accounts, with the same names and checks, plus one optional account.
+Redeem takes the mint accounts, with the same names and checks, plus one ignored slot at the end.
 
 | Account | Notes |
 |---|---|
@@ -47,9 +47,9 @@ Redeem takes the mint accounts, with the same names and checks, plus one optiona
 | `devTokenAccount` (mut) | The fee recipient's cUSDC account; receives `dev_tax` |
 | `oracle` | `market.oracle_address` |
 | `tokenProgram` | SPL Token |
-| `collateralAuthority` (optional) | PDA `[b"collateral_authority"]` under mint_redeem (`7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3`). It signed payouts from the unified vault, which no market has used since 11 Oct 2026. Every market's vault is owned by its Market PDA, which signs instead, so no market needs this account. Passing it does no harm |
+| `collateralAuthority` (optional) | Ignored. The program never reads this slot and accepts any account. Pass `null`, and Anchor sends mint-redeem's program ID |
 
-Anchor's TypeScript client fills in `collateralAuthority` when you leave it out, because its seeds are constant. Passing `null` omits it. The payout works either way.
+Every market's vault is owned by its Market PDA, which signs the payout. The slot is left over from the unified vault, which the upgrade of 11 Oct 2026 removed. The IDL published that day gives the slot no seeds, so Anchor can't fill it in for you. Pass `collateralAuthority: null`, as below.
 
 ## TypeScript
 
@@ -70,6 +70,7 @@ await program.methods
     devTokenAccount,
     oracle: market.oracleAddress,
     tokenProgram: TOKEN_PROGRAM_ID,
+    collateralAuthority: null, // ignored slot
   })
   .rpc();
 ```

@@ -169,7 +169,7 @@ async function main() {
   console.log(`expect    ~${fmt(nominal - (nominal * q.redeem.feeBps) / 10_000n)} cUSDC back`);
   const redeemIx = await mr.methods
     .redeemPaired(new BN((l1 - l0).toString()), new BN((s1 - s0).toString()))
-    .accounts(accounts) // Anchor adds the optional collateralAuthority; no market needs it
+    .accounts({ ...accounts, collateralAuthority: null }) // ignored slot; null sends mint-redeem's program ID
     .instruction();
   const c0 = await balance(userCollateral);
   const redeemSig = await provider.sendAndConfirm(new Transaction().add(redeemIx));

@@ -66,7 +66,7 @@ The convexity the protocol is short lives entirely in the short leg: `S_NAV = K/
 S_NAV = (K / P) × γ          γ ratchets down by realized variance
 ```
 
-It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection, and, if collateral still falls short, on pro-rata redemption. γ is always on with no kill switch, only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection. If collateral still falls short, the treasury can top the market up, and pro-rata redemption is the last resort. γ is always on with no kill switch, only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 
 ### 5. `reanchor_gamma` is not a spot re-anchor
 
@@ -79,10 +79,20 @@ Five channels push the ratio up over time:
 1. 90% of every mint and redeem fee stays in the vault, immediately.
 2. Each volatility-decay step marks short claims down.
 3. When the price moves back toward a position's mint price, its claim falls and the vault over-collateralizes passively.
-4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. CLP trading profits reach a market's collateral only through these two, and the keeper calls neither in its default configuration. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
+4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. The CLP's `backstop_market` moves cUSDC from the treasury into a market's vault the same way. CLP trading profits reach a market's collateral only through these, and the keeper calls none of them in its default configuration. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
 5. Harvested collateral yield is added to `total_collateral` by `harvest_collateral_yield`.
 
 On devnet, collateral yield is emulated. Every live market has `yield_enabled = true` as of 11 Oct 2026. Each hour the keeper mints the cUSDC that its mainnet lending plan would have earned on a market's collateral and harvests it into that market, which raises its collateral ratio. Nothing is actually lent on devnet.
+
+## The treasury
+
+The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held 5,534,820.82 cUSDC after funding on 11 Oct 2026.
+
+Moving treasury cUSDC into a market is fast. `backstop_market` puts it straight into a market's vault and credits `total_collateral`. It has no rate limit and works while withdrawals are frozen, because the cUSDC stays inside the protocol.
+
+Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at 64.06 cUSDC a second, so emptying the funded treasury takes about 24 h. Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
+
+The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 
 ## Supporting structural protections
 
@@ -90,7 +100,7 @@ On devnet, collateral yield is emulated. Every live market has `yield_enabled = 
 - Price writes are bounded. `update_risk_state_v2` rejects a move of more than 25% per push and a source publish time more than 300 s old, so a compromised keeper key can't teleport NAV. On mainnet the keeper adds its own 10% envelope before pushing.
 - A staleness gate stops pricing off a dead feed. Outside `Normal`, mint and redeem revert with `TwapNotAvailable` once the last push is more than 300 s old. See [Risk states](/concepts/risk-states).
 - Swap guards run on every oracle-priced fill. `clp_swap` and `settle_swap` check price age, confidence, deviation and a collateral floor, and `clp_swap` and `pool_swap` share a rolling notional cap where one is set.
-- Each market keeps its own ledger and its own vault, and on 11 Oct 2026 every vault's balance equaled its ledger. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only collateral above the source's dynamic target, and the program caps each move at that amount.
+- Each market keeps its own ledger and its own vault, and on 11 Oct 2026 every vault's balance equaled its ledger. The same day's upgrade removed the shared unified vault from the program. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only collateral above the source's dynamic target, and the program caps each move at that amount.
 - Redemption goes pro rata in a shortfall. If a tail move pushes the collateral ratio below 100%, redeem pays `nominal × min(1, CR)`. The vault can't be overdrawn, and every remaining holder gets the same ratio, so there's no first-mover advantage and no bank-run dynamic.
 
 ## What this means for users

@@ -110,15 +110,12 @@ pub struct PairAccounts<'info> {
     pub dev_token_account: UncheckedAccount<'info>,
     /// CHECK: mint-redeem requires market.oracle_address.
     pub oracle: UncheckedAccount<'info>,
-    /// CHECK: mint-redeem's CollateralAuthority PDA. Optional; no market needs it.
-    #[account(seeds = [b"collateral_authority"], bump, seeds::program = mint_redeem::ID)]
-    pub collateral_authority: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub mint_redeem_program: Program<'info, MintRedeem>,
 }
 ```
 
-`collateral_authority` is the optional last account of `redeem_paired`: mint-redeem's PDA `[b"collateral_authority"]`. It signed payouts from the unified vault (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`), which no market has used since 11 Oct 2026. Every market's vault is now owned by its Market PDA, which signs the payout, so no market needs the account. Passing it does no harm, so the struct above still works for every market. `mint_paired` doesn't take it.
+The struct has no account for `redeem_paired`'s last slot, `collateral_authority`. Since the upgrade of 11 Oct 2026 the program never reads that slot and accepts any account, because each market's own Market PDA signs its payouts. Pass `None`, as below: Anchor then puts mint-redeem's program ID in the slot. `mint_paired` doesn't have the slot.
 
 ## Mint and redeem
 
@@ -177,8 +174,8 @@ pub mod my_vault {
             dev_token_account: a.dev_token_account.to_account_info(),
             oracle: a.oracle.to_account_info(),
             token_program: a.token_program.to_account_info(),
-            // Optional. No market needs it since 11 Oct 2026; passing it is harmless.
-            collateral_authority: Some(a.collateral_authority.to_account_info()),
+            // Ignored slot. None sends mint-redeem's program ID.
+            collateral_authority: None,
         };
         let seeds: &[&[u8]] = &[b"vault", &[ctx.bumps.vault]];
         let signer = &[seeds];
@@ -228,7 +225,7 @@ The CLP program calls `mint_paired` with its CLP PDA as `user` and signs with th
 
 ### Account order
 
-The generated CPI structs put accounts in IDL order. If you build an instruction by hand, follow the order in `mint_redeem.json` exactly, with `collateral_authority` last on `redeem_paired`.
+The generated CPI structs put accounts in IDL order. If you build an instruction by hand, follow the order in `mint_redeem.json` exactly, with `collateral_authority` last on `redeem_paired`. Put mint-redeem's program ID in that slot; the program ignores it.
 
 ### Writable accounts
 

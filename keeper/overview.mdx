@@ -30,6 +30,6 @@ Every transaction that moves funds is first written to a journal in R2 or on a p
 
 ## Signing roles
 
-The keeper wallet is each market's `keeper_authority`. It pushes prices, posts buffer targets and the γ index, rebalances collateral, and can call the keeper-only single-leg instructions (`keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`). It could also move collateral to a keeper-owned account for lending (`deploy_collateral_to_yield`), but only on a market with `yield_enabled` set, and no live devnet market has it as of 11 Oct 2026.
+The keeper wallet is each market's `keeper_authority`. It pushes prices, posts buffer targets and the γ index, rebalances collateral, and can call the keeper-only single-leg instructions (`keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`). It could also move collateral to a keeper-owned account for lending (`deploy_collateral_to_yield`) on a market with `yield_enabled` set. Every live market has it set as of 11 Oct 2026, but the keeper lends only on mainnet.
 
-The CLP authority signs book shapes, sweeps, inventory moves and `set_commit_spread`. On devnet it is also each market's admin `authority`, which `update_market` requires, so it is the key that posts fees.
+The CLP authority signs book shapes, sweeps, inventory moves and `set_commit_spread`. Fee posting goes through `update_market`, which requires the market's `authority`.

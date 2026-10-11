@@ -3,7 +3,7 @@ title: clp
 description: Continuous Liquidity Provider. The protocol's cUSDC vaults, the native bin books and committed orders.
 ---
 
-The CLP program holds the protocol's market-making capital and runs both trading venues: native bin books for instant swaps and committed orders for larger trades. It also mints and redeems its own L+S inventory through CPI into mint-redeem. A single `GlobalClp` PDA tracks funding and per-market allocations. Each market has a `Clp` PDA with its inventory, swap guards and committed-order spread, plus two `Pool` PDAs, one bin book per side.
+The CLP program holds the protocol's market-making capital and runs both trading venues: native bin books for instant swaps and committed orders for larger trades. It also mints and redeems its own L+S inventory through CPI into mint-redeem. A single `GlobalClp` PDA tracks funding and per-market allocations, and its cUSDC vault is the protocol treasury. Each market has a `Clp` PDA with its inventory, swap guards and committed-order spread, plus two `Pool` PDAs, one bin book per side.
 
 ```
 Devnet ID: 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES
@@ -28,12 +28,12 @@ The keeper sizes the bin books to expected demand, and committed orders take lar
 seeds = [b"global_clp"]
 ```
 
-One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account.
+One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held 5,534,820.82 cUSDC after funding on 11 Oct 2026. See [Treasury](#treasury).
 
 | Field | Type | Purpose |
 |---|---|---|
-| `total_deposits` | u64 | Principal added by `admin_fund`, net of `admin_withdraw`. Sets the `deposit_profit` tax tier and the withdraw cap |
-| `last_admin_fund_at` | u64 | Unix time of the last `admin_fund` |
+| `total_deposits` | u64 | Principal added by `admin_fund`, net of `admin_withdraw`. Sets the `deposit_profit` tax tier |
+| `last_admin_fund_at` | u64 | Unix time of the last `admin_fund`. Informational |
 | `total_fees_accumulated` | u64 | Net `deposit_profit` plus recorded recall fees |
 | `market_allocations` | `Vec<MarketAllocation>` | cUSDC allocated per market (`market_id`, `allocated_usdc`); at most 10 entries |
 | `protocol_buffer` | `ProtocolBuffer` | Yield accumulated, losses absorbed, balance, target (1,000 bps) and an above-target flag |
@@ -145,13 +145,35 @@ Each order records what the user escrowed and when, and the fill uses a price pu
 
 A client can find a wallet's orders with `getProgramAccounts` memcmp filters on `user` (offset 8) or `market` (offset 40). The keeper finds every pending order in one call, filtered on the 117-byte size, the `Order` discriminator and `status = 0` at offset 74. Every terminal path (fill, refund, cancel) closes both the order and the escrow and returns all rent to the user, so a second settle attempt fails at account load.
 
-### `AdminWithdrawWindow` PDA
+### `TreasuryPolicy` PDA
 
 ```
-seeds = [b"admin_withdraw_window"]
+seeds = [b"treasury_policy"]
 ```
 
-State for the `admin_withdraw` cap: `window_start_at` (i64), `cumulative_in_window` (u64) and `bump`. A new 24 h window starts with the first withdrawal after the previous one ends. The first `admin_withdraw` creates the account; none exists on devnet yet.
+One per cluster (`58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` on devnet, 210 bytes). It holds the limits on `admin_withdraw` and is created by `init_treasury_policy`. It replaced the `AdminWithdrawWindow` account, which the upgrade of 11 Oct 2026 removed.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `guardian` | Pubkey | Freeze-only key. It can freeze and unfreeze withdrawals, cancel a pending change and hand its role to a new key. It can't move funds |
+| `destination` | Pubkey | The only token account `admin_withdraw` pays |
+| `rate_per_sec` | u64 | Allowance refill rate, in cUSDC base units per second |
+| `burst` | u64 | Most the allowance can hold, so the largest single withdrawal |
+| `delay_secs` | i64 | Wait before a loosening can apply; at most 30 days |
+| `allowance` | u64 | Withdrawable amount as of `last_accrual_at` |
+| `last_accrual_at` | i64 | When `allowance` was last refilled |
+| `frozen` | bool | Blocks `admin_withdraw` |
+| `pending_rate_per_sec`, `pending_burst`, `pending_delay_secs`, `pending_destination`, `pending_guardian` | u64, u64, i64, Pubkey, Pubkey | A proposed loosening that is waiting out its delay |
+| `pending_at` | i64 | When the pending change can apply; 0 if none |
+| `bump` | u8 | PDA bump |
+
+The program refills `allowance` only when an instruction touches the policy. To read what can be withdrawn now, compute `min(burst, allowance + rate_per_sec × (now − last_accrual_at))`.
+
+The live policy on 11 Oct 2026, with nothing pending:
+
+- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. A full exit of the funded treasury takes about 24 h.
+- Burst: 230,617.53 cUSDC, one hour of refill.
+- Delay: 24 h.
 
 ### `RevenueAttribution` PDA
 
@@ -267,6 +289,12 @@ The CLP mints and redeems through CPI into mint-redeem, signing as the `Clp` PDA
 - `vault_redeem_single(is_long: bool, token_amount: u64)` redeems one leg at NAV through mint-redeem's `redeem_single_for_vault`, which refuses to leave the market below 100% collateral.
 - `clp_burn_excess(is_long: bool, amount: u64)` burns leftover L or S without any payout, through `permissionless_burn`.
 
+The three vault instructions take 15 accounts. The upgrade of 11 Oct 2026 dropped the trailing `collateral_authority` account, and callers that still send 16 keep working because the extra account is ignored. Each one checks where tokens can go:
+
+- `market` must be this CLP's own market (`MarketMismatch`).
+- `clp_vault` must be owned by the `Clp` PDA and hold the market's collateral mint (`InvalidVault`).
+- `clp_long_account` and `clp_short_account` must be owned by the `Clp` PDA and hold the market's L and S mints (`InvalidVault`).
+
 ### Capital flow
 
 #### `initialize_global_clp(liquidity_seed_threshold: u64)`
@@ -277,13 +305,9 @@ One-time setup of `GlobalClp`. The signer becomes `authority`, the `admin_wallet
 
 Moves cUSDC from the admin into the global vault, adds it to `total_deposits` and stamps `last_admin_fund_at`.
 
-#### `admin_withdraw(amount: u64)` (`global_clp.authority`)
-
-Withdraws idle cUSDC from the global vault. Two limits protect against a compromised admin key: at most 10% of `total_deposits` per 24 h window, and no withdrawal within 1 h of an `admin_fund`. Both fail with `AdminWithdrawCapExceeded`. Capital allocated to markets must first come back through `return_to_global`.
-
 #### `allocate_to_market(amount: u64)` / `return_to_global(amount: u64)` (`global_clp.authority`)
 
-Move cUSDC between the global vault and a market's CLP vault, updating `allocated_from_global` and `market_allocations`.
+Move cUSDC between the global vault and a market's CLP vault, updating `allocated_from_global` and `market_allocations`. They move only between those two accounts. The global vault must be owned by the `GlobalClp` PDA, and the CLP vault must be owned by this market's `Clp` PDA and hold the same mint (`InvalidVault`).
 
 #### `deposit_profit(params: DepositProfitParams)`
 
@@ -296,6 +320,53 @@ Moves fees into the market's CLP vault and adds them to `total_fees_collected`.
 #### `vault_record_liquidity_recall(params: VaultRecordLiquidityRecallParams)` (`global_clp.authority`)
 
 Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidityRecallParams { l_amount, s_amount, fees_earned }`. It subtracts the amounts from `vault_l_deployed` and `vault_s_deployed` (`InsufficientDeployment` if they're larger). It adds `fees_earned` to `total_meteora_fees_earned`, `total_fees_accumulated`, the protocol buffer and `RevenueAttribution.fees_keeper`. `revenue_attribution` is the last account.
+
+### Treasury
+
+The global vault is the protocol treasury. `admin_withdraw` pays cUSDC out of the protocol, within the limits in `TreasuryPolicy`. `backstop_market` moves cUSDC into a market's collateral and has no limit, because the funds stay inside the protocol. The policy and every instruction below except `admin_withdraw` were added on 11 Oct 2026.
+
+#### `admin_withdraw(amount: u64)` (`global_clp.authority`)
+
+Pays idle cUSDC from the global vault to the policy's `destination`. It works as a token bucket: the allowance refills at `rate_per_sec` up to `burst`, and each withdrawal spends it. A withdrawal must fit in the allowance (`TreasuryAllowanceExceeded`) and in the vault balance (`InsufficientLiquidFunds`), and must pay the policy destination (`InvalidTreasuryDestination`). It is refused while the policy is frozen (`TreasuryFrozen`). Capital allocated to markets must first come back through `return_to_global`.
+
+Accounts: `global_clp`, `authority`, `treasury_policy`, `global_vault` (owned by the `GlobalClp` PDA, else `InvalidVault`), `destination`, `token_program`. Emits `TreasuryWithdrawn`.
+
+On 11 Oct 2026 the bucket replaced the old 24 h cap and the 1 h hold after `admin_fund`, so `AdminWithdrawCapExceeded` (6033) is no longer returned.
+
+#### `init_treasury_policy(params: TreasuryPolicyParams)` (`global_clp.authority`)
+
+`TreasuryPolicyParams { rate_per_sec, burst, delay_secs, guardian, destination }`. Creates `TreasuryPolicy` once, paid for by the signer. The allowance starts at 0. Rate and burst must be above 0, the delay must be 0 to 30 days, and a guardian must be set (`InvalidTreasuryParams`). The `destination` account must be the one named in the params and hold the global vault's mint (`InvalidTreasuryDestination`).
+
+#### `set_treasury_limits(params: TreasuryLimitsParams)` (`global_clp.authority`)
+
+`TreasuryLimitsParams { rate_per_sec, burst, delay_secs, destination, guardian }`, checked like `init_treasury_policy`.
+
+- When every field is equal or tighter, the change applies at once. Tighter means a lower rate, a lower burst, a longer delay, the same destination and the same guardian. Emits `TreasuryLimitsApplied`.
+- Any loosening becomes pending until now plus the current `delay_secs`. A new proposal replaces an older pending one. Emits `TreasuryLimitsProposed`.
+
+`TreasuryLimitsProposed` carries `pending_at` and a `loosened` bitmask: 1 rate up, 2 burst up, 4 delay shorter, 8 new destination, 16 new guardian.
+
+#### `apply_treasury_limits()` (anyone)
+
+Applies the pending change once `pending_at` has passed. It fails with `NoPendingTreasuryChange` when nothing is pending and `TreasuryChangeNotReady` before `pending_at`. It also works while frozen.
+
+#### `cancel_treasury_limits()` (`global_clp.authority` or the guardian)
+
+Drops the pending change. Emits `TreasuryLimitsCancelled`.
+
+#### `freeze_treasury()` (the guardian or `global_clp.authority`) and `unfreeze_treasury()` (the guardian only)
+
+Set and clear `frozen`. Both emit `TreasuryFreezeChanged`.
+
+#### `set_treasury_guardian(new_guardian: Pubkey)` (the guardian only)
+
+Hands the guardian role to a new key at once. If a pending change kept the old guardian, it now names the new one, so applying it later can't restore the old key. Emits `TreasuryGuardianSet`.
+
+#### `backstop_market(amount: u64)` (`global_clp.authority`)
+
+Moves treasury cUSDC straight into a market's collateral vault and credits `total_collateral`. It calls mint-redeem's `fund_collateral_from` by CPI, with the `GlobalClp` PDA as funder. The signer is the global authority, which must also be the market's authority. It is not rate limited, because the funds stay inside the protocol, and it works while frozen.
+
+Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's), `global_vault`, `mint_redeem_program`, `token_program`. Emits `MarketBackstopped`, and mint-redeem emits `CollateralFunded`.
 
 ### Configuration
 
@@ -319,11 +390,11 @@ Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidi
 
 ### Legacy Meteora instructions
 
-`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees` and `clp_close_meteora_position` managed the v1 Meteora positions. They are legacy: every market now trades on native bin books. `InvalidPool`, `PoolNotConfigured` and most `InvalidPosition` errors come only from these instructions.
+`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees` and `clp_close_meteora_position` managed the v1 Meteora positions. They are legacy: every market now trades on native bin books. `InvalidPool`, `PoolNotConfigured` and most `InvalidPosition` errors come only from these instructions. `clp_remove_meteora_liquidity` and `clp_claim_lp_fees` pay only token accounts owned by the `Clp` PDA (`InvalidVault`).
 
 ## Events
 
-`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded`, and `cancel_swap` emits `OrderCancelled`; their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
+`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded`, and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet` and `MarketBackstopped`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -362,7 +433,7 @@ Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidi
 | 6016 | `CollateralFloorBreach` | Market collateral ratio below `collateral_floor_bps` |
 | 6017 | `InsufficientShares` | Unused (legacy LP shares) |
 | 6018 | `InsufficientFunds` | A vault, book or inventory can't cover the request |
-| 6019 | `InsufficientLiquidFunds` | `admin_withdraw` is larger than the global vault balance |
+| 6019 | `InsufficientLiquidFunds` | `admin_withdraw` or `backstop_market` is larger than the global vault balance |
 | 6020 | `OICapExceeded` | `update_oi` above `oi_cap` |
 | 6021 | `MathOverflow` | Arithmetic overflow |
 | 6022 | `InsufficientBuffer` | `absorb_loss` is larger than the buffer balance |
@@ -376,9 +447,17 @@ Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidi
 | 6030 | `OracleReadError` | `OracleConfig` too short to read |
 | 6031 | `InvalidPool` | Legacy Meteora instructions only |
 | 6032 | `PoolNotConfigured` | Legacy Meteora instructions only |
-| 6033 | `AdminWithdrawCapExceeded` | The 24 h cap (10% of `total_deposits`) or the 1 h wait after `admin_fund`. The message text still says \$100K |
+| 6033 | `AdminWithdrawCapExceeded` | No longer returned. It reported the old 24 h cap, which `TreasuryPolicy` replaced on 11 Oct 2026 |
 | 6034 | `InvalidPosition` | Legacy Meteora position mismatch, or a wrong account in `clp_burn_excess` |
 | 6035 | `InvalidAccountData` | Unused |
+| 6036 | `InvalidVault` | A token account isn't the protocol-owned account expected: the wrong owner or mint for the global vault, a CLP vault or the CLP's L and S accounts |
+| 6037 | `TreasuryFrozen` | `admin_withdraw` while the treasury is frozen |
+| 6038 | `TreasuryAllowanceExceeded` | `admin_withdraw` above the refilled allowance |
+| 6039 | `InvalidTreasuryParams` | Rate or burst of 0, a delay outside 0 to 30 days, or no guardian |
+| 6040 | `InvalidTreasuryDestination` | `admin_withdraw` to an account other than the policy destination, or a new destination that isn't the account passed or holds another mint |
+| 6041 | `NoPendingTreasuryChange` | `apply_treasury_limits` with nothing pending |
+| 6042 | `TreasuryChangeNotReady` | `apply_treasury_limits` before `pending_at` |
+| 6043 | `MarketMismatch` | A vault instruction named a market other than the CLP's own |
 
 → [Full error catalog](/reference/errors)
 

@@ -95,7 +95,7 @@ Every market keeps its collateral in its own vault: the cUSDC associated token a
 
 `Market.total_collateral` is each market's own ledger figure, and the solvency checks read it. On 11 Oct 2026 every vault's token balance equaled its market's ledger. A plain token transfer into a vault raises its balance without changing the ledger, so read the ledger for solvency.
 
-QQQ, SPY and XAU used to share a unified vault, a PDA with seeds `[b"unified_vault"]` on mint-redeem whose token-account owner is the `CollateralAuthority` PDA (`[b"collateral_authority"]`). They moved to their own vaults on 11 Oct 2026, and the unified vault now holds 0 cUSDC. Both accounts still exist. `redeem_paired` still accepts `collateralAuthority` as an optional account, but no market needs it.
+QQQ, SPY and XAU used to share a unified vault, a PDA with seeds `[b"unified_vault"]` on mint-redeem whose token-account owner is the `CollateralAuthority` PDA (`[b"collateral_authority"]`). They moved to their own vaults on 11 Oct 2026, and the unified vault now holds 0 cUSDC. Both accounts still exist on chain, but since that day's upgrade mint-redeem has no code that reads or signs for either. `redeem_paired` and six other instructions keep a `collateral_authority` slot that the program ignores; pass mint-redeem's program ID there.
 
 | | Address |
 |---|---|
@@ -116,7 +116,8 @@ Mint and redeem take a `devTokenAccount`, which must be a cUSDC account owned by
 | | Seeds (clp program) | Address |
 |---|---|---|
 | GlobalClp PDA | `[b"global_clp"]` | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` |
-| GlobalClp vault | cUSDC ATA of the GlobalClp PDA | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| GlobalClp vault (the treasury) | cUSDC ATA of the GlobalClp PDA | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| `TreasuryPolicy` PDA | `[b"treasury_policy"]` | `58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` |
 | `RevenueAttribution` PDA | `[b"revenue_attribution"]` | `A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` |
 
 `pool_swap` takes the `RevenueAttribution` PDA as its last account.

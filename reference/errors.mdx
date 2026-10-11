@@ -11,13 +11,13 @@ The tables are generated from the [published IDLs](/build/idls-and-pdas#idl-file
 
 Program ID (devnet): `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4`
 
-Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported were removed, and the codes stay so that later codes keep their numbers.
+Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported were removed, and the codes stay so that later codes keep their numbers. Codes 6048 to 6052 belonged to the unified vault, which the upgrade of 11 Oct 2026 removed. They are no longer returned and stay for the same reason.
 
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
 | 6000 | `0x1770` | `MarketNotActive` | `Market is not active` | `Market.is_active` is false. Wait for the operator to reactivate the market. |
-| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. It also covers a `rebalance_collateral` from a market to itself and a wrong vault account on the collateral instructions. |
-| 6002 | `0x1772` | `InsufficientCollateral` | `Insufficient collateral in vault` | A keeper single-side redeem would leave the market under 100%, or a withdrawal would take it below its target ratio. `rebalance_collateral` raises it when the source has nothing above its target, `deploy_collateral_to_yield` when the vault holds less than the amount, and `exit_unified_vault` when the unified vault holds less than the market's `total_collateral`. User mint and redeem don't raise it. |
+| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. It also covers a `rebalance_collateral` from a market to itself or between two markets that share a vault, and a wrong vault account on the collateral instructions. |
+| 6002 | `0x1772` | `InsufficientCollateral` | `Insufficient collateral in vault` | A keeper single-side redeem would leave the market under 100%, or a withdrawal would take it below its target ratio. `rebalance_collateral` raises it when the source has nothing above its target, and `deploy_collateral_to_yield` when the vault holds less than the amount. User mint and redeem don't raise it. |
 | 6003 | `0x1773` | `InvalidOracle` | `Invalid oracle account` | At setup or on a Normal-state read: the oracle account isn't the market's `OracleConfig` PDA (`Continuum`) or doesn't parse as a Pyth feed. A wrong `oracle` on mint or redeem fails Anchor's address check (2012) instead. |
 | 6004 | `0x1774` | `UnsupportedOracleType` | `Unsupported oracle type` | `oracle_type` is `Switchboard`. Only `Pyth` and `Continuum` are accepted. |
 | 6005 | `0x1775` | `OraclePriceUnavailable` | `Oracle price unavailable` | No usable price: a Normal-state oracle read failed (Pyth older than 60 s, or confidence over 2% of price), the confidence band is as wide as the price, or a keeper write carried a rejected source timestamp. |
@@ -36,10 +36,10 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6018 | `0x1782` | `CollateralNotFound` | `Collateral type not found` | `update_collateral_vault` with a mint that isn't listed. |
 | 6019 | `0x1783` | `BelowMinimum` | `Amount below minimum ($10)` | A mint deposit under 10 cUSDC (`10_000_000` base units), or a redeem worth under 10 cUSDC at the quoted NAV. |
 | 6020 | `0x1784` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `market.keeper_authority`, `redeem_single_for_vault` wasn't signed by the market's CLP PDA, or `realloc_market` wasn't signed by `market.authority`. |
-| 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. `exit_unified_vault` and `fund_collateral` raise it for a signer other than `market.authority`. Other admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
-| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral, and `exit_unified_vault` when the market has collateral deployed to yield. |
+| 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. `fund_collateral` and `fund_collateral_from` raise it for a signer other than `market.authority`, and `fund_collateral_from` also when `funder` doesn't own `funder_collateral`. Other admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
+| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral. |
 | 6023 | `0x1787` | `ExceedsYieldCeiling` | `Deployment would exceed yield ceiling` | A yield deployment above `yield_ceiling_bps` of `total_collateral`, or a ceiling above 9,000 bps. |
-| 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false. It is false on every live market as of 11 Oct 2026; `initialize_market` sets it to true on new markets. |
+| 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false. It is true on every live market as of 11 Oct 2026, and `initialize_market` sets it to true on new markets. |
 | 6025 | `0x1789` | `RecallExceedsDeployed` | `Recall amount exceeds deployed_to_yield balance` | A recall or impairment larger than `deployed_to_yield`. |
 | 6026 | `0x178a` | `SingleSideMintStressFloor` | `Single-side mint would leave the vault under-collateralized under an adverse NAV shock` | `keeper_mint_single` would leave the market's collateral ratio below the lower of its pre-trade ratio and 100%. |
 | 6027 | `0x178b` | `GammaMustRatchetDown` | `s_gamma_index may only ratchet down; raising the short decay scalar is rejected` | `set_s_gamma_index` with a value above the current γ. |
@@ -47,7 +47,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6029 | `0x178d` | `GammaStepTooLarge` | `unused (γ per-transaction rate cap removed)` | Reserved placeholder. The per-transaction γ cap was removed and this code is never raised; it stays so later codes don't shift. |
 | 6030 | `0x178e` | `GammaDailyCapExceeded` | `unused (γ per-day rate cap removed)` | Reserved placeholder. The per-day γ cap was removed and this code is never raised; it stays so later codes don't shift. |
 | 6031 | `0x178f` | `GammaEpochMismatch` | `γ epoch mismatch: this post was computed against a different epoch (a re-anchor landed in between)` | `expected_epoch` doesn't match `gamma_epoch`: a re-anchor landed after the keeper computed the write. |
-| 6032 | `0x1790` | `InvalidMarketAccount` | `Account is not a Market owned by this program (bad owner, discriminator, or length)` | `realloc_market` on an account that isn't a mint-redeem `Market` (wrong owner, too short, or wrong discriminator). A `sweep_unified_surplus` remaining account that isn't a `Market` raises it too. |
+| 6032 | `0x1790` | `InvalidMarketAccount` | `Account is not a Market owned by this program (bad owner, discriminator, or length)` | `realloc_market` on an account that isn't a mint-redeem `Market` (wrong owner, too short, or wrong discriminator). |
 | 6033 | `0x1791` | `ReanchorNoDecay` | `Nothing to re-anchor: γ is already 1.0 (or unset)` | `reanchor_gamma` while γ is already 1.0 (or unset). |
 | 6034 | `0x1792` | `ReanchorTooSoon` | `Re-anchor is inside the minimum interval since the last one` | `reanchor_gamma` less than 14 days after the previous one. |
 | 6035 | `0x1793` | `ReanchorPrecisionFloor` | `Re-anchor would leave the short anchor without enough precision to price against` | The folded `initial_s_price` would drop below 1,000 (0.001 cUSDC) or below 1/10,000 of its genesis value. |
@@ -62,12 +62,12 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6044 | `0x179c` | `CorporateActionEffectiveTooFarAhead` | `Corporate-action effective_ts is implausibly far ahead — check the unit (seconds, not milliseconds)` | `effective_ts` more than 400 days ahead, usually milliseconds passed as seconds. |
 | 6045 | `0x179d` | `CorporateActionPendingExists` | `A future corporate action is already pending; wait until it takes effect` | Another action is armed and hasn't taken effect yet. |
 | 6046 | `0x179e` | `UnauthorizedInitializer` | `Market initialization requires the program upgrade authority` | `initialize_market` signed by anyone other than the mint-redeem program's upgrade authority. Only the admin can list a market. |
-| 6047 | `0x179f` | `InvalidProgramData` | `Market initialization requires this program's ProgramData account` | `initialize_market` or `sweep_unified_surplus` passed a `program_data` account that is not this program's ProgramData. |
-| 6048 | `0x17a0` | `UnifiedVaultRetired` | `The unified vault is retired; migrate_to_unified_vault is disabled` | Any call to `migrate_to_unified_vault`. The unified vault was retired on 11 Oct 2026. |
-| 6049 | `0x17a1` | `NotOnUnifiedVault` | `Market collateral is not held in the unified vault` | `exit_unified_vault` on a market that already has its own vault, as every live market does, or a `sweep_unified_surplus` remaining account for such a market. |
-| 6050 | `0x17a2` | `MixedVaultRebalance` | `Cannot rebalance between the unified vault and a per-market vault; exit the unified vault first` | `rebalance_collateral` between two different vaults that aren't both owned by their Market PDAs, such as a market still on the unified vault and one with its own vault. |
-| 6051 | `0x17a3` | `UnauthorizedSweep` | `Sweeping the unified vault requires the program upgrade authority` | `sweep_unified_surplus` signed by anyone other than the mint-redeem program's upgrade authority. |
-| 6052 | `0x17a4` | `SweepExceedsSurplus` | `Sweep would take collateral still attributed to a market on the unified vault` | `sweep_unified_surplus` for more than the unified vault's balance minus the `total_collateral` of the markets passed as remaining accounts. |
+| 6047 | `0x179f` | `InvalidProgramData` | `Market initialization requires this program's ProgramData account` | `initialize_market` passed a `program_data` account that is not this program's ProgramData. |
+| 6048 | `0x17a0` | `UnifiedVaultRetired` | `The unified vault is retired; migrate_to_unified_vault is disabled` | No longer returned. `migrate_to_unified_vault` was removed on 11 Oct 2026. |
+| 6049 | `0x17a1` | `NotOnUnifiedVault` | `Market collateral is not held in the unified vault` | No longer returned. `exit_unified_vault` and `sweep_unified_surplus` were removed on 11 Oct 2026. |
+| 6050 | `0x17a2` | `MixedVaultRebalance` | `Cannot rebalance between the unified vault and a per-market vault; exit the unified vault first` | No longer returned. A `rebalance_collateral` between two markets that share a vault now fails with `InvalidAmount` (6001). |
+| 6051 | `0x17a3` | `UnauthorizedSweep` | `Sweeping the unified vault requires the program upgrade authority` | No longer returned. `sweep_unified_surplus` was removed on 11 Oct 2026. |
+| 6052 | `0x17a4` | `SweepExceedsSurplus` | `Sweep would take collateral still attributed to a market on the unified vault` | No longer returned. `sweep_unified_surplus` was removed on 11 Oct 2026. |
 
 ## clp
 
@@ -77,7 +77,7 @@ Codes 6003 to 6016 are swap errors from `pool_swap`, `clp_swap` and the committe
 
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
-| 6000 | `0x1770` | `Unauthorized` | `Unauthorized` | The signer isn't the required authority (`clp.authority`, `pool.authority` or `GlobalClp.authority`), or `deposit_profit`'s admin token account isn't owned by `GlobalClp.admin_wallet`. |
+| 6000 | `0x1770` | `Unauthorized` | `Unauthorized` | The signer isn't the required authority (`clp.authority`, `pool.authority`, `GlobalClp.authority` or the treasury guardian), or `deposit_profit`'s admin token account isn't owned by `GlobalClp.admin_wallet`. |
 | 6001 | `0x1771` | `WithdrawalLocked` | `Withdrawal locked for 7 days after deposit` | Never raised. |
 | 6002 | `0x1772` | `InvalidAmount` | `Invalid amount` | A zero amount, or out-of-range pool or book parameters. |
 | 6003 | `0x1773` | `SwapDisabled` | `Swap path disabled (configure_swap enabled=true)` | `pool_swap` on a book that isn't `enabled` or is `frozen`, or `clp_swap` / `commit_swap` on a market whose swap path is off in `configure_swap`. As of 10 Oct 2026 the swap path is on only for QQQ, SPY and XAU, so committed orders and `clp_swap` revert on the other 11 markets. `pool_swap` works on all 14. |
@@ -96,7 +96,7 @@ Codes 6003 to 6016 are swap errors from `pool_swap`, `clp_swap` and the committe
 | 6016 | `0x1780` | `CollateralFloorBreach` | `Collateral floor breach` | `clp_swap` / `settle_swap` while the market's collateral is below `collateral_floor_bps` of its liability at NAV. |
 | 6017 | `0x1781` | `InsufficientShares` | `Insufficient LP shares` | Never raised. |
 | 6018 | `0x1782` | `InsufficientFunds` | `Insufficient clp funds` | The book or CLP inventory can't fill the order (zero output or a short balance), or an operator transfer exceeds a vault balance. |
-| 6019 | `0x1783` | `InsufficientLiquidFunds` | `Insufficient liquid funds in vault. Wait for keeper to rebalance or perform forced DEX liquidation.` | `admin_withdraw` above the global vault's liquid balance. |
+| 6019 | `0x1783` | `InsufficientLiquidFunds` | `Insufficient liquid funds in vault. Wait for keeper to rebalance or perform forced DEX liquidation.` | `admin_withdraw` or `backstop_market` above the global vault's balance. |
 | 6020 | `0x1784` | `OICapExceeded` | `OI cap exceeded` | Raised only by `update_oi`, which nothing calls. The OI cap is stored but not enforced. |
 | 6021 | `0x1785` | `MathOverflow` | `Math overflow` | Arithmetic overflow. Not expected in normal use. |
 | 6022 | `0x1786` | `InsufficientBuffer` | `Insufficient protocol buffer` | `absorb_loss` larger than the protocol buffer. |
@@ -110,9 +110,17 @@ Codes 6003 to 6016 are swap errors from `pool_swap`, `clp_swap` and the committe
 | 6030 | `0x178e` | `OracleReadError` | `Could not read oracle account data` | The `oracle_config` account passed to a yield instruction is too short to read. |
 | 6031 | `0x178f` | `InvalidPool` | `Pool address does not match configured Meteora pool` | Legacy Meteora instructions only: the pool isn't the configured Meteora pool. |
 | 6032 | `0x1790` | `PoolNotConfigured` | `Meteora pool not configured — run configure_meteora_pools first` | Legacy Meteora instructions only: `configure_meteora_pools` hasn't run. |
-| 6033 | `0x1791` | `AdminWithdrawCapExceeded` | `Admin withdrawal would exceed the 24h cap of $100K — wait for window to roll or rotate authority if attack is suspected` | `admin_withdraw` above 10% of `GlobalClp.total_deposits` in a rolling 24 h window, or within 1 h of the last `admin_fund`. The fixed 100K cap in the message is out of date. |
+| 6033 | `0x1791` | `AdminWithdrawCapExceeded` | `Admin withdrawal would exceed the 24h cap of $100K — wait for window to roll or rotate authority if attack is suspected` | No longer returned. It reported the old 24 h cap on `admin_withdraw`, which the `TreasuryPolicy` token bucket replaced on 11 Oct 2026. The code stays so later codes keep their numbers. |
 | 6034 | `0x1792` | `InvalidPosition` | `Position address does not match stored Meteora position` | A legacy Meteora position mismatch, or a wrong market, token account or mint passed to `clp_burn_excess`. |
 | 6035 | `0x1793` | `InvalidAccountData` | `Account data too small for operation` | Never raised. |
+| 6036 | `0x1794` | `InvalidVault` | `Token account is not the expected protocol-owned vault` | A token account has the wrong owner or mint: the global vault must be owned by the `GlobalClp` PDA, and a market's CLP vault and its L and S accounts by that market's `Clp` PDA. `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `allocate_to_market`, `return_to_global`, the treasury instructions and the legacy Meteora payouts check it. |
+| 6037 | `0x1795` | `TreasuryFrozen` | `Treasury withdrawals are frozen` | `admin_withdraw` while the treasury is frozen. Only the guardian can unfreeze it. |
+| 6038 | `0x1796` | `TreasuryAllowanceExceeded` | `Withdrawal exceeds the accrued treasury allowance` | `admin_withdraw` above the allowance. Wait for it to refill at `rate_per_sec`, up to `burst`. |
+| 6039 | `0x1797` | `InvalidTreasuryParams` | `Invalid treasury limits: rate and burst must be > 0, delay within 0..=30 days, guardian set` | `init_treasury_policy` or `set_treasury_limits` with a rate or burst of 0, a delay outside 0 to 30 days or no guardian, or `set_treasury_guardian` with the default pubkey. |
+| 6040 | `0x1798` | `InvalidTreasuryDestination` | `Treasury destination must be the named token account and hold the global vault's mint` | `admin_withdraw` to an account other than the policy's `destination`, or a new destination that isn't the account passed or holds another mint. |
+| 6041 | `0x1799` | `NoPendingTreasuryChange` | `No pending treasury change` | `apply_treasury_limits` with nothing pending. |
+| 6042 | `0x179a` | `TreasuryChangeNotReady` | `The pending treasury change is still inside its delay` | `apply_treasury_limits` before `pending_at`. |
+| 6043 | `0x179b` | `MarketMismatch` | `Market is not this CLP's market` | `vault_mint_pairs`, `vault_redeem_pairs` or `vault_redeem_single` with a market other than the CLP's own. |
 
 ## oracle
 
@@ -157,10 +165,11 @@ Program ID (devnet): `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY`
 
 ## Anchor errors below 6000
 
-Anchor raises its own errors during account validation, before the program's code runs. The common ones on mint and redeem:
+Anchor raises its own errors before the program's code runs: when the instruction doesn't exist, or when an account fails validation. The common ones:
 
 | Code | Name | Cause and fix |
 |---|---|---|
+| 101 | `InstructionFallbackNotFound` | The instruction isn't in the deployed program. mint-redeem's four unified-vault instructions (`init_collateral_authority`, `migrate_to_unified_vault`, `exit_unified_vault`, `sweep_unified_surplus`) fail this way since 11 Oct 2026. Rebuild your client from the current IDL. |
 | 2001 | `ConstraintHasOne` | An admin instruction signed by a key other than `market.authority`. |
 | 2012 | `ConstraintAddress` | The `oracle` account isn't `market.oracleAddress`. Wrong `longMint`, `shortMint` or `collateralVault` accounts raise `InvalidAmount` (6001) instead. |
 | 3012 | `AccountNotInitialized` | A user token account (cUSDC, L or S) doesn't exist yet. Create the ATA first. |

@@ -45,7 +45,8 @@ On devnet the keeper prices every market from a public quote source. Before each
 | | Address |
 |---|---|
 | **GlobalClp PDA** | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` |
-| **GlobalClp vault** | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| **GlobalClp vault** (the treasury) | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
+| **`TreasuryPolicy` PDA** | `58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` |
 | **`RevenueAttribution` PDA** (last account of `pool_swap`) | `A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` |
 
 Each market keeps its collateral in its own vault, the cUSDC ATA of its Market PDA, listed in its table below. QQQ, SPY and XAU moved there from the shared unified vault on 11 Oct 2026, and that vault now holds 0 cUSDC.

@@ -494,36 +494,7 @@
         },
         {
           "name": "collateral_authority",
-          "optional": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "optional": true
         }
       ],
       "args": [
@@ -682,97 +653,6 @@
       "args": []
     },
     {
-      "name": "exit_unified_vault",
-      "discriminator": [
-        220,
-        7,
-        192,
-        156,
-        113,
-        61,
-        209,
-        253
-      ],
-      "accounts": [
-        {
-          "name": "market",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  97,
-                  114,
-                  107,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market.asset_symbol",
-                "account": "Market"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "collateral_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "unified_vault",
-          "writable": true
-        },
-        {
-          "name": "market_vault",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "fund_collateral",
       "discriminator": [
         55,
@@ -822,6 +702,74 @@
         },
         {
           "name": "authority_collateral",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "fund_collateral_from",
+      "discriminator": [
+        205,
+        129,
+        21,
+        63,
+        146,
+        211,
+        156,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "funder",
+          "signer": true
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "funder_collateral",
           "writable": true
         },
         {
@@ -896,101 +844,6 @@
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "init_collateral_authority",
-      "discriminator": [
-        110,
-        161,
-        156,
-        0,
-        39,
-        7,
-        248,
-        12
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "collateral_authority",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "collateral_mint"
-        },
-        {
-          "name": "unified_vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  110,
-                  105,
-                  102,
-                  105,
-                  101,
-                  100,
-                  95,
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        }
-      ],
-      "args": []
     },
     {
       "name": "initialize_market",
@@ -1229,36 +1082,7 @@
         },
         {
           "name": "collateral_authority",
-          "optional": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "optional": true
         }
       ],
       "args": [
@@ -1347,36 +1171,7 @@
         },
         {
           "name": "collateral_authority",
-          "optional": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "optional": true
         }
       ],
       "args": [
@@ -1441,97 +1236,6 @@
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "migrate_to_unified_vault",
-      "discriminator": [
-        178,
-        39,
-        50,
-        114,
-        18,
-        85,
-        14,
-        254
-      ],
-      "accounts": [
-        {
-          "name": "market",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  97,
-                  114,
-                  107,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "market.asset_symbol",
-                "account": "Market"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "market"
-          ]
-        },
-        {
-          "name": "old_vault",
-          "writable": true
-        },
-        {
-          "name": "collateral_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "unified_vault",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": []
     },
     {
       "name": "mint_paired",
@@ -2115,36 +1819,7 @@
         },
         {
           "name": "collateral_authority",
-          "optional": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "optional": true
         }
       ],
       "args": [
@@ -2240,36 +1915,7 @@
             },
             {
               "name": "collateral_authority",
-              "optional": true,
-              "pda": {
-                "seeds": [
-                  {
-                    "kind": "const",
-                    "value": [
-                      99,
-                      111,
-                      108,
-                      108,
-                      97,
-                      116,
-                      101,
-                      114,
-                      97,
-                      108,
-                      95,
-                      97,
-                      117,
-                      116,
-                      104,
-                      111,
-                      114,
-                      105,
-                      116,
-                      121
-                    ]
-                  }
-                ]
-              }
+              "optional": true
             }
           ]
         },
@@ -2392,36 +2038,7 @@
         },
         {
           "name": "collateral_authority",
-          "optional": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "optional": true
         }
       ],
       "args": [
@@ -2536,82 +2153,6 @@
               "name": "SetGammaParams"
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "sweep_unified_surplus",
-      "discriminator": [
-        56,
-        104,
-        138,
-        198,
-        145,
-        230,
-        123,
-        182
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "collateral_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "unified_vault",
-          "writable": true
-        },
-        {
-          "name": "destination",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "program",
-          "address": "5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4"
-        },
-        {
-          "name": "program_data"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
         }
       ]
     },
@@ -3126,36 +2667,7 @@
         },
         {
           "name": "collateral_authority",
-          "optional": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "optional": true
         }
       ],
       "args": [
@@ -3167,19 +2679,6 @@
     }
   ],
   "accounts": [
-    {
-      "name": "CollateralAuthority",
-      "discriminator": [
-        205,
-        121,
-        204,
-        111,
-        131,
-        214,
-        221,
-        200
-      ]
-    },
     {
       "name": "FeeWaiver",
       "discriminator": [
@@ -3258,32 +2757,6 @@
         52,
         131,
         212
-      ]
-    },
-    {
-      "name": "UnifiedSurplusSwept",
-      "discriminator": [
-        253,
-        183,
-        134,
-        20,
-        212,
-        39,
-        149,
-        46
-      ]
-    },
-    {
-      "name": "UnifiedVaultExited",
-      "discriminator": [
-        110,
-        194,
-        253,
-        162,
-        143,
-        42,
-        74,
-        77
       ]
     }
   ],
@@ -3555,22 +3028,6 @@
     }
   ],
   "types": [
-    {
-      "name": "CollateralAuthority",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "unified_vault",
-            "type": "pubkey"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
     {
       "name": "CollateralFunded",
       "type": {
@@ -4213,62 +3670,6 @@
           {
             "name": "expected_epoch",
             "type": "u32"
-          }
-        ]
-      }
-    },
-    {
-      "name": "UnifiedSurplusSwept",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "destination",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "balance_before",
-            "type": "u64"
-          },
-          {
-            "name": "attributed",
-            "type": "u64"
-          },
-          {
-            "name": "ts",
-            "type": "i64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "UnifiedVaultExited",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "market_vault",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "prior_balance",
-            "type": "u64"
-          },
-          {
-            "name": "ts",
-            "type": "i64"
           }
         ]
       }

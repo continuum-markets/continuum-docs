@@ -84,15 +84,21 @@ seeds = [b"fee_waiver", donor, market]
 
 Created by the donor's first `donate_to_vault` on a market and read by the `_with_waiver` instructions. Fields: `donor`, `market`, `waiver_end_at` (unix seconds), `total_donated`, `total_gap_closed_bps` and `bump`.
 
-### CollateralAuthority
+### The `collateral_authority` slot
 
-```
-seeds = [b"collateral_authority"]   // 7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3 on devnet
-```
+Every market keeps its collateral in its own vault, owned by its Market PDA, and the Market PDA signs every payout. The upgrade of 11 Oct 2026 removed the unified vault from the program, along with the `CollateralAuthority` account type.
 
-One global account with two fields, `unified_vault` and `bump`. It owns the unified cUSDC vault, a token account at PDA `[b"unified_vault"]` (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`). QQQ, SPY and XAU kept their collateral there until 11 Oct 2026, when each moved to its own vault with `exit_unified_vault`. The unified vault is retired and holds 0 cUSDC.
+Seven instructions still have a `collateral_authority` account in its old position:
 
-Instructions that pay out of a collateral vault still accept an optional `collateral_authority` account, but no market needs it. Every vault is now owned by its Market PDA, which signs the payout.
+- `redeem_paired`
+- `redeem_paired_with_waiver`, inside `base` and before `fee_waiver`
+- `keeper_mint_single` and `keeper_redeem_single`
+- `redeem_single_for_vault`
+- `withdraw_excess_to_clp` and `deploy_collateral_to_yield`
+
+It is now an ignored optional slot. The program never reads it and accepts any account. Pass mint-redeem's program ID there: in Anchor that is `collateralAuthority: null` in TypeScript or `collateral_authority: None` in a Rust CPI.
+
+The four unified-vault instructions are gone: `init_collateral_authority`, `migrate_to_unified_vault`, `exit_unified_vault` and `sweep_unified_surplus`. Calling one now fails with Anchor error 101 (`InstructionFallbackNotFound`).
 
 ## Pricing and fees
 
@@ -128,7 +134,7 @@ Deposits `collateral_amount` cUSDC (at least 10 cUSDC) and mints L and S to the 
 
 #### `redeem_paired(l_amount: u64, s_amount: u64)`
 
-Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus an optional `collateralAuthority`, which no market needs since 11 Oct 2026; passing it does no harm. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. See the [redeem flow](/flows/redeem).
+Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus the ignored `collateralAuthority` slot; pass `null`. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. See the [redeem flow](/flows/redeem).
 
 #### `mint_paired_with_waiver` and `redeem_paired_with_waiver`
 
@@ -147,10 +153,6 @@ Burns L or S from the signer's own token account with no payout, which lowers th
 #### `initialize_market(params: InitMarketParams)`
 
 `InitMarketParams { asset_symbol, oracle_type, initial_l_price, initial_s_price, mint_fee_bps, redeem_fee_bps, keeper_authority }`. Only the mint-redeem program's upgrade authority can call it: the instruction takes the program and its `program_data` as its last two accounts and fails with `UnauthorizedInitializer` (6046) for any other signer. The signer becomes `market.authority` and `fee_recipient`. The symbol must be at most 10 bytes, both fees at most 1,000 bps, and both prices above 0. `oracle_type` must be `Pyth` or `Continuum`, and for `Continuum` the `oracle` account must be the market's `OracleConfig` PDA. The instruction doesn't create the L and S mints or the vault: they must already exist, with the Market PDA as mint authority of both mints. A new market starts in `Normal` with `user_twap_price = initial_l_price`, `dev_tax_pct` 10, the default risk-fee and worst-case settings, and a 1/1 price adjustment. It also sets `yield_enabled = true` and leaves `yield_ceiling_bps` at 0, so harvests can run at once but nothing can be deployed to a lending venue until `configure_yield_ceiling` raises the ceiling. The full sequence is in [listing a market](/programs/overview#listing-a-market-operator-process).
-
-#### `init_collateral_authority()`
-
-Creates the global `CollateralAuthority` and the unified vault it owns. It takes any signer but can succeed only once, and it has already run on devnet. The unified vault it created is retired.
 
 ### Keeper (signer = `market.keeper_authority`)
 
@@ -174,7 +176,7 @@ Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target rat
 
 Moves up to `amount` of collateral from one market's vault to another's. The signer must be the keeper of both markets, and the two markets must differ (`InvalidAmount`). The move is capped at the smallest of the request, the source's collateral above its own target ratio at the stored price, and its liquid collateral (`total_collateral − deployed_to_yield`). A request above the cap moves the capped amount, and the log line shows both figures. It fails only when the source has nothing above target (`InsufficientCollateral`) or no liquid collateral (`InsufficientLiquidCollateral`). The source's price must be at most 300 s old.
 
-Both vaults must be owned by their Market PDAs, as every live market's vault is. A pair where one market still points at the unified vault fails with `MixedVaultRebalance`.
+The move is a plain token transfer from the source market's vault to the other market's vault, signed by the source Market PDA. If the two markets share a vault, the transfer would move nothing while both ledgers changed, so the program refuses it (`InvalidAmount`).
 
 #### `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`
 
@@ -240,29 +242,28 @@ Grows a `Market` account to 899 bytes after an upgrade that adds fields, with th
 
 Zero-fills a market account and returns its lamports to the signer. For an account in the current `Market` layout it fails with `MarketNotEmpty` unless L supply, S supply, `total_collateral` and `deployed_to_yield` are all 0.
 
-#### `exit_unified_vault()`
-
-Moves a market off the unified vault and into its own vault. It transfers exactly `total_collateral` from the unified vault, signed by the `CollateralAuthority` PDA, to `market_vault`, a cUSDC account owned by the Market PDA. Live markets use the PDA's ATA, created before the call. Then it points `collateral_vault` at the new vault. The market must point at the unified vault (`NotOnUnifiedVault`) and have nothing deployed to yield (`InsufficientLiquidCollateral`). Any balance already in `market_vault` stays there and isn't added to the ledger. Emits `UnifiedVaultExited`. It ran for QQQ, SPY and XAU on 11 Oct 2026.
-
 #### `fund_collateral(amount: u64)`
 
 Tops up a market's collateral from the authority's own cUSDC account. It transfers `amount` into `market.collateral_vault` and adds it to `total_collateral`. Unlike `donate_to_vault`, it grants no fee waiver and has no price check. Emits `CollateralFunded`.
 
-#### `migrate_to_unified_vault()`
+#### `fund_collateral_from(amount: u64)`
 
-Retired. It always fails with `UnifiedVaultRetired` (6048). It used to move a market's vault into the unified vault.
+`fund_collateral` with a separate funder, so a program PDA such as the CLP treasury can fund a market through CPI. Added on 11 Oct 2026. It moves `amount` cUSDC from the funder's account into the market's vault, adds it to `total_collateral` and emits `CollateralFunded`. Accounts, in order:
+
+| # | Account | Rule |
+|---|---|---|
+| 0 | `market` (mut) | The Market PDA |
+| 1 | `authority` (signer) | Must be `market.authority` (`Unauthorized`) |
+| 2 | `funder` (signer) | Owns `funder_collateral`; can be a PDA signing through CPI |
+| 3 | `collateral_vault` (mut) | Must be `market.collateral_vault` (`InvalidAmount`) |
+| 4 | `funder_collateral` (mut) | Mint must be the collateral mint (`InvalidAmount`) and owner must be `funder` (`Unauthorized`) |
+| 5 | `token_program` | SPL Token |
+
+The CLP's [`backstop_market`](/programs/clp#treasury) calls it with the `GlobalClp` PDA as funder.
 
 #### `enable_multi_collateral()`, `add_collateral_vault(collateral_type, weight_bps)`, `update_collateral_vault(collateral_mint, is_active?, weight_bps?)`
 
 Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is empty on every market.
-
-### Program upgrade authority
-
-#### `sweep_unified_surplus(amount: u64)`
-
-Moves cUSDC that no market's ledger claims out of the unified vault to `destination`, any cUSDC token account. Only the mint-redeem program's upgrade authority can call it. Like `initialize_market`, it takes the program and its `program_data` as accounts, and any other signer fails with `UnauthorizedSweep`.
-
-Pass every Market that still points at the unified vault as a remaining account. The sweep can take at most the vault balance minus those markets' `total_collateral` (`SweepExceedsSurplus`). A listed market that doesn't point at the unified vault fails with `NotOnUnifiedVault`. The program can't enumerate markets, so this check protects only the markets passed in. Emits `UnifiedSurplusSwept`.
 
 ## Events
 
@@ -271,15 +272,13 @@ Pass every Market that still points at the unified vault as a remaining account.
 | `PairedActionExecuted` | every paired mint and redeem, including the waiver variants and the CLP's CPI calls | `user`, `market`, `collateral_mint`, `long_mint`, `short_mint`, `action` (0 mint, 1 redeem), `is_keeper`, `collateral_amount` (paid in or out), `gross_collateral_amount` (before the fee), `long_amount`, `short_amount`, `fee_amount`, `dev_tax`, `long_decimals`, `short_decimals` |
 | `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
 | `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
-| `UnifiedVaultExited` | `exit_unified_vault` | `market`, `market_vault`, `amount` (the `total_collateral` moved), `prior_balance` (already in `market_vault` and not credited), `ts` |
-| `UnifiedSurplusSwept` | `sweep_unified_surplus` | `destination`, `amount`, `balance_before`, `attributed` (the listed markets' `total_collateral`), `ts` |
-| `CollateralFunded` | `fund_collateral` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |
+| `CollateralFunded` | `fund_collateral` and `fund_collateral_from` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |
 
 `is_keeper` is true when the user is the market authority, the keeper or the market's CLP PDA.
 
 ## Errors
 
-mint-redeem errors run from 6000 to 6052. Codes 6029 and 6030 are reserved placeholders that are never raised. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
+mint-redeem errors run from 6000 to 6052. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
 
 ## TypeScript
 

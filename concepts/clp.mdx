@@ -103,15 +103,24 @@ bin books ◄──── pool_sweep_usdc / pool_sweep_synth ──── excess
        (vault_redeem_pairs converts pairs back to cUSDC)
 ```
 
-`vault_mint_pairs`, `vault_redeem_pairs` and `vault_redeem_single` are CPIs into mint-redeem signed by the CLP PDA. The paired ones go through the ordinary `mint_paired` and `redeem_paired`, at NAV and with the same fee and price checks as any user.
+`vault_mint_pairs`, `vault_redeem_pairs` and `vault_redeem_single` are CPIs into mint-redeem signed by the CLP PDA. The paired ones go through the ordinary `mint_paired` and `redeem_paired`, at NAV and with the same fee and price checks as any user. Each one must name the CLP's own market, and its cUSDC, L and S accounts must belong to the CLP PDA. Inventory can't be minted against another market or paid to a wallet.
 
-Each market keeps its collateral in its own vault, owned by its Market PDA, and keeps its own `total_collateral` ledger. Every outflow is limited to that market's liquid share, `total_collateral − deployed_to_yield`. QQQ, SPY and XAU shared a unified vault until 11 Oct 2026. After they moved out, every vault's balance equaled its market's ledger. A cross-market rebalancer moves only collateral above the source market's own dynamic buffer target. `rebalance_collateral` on mint-redeem caps each move at that amount on-chain, so a larger request moves less and never takes the source below target.
+Each market keeps its collateral in its own vault, owned by its Market PDA, and keeps its own `total_collateral` ledger. Every outflow is limited to that market's liquid share, `total_collateral − deployed_to_yield`. QQQ, SPY and XAU shared a unified vault until 11 Oct 2026. After they moved out, every vault's balance equaled its market's ledger, and the program upgrade that day removed the unified vault. A cross-market rebalancer moves only collateral above the source market's own dynamic buffer target. `rebalance_collateral` on mint-redeem caps each move at that amount on-chain, so a larger request moves less and never takes the source below target.
+
+## The treasury
+
+The `GlobalClp` vault at the top of the diagram is the protocol treasury. It held 5,534,820.82 cUSDC after funding on 11 Oct 2026. Besides `allocate_to_market`, two instructions draw on it:
+
+- `backstop_market` moves cUSDC straight into a market's collateral vault and credits its `total_collateral`. It has no rate limit, because the funds stay inside the protocol.
+- `admin_withdraw` pays cUSDC out of the protocol, to one named account only. Its allowance refills at 64.06 cUSDC a second, so a full exit takes about 24 h. Loosening the limits waits 24 h. A guardian key can freeze withdrawals and veto a loosening, but it can't move funds.
+
+The keeper's yield allocator counts the treasury as first-loss capital when it sizes lending positions. See [clp → Treasury](/programs/clp#treasury) for the instructions.
 
 ## Where protocol revenue accumulates
 
-- Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only when someone adds them: anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. The keeper calls neither in its default configuration.
+- Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only when someone adds them. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. Profits deposited into the treasury can reach a market through `backstop_market`. The keeper calls none of these in its default configuration.
 - Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient.
-- Harvested yield goes into the market's own vault and is added to `total_collateral`, so it raises that market's collateral ratio. Collateral above the target can still move to the CLP with `withdraw_excess_to_clp`. Yield is off on every live market as of 11 Oct 2026.
+- Harvested yield goes into the market's own vault and is added to `total_collateral`, so it raises that market's collateral ratio. Collateral above the target can still move to the CLP with `withdraw_excess_to_clp`. Nothing is lent on devnet: the keeper's emulator harvests the yield its mainnet plan would earn, and every live market has `yield_enabled` set as of 11 Oct 2026.
 
 See [Solvency](/concepts/solvency) for how these channels affect the collateral ratio.
 

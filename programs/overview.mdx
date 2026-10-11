@@ -8,7 +8,7 @@ Continuum runs on five programs built with Anchor 0.32.1. They are deployed on *
 | Program | Devnet ID | Role |
 |---|---|---|
 | [`mint-redeem`](/programs/mint-redeem) | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` | One `Market` account per asset. Paired mint and redeem at NAV, the keeper's price, confidence and γ writes, and market administration. |
-| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Protocol liquidity: the global and per-market vaults, two bin books per market (`pool_swap`), committed orders (`commit_swap`, `settle_swap`, enabled on QQQ, SPY and XAU) and the keeper's inventory instructions. |
+| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Protocol liquidity: the global vault (the protocol treasury) and the per-market vaults, two bin books per market (`pool_swap`), committed orders (`commit_swap`, `settle_swap`, enabled on QQQ, SPY and XAU) and the keeper's inventory instructions. |
 | [`oracle`](/programs/oracle) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` | A per-market `OracleConfig` and Pyth feed registry. It is not updated on devnet; markets are priced from `Market.user_twap_price`. |
 | [`registry`](/programs/registry) | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` | Symbol entries that point at mints and venues. Deployed and initialized, but it holds no markets and nothing reads it yet. |
 | [`faucet`](/programs/faucet) (devnet only) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` | Drips 1,000 cUSDC per wallet every 24 h. |
@@ -21,7 +21,8 @@ A sixth program, governance (`6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT`), is
 keeper ── update_risk_state_v2 ──► mint-redeem   Market.user_twap_price, oracle_confidence, risk_state
 keeper ── set_pool_shape ────────► clp           reprices the two bin books of each market
 clp ───── CPI ───────────────────► mint-redeem   mint_paired, redeem_paired,
-                                                 redeem_single_for_vault, permissionless_burn
+                                                 redeem_single_for_vault, permissionless_burn,
+                                                 fund_collateral_from (backstop_market)
 clp ───── reads Market ──────────► mint-redeem   market state and NAV for clp_swap, commit_swap, settle_swap
 oracle                                           one OracleConfig per market, not updated on devnet
 registry                                         standalone and empty
@@ -42,8 +43,6 @@ An IDL is the JSON description of a program's instructions, accounts, types, eve
 |---|---|---|
 | mint-redeem | `Market` | `[b"market", symbol]`, raw symbol bytes such as `QQQ` |
 | mint-redeem | `FeeWaiver` | `[b"fee_waiver", donor, market]` |
-| mint-redeem | `CollateralAuthority` (one, global) | `[b"collateral_authority"]` |
-| mint-redeem | unified cUSDC vault (token account, retired 11 Oct 2026) | `[b"unified_vault"]` |
 | oracle | `OracleConfig` | `[b"oracle_config", market]` |
 | oracle | `OracleFeed` | `[b"oracle_feed", oracle_config, pyth_price_account]` |
 | clp | `GlobalClp` | `[b"global_clp"]` |
@@ -52,7 +51,7 @@ An IDL is the JSON description of a program's instructions, accounts, types, eve
 | clp | `Order` (committed order) | `[b"order", user, market, nonce]`, `nonce` as a little-endian u64 |
 | clp | escrow (token account) | `[b"escrow", order]` |
 | clp | `RevenueAttribution` | `[b"revenue_attribution"]` |
-| clp | `AdminWithdrawWindow` | `[b"admin_withdraw_window"]` |
+| clp | `TreasuryPolicy` | `[b"treasury_policy"]` |
 | registry | `RegistryState` | `[b"registry"]` |
 | registry | `MarketEntry` | `[b"market", symbol]`, symbol uppercased and zero-padded to 16 bytes |
 | faucet | `FaucetState` | `[b"faucet", mint]` |
@@ -63,18 +62,19 @@ A script that derives all of these and checks them on devnet is on [IDLs and PDA
 
 ## Authority model
 
-Each instruction that changes state checks one signer. The table follows the `has_one`, `address` and `require!` checks in the program source.
+Each instruction that changes state checks its signer. The table follows the `has_one`, `address` and `require!` checks in the program source. `cancel_treasury_limits` and `freeze_treasury` accept either of two signers, so they appear in two rows.
 
 | Signer | Instructions |
 |---|---|
-| Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account). clp: `pool_swap`, `commit_swap`, `clp_swap`, `settle_swap` (any cranker), `cancel_swap` (the order's owner), `deposit_profit` (the signer's own funds). faucet: `drip`. |
+| Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account). clp: `pool_swap`, `commit_swap`, `clp_swap`, `settle_swap` (any cranker), `cancel_swap` (the order's owner), `deposit_profit` (the signer's own funds), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
 | `market.keeper_authority` | mint-redeem: `update_risk_state`, `update_risk_state_v2`, `set_s_gamma_index`, `set_buffer_target`, `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `rebalance_collateral` (keeper of both markets), `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`. |
-| `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `exit_unified_vault`, `fund_collateral`, `migrate_to_unified_vault` (retired; always fails). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
-| mint-redeem program upgrade authority | mint-redeem: `initialize_market`, `sweep_unified_surplus`. |
+| `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `fund_collateral`, `fund_collateral_from` (with a second signer, the `funder`, who owns the cUSDC). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
+| mint-redeem program upgrade authority | mint-redeem: `initialize_market`. |
 | CLP PDA `[b"clp", market]` | mint-redeem: `redeem_single_for_vault`, reachable only through the CLP's `vault_redeem_single`. |
 | `clp.authority` (per market) | clp: `configure_swap`, `set_commit_spread`, `configure_inventory_budget`, `configure_yield_strategy`, `update_inventory`, `update_oi`, `update_oi_cap`, `collect_fees`, `record_deployment`, `record_withdrawal`, `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `clp_burn_excess`, `pool_sweep_usdc`, `pool_sweep_synth`, `clp_fund_pool_synth`, and the legacy Meteora instructions (`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees`, `clp_close_meteora_position`). |
 | `pool.authority` (per bin book) | clp: `set_pool_shape`, `configure_pool_geom`, `realloc_pool`. |
-| `GlobalClp.authority` | clp: `init_pool`, `admin_fund`, `admin_withdraw`, `allocate_to_market`, `return_to_global`, `add_yield_to_buffer`, `absorb_loss`, `configure_liquidity_seeder`, `init_revenue_attribution`, `configure_revenue_attribution`, `realloc_clp`, `record_harvest`, `vault_record_liquidity_recall`. |
+| `GlobalClp.authority` | clp: `init_pool`, `admin_fund`, `admin_withdraw`, `allocate_to_market`, `return_to_global`, `add_yield_to_buffer`, `absorb_loss`, `configure_liquidity_seeder`, `init_revenue_attribution`, `configure_revenue_attribution`, `realloc_clp`, `record_harvest`, `vault_record_liquidity_recall`, `init_treasury_policy`, `set_treasury_limits`, `cancel_treasury_limits`, `freeze_treasury`, `backstop_market` (the signer must also be the market's `market.authority`). |
+| `TreasuryPolicy.guardian` (freeze-only) | clp: `freeze_treasury`, `unfreeze_treasury` (guardian only), `cancel_treasury_limits`, `set_treasury_guardian` (guardian only). The guardian can't move funds. |
 | `OracleConfig.admin_authority` | oracle: `update_oracle_config`, `configure_twap_windows`, `configure_health_thresholds`, `emergency_pause`, `upsert_oracle_feed`, `realloc_oracle_config`. |
 | `OracleConfig.keeper_authority` | oracle: `update_price_observation`, `reset_volatility_counters`. |
 | Registry authority | registry: `register_market`, `update_market`, `update_positions`, `set_active`, `transfer_authority`. |

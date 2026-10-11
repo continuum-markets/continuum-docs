@@ -13,7 +13,7 @@ description: Continuum-specific terms in one place.
 
 **ATA** (Associated Token Account) - Solana's standard derivation for a wallet's token account: `getAssociatedTokenAddressSync(mint, owner)`. Always derived, not always created, so create it idempotently before instructions that expect it.
 
-**Authority** - A signer with rights over an account: `market.authority` (the market admin), `market.keeper_authority`, `oracle_config.admin_authority`, `oracle_config.keeper_authority`, and the CLP authority on `GlobalClp` and each `Clp`.
+**Authority** - A signer with rights over an account: `market.authority` (the market admin), `market.keeper_authority`, `oracle_config.admin_authority`, `oracle_config.keeper_authority`, the CLP authority on `GlobalClp` and each `Clp`, and the treasury guardian on `TreasuryPolicy`.
 
 **Base price** - A book's posted centre, `Pool.base_price_1e6`: NAV moved by the inventory centre-shift, or the last price during free float. Ask bins ladder above it, bid bins below.
 
@@ -50,6 +50,8 @@ description: Continuum-specific terms in one place.
 **Free float** - The book the keeper posts while mint and redeem are frozen (last push over 300 s old): anchored at the last price, inventory spread evenly, capped at $10,000 per side ($1,250 for single-name stocks). A guard can pull bins that other venues show have gone stale. → [Book management](/keeper/book-management).
 
 **γ index** - `Market.s_gamma_index`, the short leg's volatility-decay index (1e9 = 1.0), which multiplies its NAV. The keeper lowers it as realized volatility accrues (`set_s_gamma_index`); the program rejects writes that raise it or fall out of range. `reanchor_gamma` (authority only, at least 14 days apart) folds γ into `initial_s_price` and resets it to 1. It is not a reset to the spot price. → [Volatility decay](/concepts/nav#volatility-decay).
+
+**Guardian** - The freeze-only key on the CLP's `TreasuryPolicy`. It can freeze and unfreeze treasury withdrawals, cancel a pending loosening of the limits, and hand its role to a new key. It can't move funds. Only the guardian can unfreeze. → [Treasury](/programs/clp#treasury).
 
 **`initial_l_price` / `initial_s_price`** - Anchors set when a market is initialized. Their product is K in the NAV formulas. NAV never falls back to them. `reanchor_gamma` folds γ into `initial_s_price`.
 
@@ -125,19 +127,21 @@ description: Continuum-specific terms in one place.
 
 **Stress** - The risk state for extreme confidence or staleness. Mint and redeem are both blocked by default: `allow_mint_in_stress` and `allow_redeem_in_stress` are false on every live market.
 
+**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held 5,534,820.82 cUSDC after funding on 11 Oct 2026. `backstop_market` moves it into a market's collateral with no limit. `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
+
 **TWAP** (Time-Weighted Average Price) - A price averaged over a window. The oracle program keeps TWAPs in `OracleConfig`, but nothing updates them on devnet. `Market.user_twap_price` is a spot price despite its name.
 
 **Two-zone geometry** - The book's bin layout: a fine core step near the centre for tight instant pricing, and wide wing steps beyond `core_bins`, so a free-float book covers large off-hours moves with few bins.
 
 **`user_twap_price`** - The `Market` field that drives `L_NAV`. The keeper writes it with mint-redeem `update_risk_state_v2`, along with `twap_updated_at`.
 
-**Vault** (collateral vault) - The token account holding a market's backing cUSDC (`market.collateral_vault`). Every market has its own: the cUSDC ATA of its Market PDA. QQQ, SPY and XAU shared the unified vault (PDA `[b"unified_vault"]`, `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`) until 11 Oct 2026. It is now retired and holds 0 cUSDC.
+**Vault** (collateral vault) - The token account holding a market's backing cUSDC (`market.collateral_vault`). Every market has its own: the cUSDC ATA of its Market PDA. QQQ, SPY and XAU shared the unified vault (PDA `[b"unified_vault"]`, `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`) until 11 Oct 2026. It holds 0 cUSDC, and that day's upgrade removed it from the program.
 
 **Venue split** - Routing by size: bin books for instant trades on all 14 markets, and committed orders plus the instant oracle swap (`clp_swap`) on QQQ, SPY and XAU. All price off the same keeper-pushed NAV.
 
 **Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ`, redeem L at P − c and S at `K / (P + c) × γ`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
 
-**Yield allocator** - The keeper task that decides how much of each market's collateral to lend, and where, from live mainnet venue state. It lends only on mainnet with `COLLATERAL_YIELD_ENABLED=true`. On devnet an emulator credits the interest its plan would earn. Every live market has `yield_enabled = true` as of 11 Oct 2026, and new markets start with it true. Harvested yield is added to the market's own collateral.
+**Yield allocator** - The keeper task that decides how much of each market's collateral to lend, and where, from live mainnet venue state. Each venue's total position across all markets is capped at first-loss capital divided by the venue failures to cover (1 by default). First-loss capital is the treasury plus half of all markets' collateral above 100%. It lends only on mainnet with `COLLATERAL_YIELD_ENABLED=true`. On devnet an emulator credits the interest its plan would earn. Every live market has `yield_enabled = true` as of 11 Oct 2026, and new markets start with it true. Harvested yield is added to the market's own collateral.
 
 ## See also
 

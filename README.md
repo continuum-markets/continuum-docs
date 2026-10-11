@@ -35,7 +35,7 @@ continuum-docs/
 - Solana addresses are in inline code; the canonical devnet address registry is in [`reference/addresses.mdx`](./reference/addresses.mdx).
 - "cUSDC" refers to the **devnet** collateral mint at `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. Mainnet uses real USDC.
 - Code examples use TypeScript with `@coral-xyz/anchor` v0.32 unless otherwise noted.
-- The IDLs in `idl/` were generated with `anchor idl build` from the program source deployed on devnet (mint-redeem on 11 October 2026, the others on 9 October 2026), with doc comments removed. The faucet IDL includes the devnet-only `drip` instruction. Regenerate them whenever a program upgrade changes an instruction, account or error.
+- The IDLs in `idl/` were generated with `anchor idl build` from the program source deployed on devnet (mint-redeem and CLP on 11 Oct 2026, the others on 9 Oct 2026), with doc comments removed. The faucet IDL includes the devnet-only `drip` instruction. Regenerate them whenever a program upgrade changes an instruction, account or error.
 
 ## Contributing
 

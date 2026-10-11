@@ -234,57 +234,46 @@
         },
         {
           "name": "authority",
-          "writable": true,
           "signer": true,
           "relations": [
             "global_clp"
           ]
         },
         {
-          "name": "admin_collateral",
-          "writable": true
-        },
-        {
-          "name": "global_vault",
-          "writable": true
-        },
-        {
-          "name": "withdraw_window",
+          "name": "treasury_policy",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  97,
-                  100,
-                  109,
-                  105,
-                  110,
-                  95,
-                  119,
-                  105,
                   116,
-                  104,
-                  100,
                   114,
+                  101,
                   97,
-                  119,
+                  115,
+                  117,
+                  114,
+                  121,
                   95,
-                  119,
-                  105,
-                  110,
-                  100,
+                  112,
                   111,
-                  119
+                  108,
+                  105,
+                  99,
+                  121
                 ]
               }
             ]
           }
         },
         {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
+          "name": "global_vault",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
         },
         {
           "name": "token_program",
@@ -383,6 +372,124 @@
       ]
     },
     {
+      "name": "apply_treasury_limits",
+      "discriminator": [
+        50,
+        179,
+        57,
+        26,
+        136,
+        147,
+        208,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "backstop_market",
+      "discriminator": [
+        154,
+        169,
+        230,
+        161,
+        139,
+        63,
+        223,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "global_vault",
+          "writable": true
+        },
+        {
+          "name": "mint_redeem_program",
+          "address": "5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "cancel_swap",
       "discriminator": [
         88,
@@ -463,6 +570,76 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_treasury_limits",
+      "discriminator": [
+        78,
+        197,
+        109,
+        234,
+        72,
+        134,
+        79,
+        211
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
         }
       ],
       "args": []
@@ -2221,6 +2398,76 @@
       ]
     },
     {
+      "name": "freeze_treasury",
+      "discriminator": [
+        11,
+        162,
+        24,
+        48,
+        89,
+        121,
+        169,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "get_yield_status",
       "discriminator": [
         232,
@@ -2421,6 +2668,99 @@
           "type": {
             "defined": {
               "name": "RevenueAttributionParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_treasury_policy",
+      "discriminator": [
+        146,
+        234,
+        112,
+        234,
+        190,
+        135,
+        104,
+        9
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_vault"
+        },
+        {
+          "name": "destination"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "TreasuryPolicyParams"
             }
           }
         }
@@ -3237,6 +3577,150 @@
       ]
     },
     {
+      "name": "set_treasury_guardian",
+      "discriminator": [
+        80,
+        221,
+        149,
+        154,
+        35,
+        195,
+        122,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "guardian",
+          "signer": true,
+          "relations": [
+            "treasury_policy"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_guardian",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_treasury_limits",
+      "discriminator": [
+        170,
+        147,
+        243,
+        162,
+        60,
+        93,
+        40,
+        59
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_vault"
+        },
+        {
+          "name": "destination"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "TreasuryLimitsParams"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "settle_swap",
       "discriminator": [
         3,
@@ -3358,6 +3842,57 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unfreeze_treasury",
+      "discriminator": [
+        71,
+        1,
+        11,
+        192,
+        79,
+        138,
+        250,
+        129
+      ],
+      "accounts": [
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "guardian",
+          "signer": true,
+          "relations": [
+            "treasury_policy"
+          ]
         }
       ],
       "args": []
@@ -3617,42 +4152,6 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "collateral_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ],
-            "program": {
-              "kind": "account",
-              "path": "mint_redeem_program"
-            }
-          }
         }
       ],
       "args": [
@@ -3880,42 +4379,6 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "collateral_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ],
-            "program": {
-              "kind": "account",
-              "path": "mint_redeem_program"
-            }
-          }
         }
       ],
       "args": [
@@ -4039,42 +4502,6 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "collateral_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  108,
-                  108,
-                  97,
-                  116,
-                  101,
-                  114,
-                  97,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ],
-            "program": {
-              "kind": "account",
-              "path": "mint_redeem_program"
-            }
-          }
         }
       ],
       "args": [
@@ -4090,19 +4517,6 @@
     }
   ],
   "accounts": [
-    {
-      "name": "AdminWithdrawWindow",
-      "discriminator": [
-        104,
-        233,
-        180,
-        162,
-        253,
-        192,
-        82,
-        65
-      ]
-    },
     {
       "name": "Clp",
       "discriminator": [
@@ -4180,9 +4594,35 @@
         71,
         31
       ]
+    },
+    {
+      "name": "TreasuryPolicy",
+      "discriminator": [
+        61,
+        183,
+        169,
+        186,
+        255,
+        35,
+        16,
+        188
+      ]
     }
   ],
   "events": [
+    {
+      "name": "MarketBackstopped",
+      "discriminator": [
+        26,
+        8,
+        93,
+        210,
+        163,
+        164,
+        146,
+        157
+      ]
+    },
     {
       "name": "OrderCancelled",
       "discriminator": [
@@ -4246,6 +4686,97 @@
         89,
         38,
         79
+      ]
+    },
+    {
+      "name": "TreasuryFreezeChanged",
+      "discriminator": [
+        30,
+        201,
+        45,
+        38,
+        50,
+        103,
+        220,
+        139
+      ]
+    },
+    {
+      "name": "TreasuryGuardianSet",
+      "discriminator": [
+        176,
+        185,
+        40,
+        16,
+        46,
+        163,
+        20,
+        70
+      ]
+    },
+    {
+      "name": "TreasuryLimitsApplied",
+      "discriminator": [
+        73,
+        10,
+        243,
+        177,
+        48,
+        59,
+        196,
+        251
+      ]
+    },
+    {
+      "name": "TreasuryLimitsCancelled",
+      "discriminator": [
+        178,
+        48,
+        252,
+        252,
+        255,
+        10,
+        204,
+        135
+      ]
+    },
+    {
+      "name": "TreasuryLimitsProposed",
+      "discriminator": [
+        57,
+        116,
+        38,
+        32,
+        120,
+        106,
+        133,
+        172
+      ]
+    },
+    {
+      "name": "TreasuryPolicyInitialized",
+      "discriminator": [
+        77,
+        199,
+        208,
+        83,
+        233,
+        222,
+        85,
+        72
+      ]
+    },
+    {
+      "name": "TreasuryWithdrawn",
+      "discriminator": [
+        143,
+        181,
+        157,
+        169,
+        87,
+        155,
+        170,
+        46
       ]
     }
   ],
@@ -4429,29 +4960,49 @@
       "code": 6035,
       "name": "InvalidAccountData",
       "msg": "Account data too small for operation"
+    },
+    {
+      "code": 6036,
+      "name": "InvalidVault",
+      "msg": "Token account is not the expected protocol-owned vault"
+    },
+    {
+      "code": 6037,
+      "name": "TreasuryFrozen",
+      "msg": "Treasury withdrawals are frozen"
+    },
+    {
+      "code": 6038,
+      "name": "TreasuryAllowanceExceeded",
+      "msg": "Withdrawal exceeds the accrued treasury allowance"
+    },
+    {
+      "code": 6039,
+      "name": "InvalidTreasuryParams",
+      "msg": "Invalid treasury limits: rate and burst must be > 0, delay within 0..=30 days, guardian set"
+    },
+    {
+      "code": 6040,
+      "name": "InvalidTreasuryDestination",
+      "msg": "Treasury destination must be the named token account and hold the global vault's mint"
+    },
+    {
+      "code": 6041,
+      "name": "NoPendingTreasuryChange",
+      "msg": "No pending treasury change"
+    },
+    {
+      "code": 6042,
+      "name": "TreasuryChangeNotReady",
+      "msg": "The pending treasury change is still inside its delay"
+    },
+    {
+      "code": 6043,
+      "name": "MarketMismatch",
+      "msg": "Market is not this CLP's market"
     }
   ],
   "types": [
-    {
-      "name": "AdminWithdrawWindow",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "window_start_at",
-            "type": "i64"
-          },
-          {
-            "name": "cumulative_in_window",
-            "type": "u64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
     {
       "name": "Clp",
       "type": {
@@ -5042,6 +5593,30 @@
       }
     },
     {
+      "name": "MarketBackstopped",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "OracleType",
       "type": {
         "kind": "enum",
@@ -5616,6 +6191,330 @@
           {
             "name": "collateral_floor_bps",
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryFreezeChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "by",
+            "type": "pubkey"
+          },
+          {
+            "name": "frozen",
+            "type": "bool"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryGuardianSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "old_guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryLimitsApplied",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "burst",
+            "type": "u64"
+          },
+          {
+            "name": "delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "allowance",
+            "type": "u64"
+          },
+          {
+            "name": "immediate",
+            "type": "bool"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryLimitsCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "by",
+            "type": "pubkey"
+          },
+          {
+            "name": "had_pending",
+            "type": "bool"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryLimitsParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "burst",
+            "type": "u64"
+          },
+          {
+            "name": "delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryLimitsProposed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "burst",
+            "type": "u64"
+          },
+          {
+            "name": "delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "loosened",
+            "type": "u8"
+          },
+          {
+            "name": "replaced_pending",
+            "type": "bool"
+          },
+          {
+            "name": "pending_at",
+            "type": "i64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryPolicy",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "burst",
+            "type": "u64"
+          },
+          {
+            "name": "delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "allowance",
+            "type": "u64"
+          },
+          {
+            "name": "last_accrual_at",
+            "type": "i64"
+          },
+          {
+            "name": "frozen",
+            "type": "bool"
+          },
+          {
+            "name": "pending_rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "pending_burst",
+            "type": "u64"
+          },
+          {
+            "name": "pending_delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "pending_destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryPolicyInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "burst",
+            "type": "u64"
+          },
+          {
+            "name": "delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryPolicyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rate_per_sec",
+            "type": "u64"
+          },
+          {
+            "name": "burst",
+            "type": "u64"
+          },
+          {
+            "name": "delay_secs",
+            "type": "i64"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryWithdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "allowance_after",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
           }
         ]
       }

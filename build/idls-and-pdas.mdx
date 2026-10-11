@@ -78,12 +78,11 @@ const addresses: Record<string, PublicKey> = {
   // mint-redeem
   market,
   feeWaiver: pda([seed("fee_waiver"), wallet.toBuffer(), market.toBuffer()], MINT_REDEEM),
-  collateralAuthority: pda([seed("collateral_authority")], MINT_REDEEM),
-  unifiedVault: pda([seed("unified_vault")], MINT_REDEEM), // retired 11 Oct 2026; holds 0 cUSDC
   // oracle
   oracleConfig: pda([seed("oracle_config"), market.toBuffer()], ORACLE),
   // clp
   globalClp: pda([seed("global_clp")], CLP),
+  treasuryPolicy: pda([seed("treasury_policy")], CLP),
   clp: pda([seed("clp"), market.toBuffer()], CLP),
   longPool: pda([seed("pool"), market.toBuffer(), Buffer.from([0])], CLP),
   shortPool: pda([seed("pool"), market.toBuffer(), Buffer.from([1])], CLP),
@@ -110,15 +109,14 @@ names.forEach((name, i) => {
 });
 ```
 
-Output for QQQ on devnet (10 Oct 2026); the wallet-specific rows depend on the wallet you pass:
+Output for QQQ on devnet (11 Oct 2026); the wallet-specific rows depend on the wallet you pass:
 
 ```
 market               F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5 891 bytes
 feeWaiver            (wallet-specific)                            no account
-collateralAuthority  7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3 41 bytes
-unifiedVault         5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8 165 bytes
 oracleConfig         7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1 1781 bytes
 globalClp            BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw 536 bytes
+treasuryPolicy       58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR 210 bytes
 clp                  EEDKqU3C4wgWQBcgFagHTqEAjKNMCV4eVYyaUt9swKHc 544 bytes
 longPool             DbPryNwJ2ThJPTzb7UMBoEQhR2QEqcHxenGA8JCqG9Qr 422 bytes
 shortPool            HUudWC8ykMCZg3CNs3TPhRmLczdrPVwmXXSYvvKAxKbB 422 bytes
@@ -203,8 +201,8 @@ const mintIx = await program.methods
   .accountsStrict(accounts)
   .instruction();
 
-// redeem_paired also takes an optional collateralAuthority. It signed payouts
-// from the unified vault, which no market uses since 11 Oct 2026, so pass null.
+// redeem_paired ends with collateralAuthority, a slot the program ignores.
+// Pass null, and Anchor sends mint-redeem's program ID.
 const redeemIx = await program.methods
   .redeemPaired(new BN(1_000_000), new BN(1_000_000)) // 1 L and 1 S
   .accountsStrict({ ...accounts, collateralAuthority: null })
