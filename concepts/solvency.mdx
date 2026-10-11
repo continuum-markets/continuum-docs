@@ -109,7 +109,7 @@ The keeper's liquidity reallocator uses the treasury to top up a market's collat
 - Below 100%, it fills at once, at least up to the market's target. Committed orders refuse to fill below 100%, so this is what lets them resume.
 - Short of target by more than one confidence band for 5 minutes, it fills to the target plus the band. This is the same destination rule the cross-market rebalancer uses, and the rebalancer moves other markets' excess first.
 
-The target the treasury fills to is the market's posted target, capped at 112%. MSTR, which is being wound down, gets at most 102%. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
+The target the treasury fills to is the market's posted target, capped at 112%. MSTR, which takes no committed orders, gets at most 102%. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
 
 The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 

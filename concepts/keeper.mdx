@@ -64,7 +64,7 @@ The reallocator also tops up market collateral from the treasury, with `backstop
 - Below 100%, it fills at once, at least up to the market's target. Committed orders refuse to fill below the 100% floor, so this is what lets them resume.
 - Short of its target by more than one confidence band for 5 minutes, it fills to the target plus the band. That is the cross-market rebalancer's destination rule, and the rebalancer moves other markets' excess first.
 
-The target the treasury fills to is the market's posted target, capped at 112%. MSTR, which is being wound down, gets at most 102%. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
+The target the treasury fills to is the market's posted target, capped at 112%. MSTR, which takes no committed orders, gets at most 102%. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
 
 ### Yield allocator (300 s)
 
