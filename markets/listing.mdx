@@ -51,7 +51,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
     To seed the books, the operator sends cUSDC to each pool's cUSDC vault for the bids. It also mints L and S as a pair, sending the L to the long book's synth vault and the S to the short book's. The first `set_pool_shape(base_price_1e6, asks, bids)` posts the bins and sets `enabled = true`. From then on, nothing can disable or freeze the pool.
   </Step>
   <Step title="Set the operating state">
-    The market moves to ProxyMode, where every devnet market runs. Committed orders and `clp_swap` stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; as of 10 Oct 2026 they are on for QQQ, SPY and XAU only. The books don't depend on this flag. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint.
+    The market moves to ProxyMode, where every devnet market runs. Committed orders stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; since 11 Oct 2026 they are on for every market except MSTR. The books don't depend on this flag, but fill only while the market's price is stale. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint.
   </Step>
 </Steps>
 
@@ -77,7 +77,8 @@ The keeper's source isn't published. Before the protocol's keeper will price and
 3. Map it to its Hyperliquid instrument for the price check. If Hyperliquid lists only the index, as for QQQ and SPY, flag it as an index proxy so the keeper learns the ratio.
 4. Add its entry to `vol_coefs.json`. A test in the keeper's suite fails until every candidate has one.
 5. For a single stock, add it to `JUMP_PRONE`, which caps its off-hours books at \$1,250 a side.
-6. Redeploy. Discovery runs only at boot, so the keeper ignores a new market until it restarts.
+6. Add its buffer target to the keeper's per-market table, sized like the others from the jump-diffusion study. A market missing from the table posts the 2% floor.
+7. Redeploy. Discovery runs only at boot, so the keeper ignores a new market until it restarts.
 
 ## App changes
 
@@ -92,8 +93,8 @@ The app at continuum.markets reads a static address list, so a new market also n
 | After | What works |
 |---|---|
 | `initialize_market` | The market exists and is active. Its first reference price is the initial L price, stamped at creation. Once that is 300 s old, mint and redeem revert with `TwapNotAvailable` until the keeper pushes a price. |
-| First `set_pool_shape` | Both books are enabled and trade at the posted bins. |
-| Keeper redeploy | The keeper discovers the market, pushes prices, posts fees and the committed-order spread, and manages the books. Mint and redeem work whenever its last price is no more than 300 s old. |
+| First `set_pool_shape` | Both books are enabled and trade at the posted bins while the market's price is stale (outside `Normal`, more than 300 s old). |
+| Keeper redeploy | The keeper discovers the market, pushes prices, posts fees, the committed-order spread and the buffer target, and manages the books. Mint and redeem work whenever its last price is no more than 300 s old. |
 
 ## Pausing and delisting
 

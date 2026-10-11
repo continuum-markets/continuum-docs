@@ -98,7 +98,7 @@ Output on devnet at 19:30 UTC on Saturday 10 Oct 2026 (Node 26):
 
 `totalCollateral` is this market's own collateral ledger, the figure the solvency checks read. Each market has its own vault, and on 11 Oct 2026 every vault's token balance equaled its ledger. A plain token transfer into a vault raises its balance without changing the ledger, so use `market.totalCollateral` for solvency.
 
-`committedOrders` reads `swap_guards` from the `Clp` account. It is true only for QQQ, SPY and XAU as of 10 Oct 2026. On the other 11 markets `commit_swap` and `clp_swap` revert with `SwapDisabled`, while their bin books still trade.
+`committedOrders` reads `swap_guards` from the `Clp` account. It is true for every market except MSTR since 11 Oct 2026; on MSTR `commit_swap` reverts with `SwapDisabled`. A committed order still needs a fresh price push to settle. The bin books are the reverse: they fill only while `riskState` isn't `"normal"` and `priceAgeSec` is over 300, and `pool_swap` fails with `PoolClosedWhileLive` otherwise.
 
 ## NAV
 
@@ -247,7 +247,7 @@ const order = orderInfo && clp.coder.accounts.decode("order", orderInfo.data);
 if (!order) {
   console.log("closed (settled, refunded or cancelled), or never created");
 } else if (Date.now() / 1000 > order.expiresAt.toNumber()) {
-  console.log("expired: the owner can call cancel_swap to get the escrow back");
+  console.log("expired: the keeper refunds it within seconds; anyone can send cancel_swap");
 } else {
   console.log("pending until", new Date(order.expiresAt.toNumber() * 1000).toISOString());
 }

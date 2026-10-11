@@ -5,7 +5,7 @@ description: Common questions about Continuum, paired tokens, the keeper, and in
 
 ## What is Continuum?
 
-A Solana protocol for **24/7 synthetic exposure to real-world assets**. You deposit collateral (cUSDC on devnet) and get matched long and short tokens priced from the asset's NAV. You can trade either leg on Continuum's own bin books, hold it with no expiry, or redeem both legs together for collateral. → [Introduction](/get-started/introduction).
+A Solana protocol for **24/7 synthetic exposure to real-world assets**. You deposit collateral (cUSDC on devnet) and get matched long and short tokens priced from the asset's NAV. You can trade either leg on Continuum's own venues, hold it with no expiry, or redeem both legs together for collateral. → [Introduction](/get-started/introduction).
 
 ## Is it like a perp DEX?
 
@@ -31,8 +31,8 @@ You can still lose part of it: to fees, to the short leg's volatility decay, to 
 
 Yes, in two ways:
 
-1. **Mint, then sell the short leg.** On QQQ at its 9 Oct 2026 price, 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS after the fee. The QQQS is worth about 49.9 cUSDC at NAV; selling it on its book, less the spread, leaves you long QQQ with a cash buffer.
-2. **Buy directly.** Use `pool_swap` on the long leg's book for an instant fill. On QQQ, SPY and XAU, larger trades can use a committed order, which fills at NAV ± the posted commit spread at a price pushed after you commit.
+1. **Mint, then sell the short leg.** On QQQ at its 9 Oct 2026 price, 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS after the fee. The QQQS is worth about 49.9 cUSDC at NAV; selling it with a committed order, less the spread, leaves you long QQQ with a cash buffer.
+2. **Buy directly.** While the market is open, send a committed order (every market except MSTR), which fills at NAV ± the posted commit spread at a price pushed after you commit. While it is closed, `pool_swap` on the long leg's book fills instantly up to the book's capped size.
 
 Buying directly is the usual path. Minting first is useful when you also want the short leg. → [Trade flow](/flows/trade).
 
@@ -48,7 +48,7 @@ Holding is not free on both legs, though. The short leg carries a [volatility de
 
 ## How do book prices stay close to NAV?
 
-The keeper re-centres each leg's bin book near NAV whenever its centre drifts past the reposition gate, 20 bps by default. Each book is lean, and an outside trader who lifts a stale bin pays the real slippage of the bin ladder. Turning a cheap leg into cUSDC through the protocol means buying the other leg too and redeeming the pair, which pays the redeem fee. → [Peg maintenance](/keeper/arb-paths).
+While a market's price is live, the books don't fill: trades go through committed orders, which fill at NAV ± the committed spread. The keeper re-centres each leg's bin book near NAV whenever its centre drifts past the reposition gate, 20 bps by default. Each book is lean, and an outside trader who lifts a stale bin pays the real slippage of the bin ladder. Turning a cheap leg into cUSDC through the protocol means buying the other leg too and redeeming the pair, which pays the redeem fee. → [Peg maintenance](/keeper/arb-paths).
 
 The keeper's old arbitrage loop belonged to the legacy Meteora layer, which is off by default. Anyone can trade a book that has drifted from NAV; no keeper key is needed. → [Arb bot](/build/composability#2-arb-bot).
 
@@ -58,8 +58,8 @@ Mint and redeem go straight to the on-chain program, but they need its price pus
 
 What keeps working:
 
-- The bin books keep trading at their last posted bins. `pool_swap` does not check price age.
-- A committed order that nobody settles can be refunded by its owner with `cancel_swap` once its 180 s TTL has passed.
+- The bin books open at their last posted bins, because `pool_swap` trades once the price is more than 300 s old outside `Normal`.
+- A committed order that nobody settles can be refunded with `cancel_swap` once its 180 s TTL has passed. Anyone can send it, and the escrow goes back to the order's owner.
 - `settle_swap` is permissionless, so anyone can settle a committed order once a fresh price has been pushed.
 
 ## Can I run my own keeper?
@@ -95,7 +95,7 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × s_gamma_index / 1e9
 | `redeem_fee_bps` | On `redeem_paired` | Same value as the mint fee. |
 | Risk-state multiplier | On mint and redeem fees | 1.5× in ProxyMode, where every devnet market runs, so QQQ is charged 27 bps. |
 | Book spread | On `pool_swap` | The bin prices themselves; there is no swap fee. |
-| Committed spread | On committed-order fills | NAV ± `max(commit_spread_bps, 10)` bps. As of 10 Oct 2026 only QQQ (18), SPY (15) and XAU (18) accept committed orders. |
+| Committed spread | On committed-order fills | NAV ± `max(commit_spread_bps, 10)` bps: 18 on QQQ, 15 on SPY and 18 on XAU as of 10 Oct 2026. Every market except MSTR accepts committed orders since 11 Oct 2026. |
 | Solana network fee | On every transaction | About 0.000005 SOL. |
 
 10% of each mint and redeem fee is a dev tax. A mint and redeem round trip at an unchanged price costs about twice the charged fee: 54 bps on QQQ.

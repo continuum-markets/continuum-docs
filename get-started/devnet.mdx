@@ -79,9 +79,9 @@ Every devnet market runs in the `ProxyMode` risk state, which multiplies fees an
 
 Pyth's public price endpoint now requires an API key, so the devnet keeper prices markets from a free public quote source. A GJR-GARCH volatility model sets the confidence band. Each price is checked against Hyperliquid before it is pushed, and a disagreement blocks the push. Hyperliquid can veto a price but never sets one; if it is unreachable, the price goes through unchecked. Mainnet will use Pyth (Pyth Pro).
 
-### Committed orders on three markets
+### Committed orders while open, bin books while closed
 
-As of 10 Oct 2026, only the `Clp` accounts of QQQ, SPY and XAU have `swap_guards.enabled` set. On the other 11 markets, `commit_swap` and the instant oracle swap (`clp_swap`) revert with `SwapDisabled`, and the app hides both. The bin books (`pool_swap`) do not check that flag and trade on all 14 markets.
+Since 11 Oct 2026 the `Clp` account of every market except MSTR has `swap_guards.enabled` set, so committed orders work on 13 markets. On MSTR `commit_swap` reverts with `SwapDisabled`. The instant oracle swap (`clp_swap`) was retired the same day and reverts with `SwapDisabled` everywhere. The bin books (`pool_swap`) don't check the flag, but fill only while a market's price is more than 300 s old, which on devnet's `ProxyMode` markets means while the underlying is closed. Otherwise they fail with `PoolClosedWhileLive`.
 
 ### No fresh price, no mint or redeem
 
@@ -91,7 +91,7 @@ Mint and redeem revert with `TwapNotAvailable` when `user_twap_price` is 0 or `t
 
 The keeper withholds a market's push once its source price is more than 120 s old. That happens when the underlying market closes: outside regular US trading hours for stocks and ETFs, and mainly at weekends for FX and metals. 300 s after the last push, mint and redeem freeze.
 
-The bin books keep trading. The keeper replaces each book with a free-float book anchored at the last price and capped at $10,000 per side, or $1,250 per side for single-name stocks. When other venues show the price has moved, it pulls the bins on the stale side. The first fresh push reopens mint and redeem and re-centres the books.
+The bin books open. The keeper replaces each book with a free-float book anchored at the last price and capped at $10,000 per side, or $1,250 per side for single-name stocks. When other venues show the price has moved, it pulls the bins on the stale side. The first fresh push reopens mint, redeem and committed orders, closes the books to trading and re-centres them.
 
 ## Explorers
 

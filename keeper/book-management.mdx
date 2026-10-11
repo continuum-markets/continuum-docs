@@ -5,6 +5,8 @@ description: How the keeper centres, shapes, refills and trims the bin books, an
 
 Each market has two books, one per leg. A book lives entirely inside one `Pool` account: up to 16 bins stored inline, with no per-bin rent. The keeper's book manager centres each book near NAV and posts a bin shape derived from live volatility.
 
+Since 11 Oct 2026 the books fill only while the market's price is stale: outside `Normal`, with the last push more than 300 s old. While the keeper is pushing prices, `pool_swap` fails with `PoolClosedWhileLive` and trades go through [committed orders](/flows/trade#committed-orders).
+
 ## The reposition loop
 
 Every 30 s, for each market and side:
@@ -27,7 +29,7 @@ The free-float guard (on by default) watches venues that keep trading while the 
 
 - When buying drains a side's asks below half its bid value, the keeper sweeps surplus bid cUSDC to the CLP vault, mints fresh L and S from it with `vault_mint_pairs`, and funds both sides' asks in one pass. Minting pairs keeps the restock delta-neutral, and the next reshape is forced so the new inventory enters the book at once.
 - When a side's asks are worth more than 1.5× its bids, the keeper sweeps the excess back to CLP custody with `pool_sweep_synth`, where it can provision committed orders. Ask depth the bid side cannot absorb is exit capacity nobody can use, and it invites arbitrage.
-- Standing bid cUSDC is capped at $5,000 per side, and the excess goes to the CLP vault. On QQQ, SPY and XAU, large sells can use the [committed venue](/flows/trade) instead, which the keeper provisions at settlement.
+- Standing bid cUSDC is capped at $5,000 per side, and the excess goes to the CLP vault. While the market is open, sells go through the [committed venue](/flows/trade) instead, which the keeper provisions at settlement.
 
 ## Why the books are lean
 

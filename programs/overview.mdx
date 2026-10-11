@@ -8,7 +8,7 @@ Continuum runs on five programs built with Anchor 0.32.1. They are deployed on *
 | Program | Devnet ID | Role |
 |---|---|---|
 | [`mint-redeem`](/programs/mint-redeem) | `5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4` | One `Market` account per asset. Paired mint and redeem at NAV, the keeper's price, confidence and γ writes, and market administration. |
-| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Protocol liquidity: the global vault (the protocol treasury) and the per-market vaults, two bin books per market (`pool_swap`), committed orders (`commit_swap`, `settle_swap`, enabled on QQQ, SPY and XAU) and the keeper's inventory instructions. |
+| [`clp`](/programs/clp) | `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES` | Protocol liquidity: the global vault (the protocol treasury) and the per-market vaults, committed orders (`commit_swap`, `settle_swap`, enabled on every market except MSTR), two bin books per market (`pool_swap`, which fills only while the market's price is stale) and the keeper's inventory instructions. |
 | [`oracle`](/programs/oracle) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` | A per-market `OracleConfig` and Pyth feed registry. It is not updated on devnet; markets are priced from `Market.user_twap_price`. |
 | [`registry`](/programs/registry) | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` | Symbol entries that point at mints and venues. Deployed and initialized, but it holds no markets and nothing reads it yet. |
 | [`faucet`](/programs/faucet) (devnet only) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` | Drips 1,000 cUSDC per wallet every 24 h. |
@@ -25,7 +25,8 @@ keeper ── set_pool_shape ────────► clp           reprices 
 clp ───── CPI ───────────────────► mint-redeem   mint_paired, redeem_paired,
                                                  redeem_single_for_vault, permissionless_burn,
                                                  fund_collateral_from (backstop_market)
-clp ───── reads Market ──────────► mint-redeem   market state and NAV for clp_swap, commit_swap, settle_swap
+clp ───── reads Market ──────────► mint-redeem   market state and NAV for commit_swap, settle_swap;
+                                                 risk state and price age for pool_swap
 oracle                                           one OracleConfig per market, not updated on devnet
 registry                                         standalone and empty
 faucet ── mints ─────────────────► cUSDC         devnet only
@@ -68,7 +69,7 @@ Each instruction that changes state checks its signer. The table follows the `ha
 
 | Signer | Instructions |
 |---|---|
-| Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account). clp: `pool_swap`, `commit_swap`, `clp_swap`, `settle_swap` (any cranker), `cancel_swap` (the order's owner), `deposit_profit` (the signer's own funds), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
+| Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account). clp: `pool_swap`, `commit_swap`, `settle_swap` (any cranker), `cancel_swap` (anyone, after the order expires; the refund goes to the owner), `clp_swap` (retired; always fails), `deposit_profit` (the signer's own funds), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
 | `market.keeper_authority` | mint-redeem: `update_risk_state`, `update_risk_state_v2`, `set_s_gamma_index`, `set_buffer_target`, `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `rebalance_collateral` (keeper of both markets), `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`. |
 | `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `fund_collateral`, `fund_collateral_from` (with a second signer, the `funder`, who owns the cUSDC). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
 | mint-redeem program upgrade authority | mint-redeem: `initialize_market`. |
@@ -103,12 +104,12 @@ Each program numbers its errors from 6000, so one code means different things in
 | Mint L and S | `mint-redeem` | `mint_paired` |
 | Redeem L and S at NAV | `mint-redeem` | `redeem_paired`, with both amounts above 0 |
 | Read the price, NAV inputs and risk state | `mint-redeem` | fetch `Market` (`user_twap_price`, `twap_updated_at`, `oracle_confidence`, `s_gamma_index`) |
-| Trade instantly against a bin book | `clp` | `pool_swap` |
-| Trade at NAV at a later keeper price push (QQQ, SPY and XAU as of 10 Oct 2026) | `clp` | `commit_swap`, then `settle_swap`; `cancel_swap` refunds after the 180 s TTL |
+| Trade while the market is open, at NAV at a later keeper price push (every market except MSTR) | `clp` | `commit_swap`, then `settle_swap`; `cancel_swap` refunds after the 180 s TTL |
+| Trade instantly against a bin book while the market's price is stale | `clp` | `pool_swap` |
 | Read book depth | `clp` | fetch the market's two `Pool` accounts |
 | Get devnet cUSDC | `faucet` | `drip` |
 
-There is no single-leg redeem: a lone L or S position exits through a bin book, or through a committed order on QQQ, SPY and XAU (see [Trade](/flows/trade)). `pool_swap` works on all 14 markets. `commit_swap` and `clp_swap` revert with `SwapDisabled` on the other 11, whose swap path is off in `configure_swap`. Don't read `OracleConfig` for live prices, because the oracle program isn't updated on devnet.
+There is no single-leg redeem: a lone L or S position exits through a committed order while the market is open, or through a bin book while its price is stale (see [Trade](/flows/trade)). `pool_swap` fails with `PoolClosedWhileLive` while the price is live. `commit_swap` reverts with `SwapDisabled` on MSTR, whose swap guards are off in `configure_swap`, and `clp_swap`, retired on 11 Oct 2026, reverts with `SwapDisabled` everywhere. Don't read `OracleConfig` for live prices, because the oracle program isn't updated on devnet.
 
 ## Listing a market (operator process)
 

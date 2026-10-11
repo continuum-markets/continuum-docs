@@ -172,10 +172,10 @@ No action is armed as of 10 Oct 2026. Every market has `price_adjust_num = price
 
 NAV is what the protocol mints and redeems at. **Book price** is what each bin book trades at between repositions. The keeper keeps them close: it centres each book on NAV plus a small inventory shift, repositions when NAV drifts past the gate (at most 20 bps by default), and never quotes inside the oracle's confidence band.
 
-In steady state, `book_price ≈ NAV ± half_spread`, offset by the inventory shift. When pushes stop for 300 s and mint and redeem freeze, the keeper swaps each live book for a free-float book anchored at the last price, then re-anchors on the first fresh push. Pick a venue by size and urgency:
+In steady state, `book_price ≈ NAV ± half_spread`, offset by the inventory shift. When pushes stop for 300 s and mint and redeem freeze, the keeper swaps each live book for a free-float book anchored at the last price, then re-anchors on the first fresh push. The books fill only while the price is stale. Pick a venue by market state:
 
-- For a small, urgent trade, hit the book (`pool_swap`). It's instant, and you pay the bin ladder's spread.
-- For a large trade, commit an order where the market has them (QQQ, SPY and XAU as of 10 Oct 2026). It fills at a push after the commit, at NAV ± the committed spread.
+- While the market is open, commit an order (every market except MSTR). It fills at a push after the commit, at NAV ± the committed spread, at any size.
+- While its price is stale, hit the book (`pool_swap`). It's instant, up to the book's capped size, and you pay the bin ladder's spread.
 - If you want the pair itself, mint or redeem at NAV. You pay the fee and the worst-case markup, and no spread.
 
 → [Trading venues](/flows/trade)

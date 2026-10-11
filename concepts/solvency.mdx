@@ -1,6 +1,6 @@
 ---
 title: Solvency
-description: The paired-mint invariant, the convexity gap it leaves open, and the defenses sized against it, from lean books and keeper-posted fees to volatility decay and the dynamic buffer.
+description: The paired-mint invariant, the convexity gap it leaves open, and the defenses sized against it, from lean books and keeper-posted fees to volatility decay, the posted buffer and the treasury backstop.
 ---
 
 Continuum's solvency rests on one structural rule, one known extraction path and a set of defenses sized against that path. This page takes them in that order.
@@ -29,9 +29,9 @@ The CLP account also stores an `oi_cap` (250,000 cUSDC per market), but nothing 
 
 ### 1. Depth-capped books
 
-The instant venues never expose unlimited size at NAV. The bin books carry lean, demand-sized depth (about \$5k of bids and at most \$7.5k of asks per side; off-hours, at most \$10,000 per side, or \$1,250 for the single-name stocks) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
+No instant venue exposes unlimited size at NAV. The bin books trade only while a market's price is stale, and carry lean, demand-sized depth (about \$5k of bids and at most \$7.5k of asks per side; off-hours, at most \$10,000 per side, or \$1,250 for the single-name stocks) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
 
-Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread. The cash a large fill needs comes from the treasury when it settles.
+Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread. They refuse to fill while the market is below 100% collateralized at the settle price. The cash a large fill needs comes from the treasury when it settles. The instant oracle swap, which filled at the last pushed price, was retired on 11 Oct 2026.
 
 ### 2. Vol-informed fees
 
@@ -44,19 +44,27 @@ charged_bps = fee_bps × risk-state multiplier             1.5× in ProxyMode
 
 `half_spread` is the long book's half-spread from the keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free), and the keeper posts the result as both the mint and the redeem fee. QQQ posts 18 bps and is charged 27 bps on devnet. Of every fee, 90% stays in the market's collateral vault, raising the collateral ratio directly, and 10% is the dev tax. Higher vol means a bigger convexity gap and a proportionally higher hurdle.
 
-### 3. Dynamic overcollateralization buffer
+### 3. Posted overcollateralization buffer
 
-Each market has a buffer target, which the keeper posts on-chain with `set_buffer_target`:
+Each market has a buffer target, which the keeper posts on-chain with `set_buffer_target`. The target collateral ratio is 100% plus the buffer. Each market's buffer is a fixed value from a jump-diffusion Monte Carlo (internal study r47), sized so that the chance of the collateral ratio falling below 100% is at most 1% a year, assuming a top-up within 12 hours. No buffer is below 2%.
 
-```
-B = δ²/2 + |q|·δ + margin
-```
+| Market | Buffer | Target ratio |
+|---|---|---|
+| QQQ, SPY, XAU, EUR, GBP, JPY | 2% | 102% |
+| AAPL | 2.9% | 102.9% |
+| MSFT | 3.3% | 103.3% |
+| GOOGL | 4.8% | 104.8% |
+| XAG | 5.9% | 105.9% |
+| AMZN | 6.1% | 106.1% |
+| NVDA | 10% | 110% |
+| TSLA | 12% | 112% |
+| MSTR | 24% | 124% |
 
-- `δ` = tail multiplier × σ, where σ is the long book's recent worst-case window σ scaled to a 17.5-hour gap.
-- `q` is fixed at 0.3 (`CLMM_Q_IMBALANCE`) rather than read from live inventory, and the closed-period multiplier isn't applied.
-- The keeper floors `B` at 200 bps (102%) and posts it when it moves by 50 bps or more. The program clamps it to [100, 5000] bps over parity (101% to 150%). All 14 markets sit at 200 bps as of 10 Oct 2026.
+The keeper posts a target only when it differs from the value on chain. The program clamps any target to [100, 5000] bps over parity (101% to 150%).
 
-The target adds no collateral by itself. It works as a gate: waiver consumption, the `withdraw_excess_to_clp` floor and the cross-market rebalancer all read it, so it limits how much collateral can leave a market.
+These fixed targets replaced a formula the keeper computed live from realized volatility, `B = δ²/2 + |q|·δ + margin`, on 11 Oct 2026. A replay of the keeper's own prices showed that formula swinging from 4% to 50% within the hour and falling to 2% after restarts.
+
+On chain the target gates only three things: the donor fee waiver, how much excess a market can shed to others (`withdraw_excess_to_clp` and `rebalance_collateral`), and the credit a donation earns for closing the gap to target. Mints and redeems don't depend on it. The keeper's [treasury backstop](#treasury-backstop) fills markets toward it.
 
 ### 4. Volatility decay (the γ-index)
 
@@ -66,7 +74,7 @@ The convexity the protocol is short lives entirely in the short leg: `S_NAV = K/
 S_NAV = (K / P) × γ          γ ratchets down by realized variance
 ```
 
-It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection. If collateral still falls short, the treasury can top the market up, and pro-rata redemption is the last resort. γ is always on with no kill switch, only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection. If collateral still falls short, the [treasury backstop](#treasury-backstop) tops the market up, and pro-rata redemption is the last resort. γ is always on with no kill switch, only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 
 ### 5. `reanchor_gamma` is not a spot re-anchor
 
@@ -79,20 +87,29 @@ Five channels push the ratio up over time:
 1. 90% of every mint and redeem fee stays in the vault, immediately.
 2. Each volatility-decay step marks short claims down.
 3. When the price moves back toward a position's mint price, its claim falls and the vault over-collateralizes passively.
-4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. The CLP's `backstop_market` moves cUSDC from the treasury into a market's vault the same way. CLP trading profits reach a market's collateral only through these, and the keeper calls none of them in its default configuration. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
+4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. The CLP's `backstop_market` moves cUSDC from the treasury into a market's vault the same way. CLP trading profits reach a market's collateral only through these. The keeper calls `backstop_market` when a market falls below 100% or stays short of its target (see [Treasury backstop](#treasury-backstop)), and calls neither of the others. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
 5. Harvested collateral yield is added to `total_collateral` by `harvest_collateral_yield`.
 
 On devnet, collateral yield is emulated. Every live market has `yield_enabled = true` as of 11 Oct 2026. Each hour the keeper mints the cUSDC that its mainnet lending plan would have earned on a market's collateral and harvests it into that market, which raises its collateral ratio. Nothing is actually lent on devnet.
 
 ## The treasury
 
-The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held 18,524,820.82 cUSDC on 11 Oct 2026: 5,534,820.82 from funding, plus 12,990,000 of idle CLP cash that the keeper returned to it.
+The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held about 22.13M cUSDC after the keeper's returns of 11 Oct 2026: 5,534,820.82 from funding, plus idle CLP cash that the keeper returned to it.
 
 Moving treasury cUSDC into a market is fast. `backstop_market` puts it straight into a market's vault and credits `total_collateral`. It has no rate limit and works while withdrawals are frozen, because the cUSDC stays inside the protocol.
 
-Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at 64.06 cUSDC a second, about 230,617 cUSDC an hour, so emptying the 18.52M treasury takes about 80 h. Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
+Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at 64.06 cUSDC a second, about 230,617 cUSDC an hour, so emptying the 22.13M treasury takes about 96 h. Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
 
-The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books, inventory restock and instant swaps can spend before the next top-up, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
+The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books and inventory restock can spend before the next top-up, \$40,000 per market, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
+
+### Treasury backstop
+
+The keeper's liquidity reallocator uses the treasury to top up a market's collateral with `backstop_market`, which pays into the market's collateral rather than its CLP vault. It reads the collateral ratio at the stored price:
+
+- Below 100%, it fills at once, at least up to the market's target. Committed orders refuse to fill below 100%, so this is what lets them resume.
+- Short of target by more than one confidence band for 5 minutes, it fills to the target plus the band. This is the same destination rule the cross-market rebalancer uses, and the rebalancer moves other markets' excess first.
+
+The target the treasury fills to is the market's posted target, capped at 112%. MSTR, which is being wound down, gets at most 102%. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
 
 The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 
@@ -101,16 +118,16 @@ The keeper's yield allocator counts the treasury as first-loss capital when it c
 - Users can only mint in pairs. `keeper_mint_single` and `keeper_redeem_single` need `market.keeper_authority`, and `redeem_single_for_vault` accepts only the market's CLP PDA. The keeper's single-sided mint collects full NAV for the leg it mints.
 - Price writes are bounded. `update_risk_state_v2` rejects a move of more than 25% per push and a source publish time more than 300 s old, so a compromised keeper key can't teleport NAV. On mainnet the keeper adds its own 10% envelope before pushing.
 - A staleness gate stops pricing off a dead feed. Outside `Normal`, mint and redeem revert with `TwapNotAvailable` once the last push is more than 300 s old. See [Risk states](/concepts/risk-states).
-- Swap guards run on every oracle-priced fill. `clp_swap` and `settle_swap` check price age, confidence, deviation and a collateral floor, and `clp_swap` and `pool_swap` share a rolling notional cap where one is set.
-- Each market keeps its own ledger and its own vault, and on 11 Oct 2026 every vault's balance equaled its ledger. The same day's upgrade removed the shared unified vault from the program. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only collateral above the source's dynamic target, and the program caps each move at that amount.
+- Swap guards run on every oracle-priced fill. `settle_swap` checks price age, confidence, deviation and a 100% collateral floor. `pool_swap` trades only while the market's price is stale, under a rolling notional cap where one is set.
+- Each market keeps its own ledger and its own vault, and on 11 Oct 2026 every vault's balance equaled its ledger. The same day's upgrade removed the shared unified vault from the program. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only collateral above the source's posted target, and the program caps each move at that amount.
 - Redemption goes pro rata in a shortfall. If a tail move pushes the collateral ratio below 100%, redeem pays `nominal × min(1, CR)`. The vault can't be overdrawn, and every remaining holder gets the same ratio, so there's no first-mover advantage and no bank-run dynamic.
 
 ## What this means for users
 
-**You can't lose more than your collateral.** A paired position is fully prepaid, with no margin and no liquidations. Redeeming needs both legs (each amount above zero) and a price push no more than 300 s old, so it depends on the keeper pushing prices. While the vault is fully collateralized you get NAV, less the fee and markup; in a shortfall you get the pro-rata share. A single leg exits through its bin book, or through a committed order on QQQ, SPY and XAU.
+**You can't lose more than your collateral.** A paired position is fully prepaid, with no margin and no liquidations. Redeeming needs both legs (each amount above zero) and a price push no more than 300 s old, so it depends on the keeper pushing prices. While the vault is fully collateralized you get NAV, less the fee and markup; in a shortfall you get the pro-rata share. A single leg exits through a committed order while the market is open (every market except MSTR), or through its bin book while its price is stale.
 
 ## What this means for builders
 
-A lone leg can't be redeemed by itself. If you receive 100 QQQS in payment, you can sell it on the QQQS book or through a committed order, or redeem it together with some QQQL. The things to monitor are **risk state** (`Stress` blocks mint and redeem by default) and **price freshness** (mint and redeem freeze off-hours when pushes stop).
+A lone leg can't be redeemed by itself. If you receive 100 QQQS in payment, you can sell it through a committed order while QQQ is open or on the QQQS book while it is closed, or redeem it together with some QQQL. The things to monitor are **risk state** (`Stress` blocks mint and redeem by default) and **price freshness** (mint and redeem freeze off-hours when pushes stop).
 
 → [Risk states](/concepts/risk-states) · [Reading state](/flows/read-state)

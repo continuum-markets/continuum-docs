@@ -59,9 +59,9 @@ In `ProxyMode` the freeze exists only because the keeper withholds pushes. Nothi
 While frozen:
 
 - **Mint and redeem revert** with `TwapNotAvailable`, so nothing prices off a dead feed.
-- **The bin books keep trading** against a free-float book: one per side, anchored at the last price, flat across the ladder and capped at \$10,000 per side (\$1,250 for the single-name stocks). A guard can pull bins on the side that other venues (extended-hours sessions, futures, Hyperliquid, tokenized gold and euro) show is stale. It never moves the centre or adds depth.
-- **Committed orders can't settle**, because settlement needs a push newer than the commit. After the 180 s TTL, the user signs `cancel_swap` for a refund.
-- At reopen, the first accepted push re-anchors NAV and the keeper re-posts the live books.
+- **The bin books open.** `pool_swap` fills only now, while the price is stale outside `Normal`, against a free-float book: one per side, anchored at the last price, flat across the ladder and capped at \$10,000 per side (\$1,250 for the single-name stocks). A guard can pull bins on the side that other venues (extended-hours sessions, futures, Hyperliquid, tokenized gold and euro) show is stale. It never moves the centre or adds depth.
+- **Committed orders can't settle**, because settlement needs a push newer than the commit. About 5 s after the 180 s TTL, the keeper refunds the order with `cancel_swap`, which anyone may send.
+- At reopen, the first accepted push re-anchors NAV, committed orders settle again, the books stop filling, and the keeper re-posts the live books.
 
 ## Confidence intervals
 

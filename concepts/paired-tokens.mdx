@@ -76,7 +76,7 @@ The paired position has **near-zero net delta**. The small gain either way is th
 Each leg has its own bin book (`QQQL/cUSDC` and `QQQS/cUSDC`):
 
 - Sell QQQL (or buy QQQS) to express a bearish view; buy QQQL (or sell QQQS) for a bullish one.
-- Small amounts hit the book instantly. Large amounts can go through a committed order where the market has one (QQQ, SPY and XAU as of 10 Oct 2026). It fills at a keeper push after the commit, at NAV ± the committed spread (10 bps floor).
+- While the market is open, trades go through a committed order (every market except MSTR), at any size. It fills at a keeper push after the commit, at NAV ± the committed spread (10 bps floor). While the price is stale, small amounts hit the book instantly.
 
 A common flow:
 
@@ -93,9 +93,9 @@ The reverse (sell QQQL, hold QQQS) gives you short-only exposure.
 
 ## What if NAV and book price disagree?
 
-They can't drift far apart. Committed orders and the oracle swap price off NAV directly. The keeper centres each book on NAV plus a small inventory shift, and repositions it once NAV drifts past the gate (at most 20 bps by default). The shift is one dollar amount, added to one leg's centre and subtracted from the other's, so the pair still trades at NAV and no mint/redeem arbitrage opens. See [Peg maintenance](/keeper/arb-paths).
+They can't drift far apart. Committed orders price off NAV directly, and the books fill only while the price is stale. The keeper centres each book on NAV plus a small inventory shift, and repositions it once NAV drifts past the gate (at most 20 bps by default). The shift is one dollar amount, added to one leg's centre and subtracted from the other's, so the pair still trades at NAV and no mint/redeem arbitrage opens. See [Peg maintenance](/keeper/arb-paths).
 
-If a fast move leaves a book stale for one keeper cycle, a trader can lift the in-the-money bins. The loss is capped at those bins' deliberately lean depth, and the next cycle repositions the book. The books charge real bin-ladder slippage, so near NAV there is rarely anything to take.
+While prices are pushing, a fast move can't be traded against a book, because the books don't fill then. Off-hours, if the underlying moves on another venue before the keeper's guard pulls the stale side, a trader can lift the in-the-money bins. The loss is capped at those bins' deliberately lean depth. The books charge real bin-ladder slippage, so near NAV there is rarely anything to take.
 
 ## Decimals and minimums
 
@@ -125,7 +125,7 @@ Yes. Both L and S are standard SPL tokens, so you transfer them like any other S
 Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` and `s_amount` must be above zero. The amounts don't have to match, because redemption is **value-weighted**: you receive the NAV value of whatever you burn.
 
 **Q: What happens if I lose access to half the pair?**
-The program won't redeem one leg alone. Sell it on its bin book (or through a committed order on QQQ, SPY and XAU), or get some of the other leg and redeem the two together.
+The program won't redeem one leg alone. Sell it with a committed order while the market is open (every market except MSTR) or on its bin book while it is closed, or get some of the other leg and redeem the two together.
 
 **Q: Are there fees on transfers?**
 No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`). The keeper posts the same value for both, 10 to 52 bps across markets as of 10 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.

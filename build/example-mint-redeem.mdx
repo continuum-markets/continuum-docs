@@ -220,7 +220,7 @@ The estimates match the program exactly while the market is over-collateralized.
 
 ## Redeeming one leg
 
-There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. To exit a single leg, sell it on the bin book with `pool_swap`, which works on every market, or through a committed order on QQQ, SPY and XAU. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
+There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. To exit a single leg, sell it through a committed order while the market is open (every market except MSTR), or on the bin book with `pool_swap` while its price is stale. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
 
 ## Common errors
 
@@ -241,7 +241,7 @@ There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_am
 
 - Mint in several markets at once by adding one `mintPaired` instruction per market to the same transaction, within Solana's 1,232-byte transaction size limit.
 - Refresh estimates live: subscribe to the market account with `connection.onAccountChange(market, ...)` and run `quote()` on each update.
-- Take a directional position: after step 5, sell the leg you don't want on the bin book, or through a committed order on QQQ, SPY and XAU ([Trade flow](/flows/trade)).
+- Take a directional position: after step 5, sell the leg you don't want through a committed order while the market is open ([Trade flow](/flows/trade)).
 
 ## See also
 

@@ -53,7 +53,7 @@ underlying closes
   → books switch to free-float books     off-hours price discovery
 ```
 
-The program enforces the freeze, but only the keeper's silence causes it. Any accepted push resets `twap_updated_at`, so the freeze lasts exactly as long as the keeper withholds. While frozen, mint and redeem revert in every state except `Normal`, the bin books keep trading against free-float books, and committed orders can't settle; after the 180 s TTL the user signs `cancel_swap` for a refund. The first accepted push at reopen re-anchors NAV. The full chain is on [Oracle](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes).
+The program enforces the freeze, but only the keeper's silence causes it. Any accepted push resets `twap_updated_at`, so the freeze lasts exactly as long as the keeper withholds. While frozen, mint and redeem revert in every state except `Normal`, the bin books, which fill only while the price is stale outside `Normal`, trade against free-float books, and committed orders can't settle; the keeper refunds each one about 5 s after its 180 s TTL. The first accepted push at reopen re-anchors NAV. The full chain is on [Oracle](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes).
 
 If you only check one thing before you submit a mint or redeem, check `market.twap_updated_at`.
 
@@ -65,9 +65,9 @@ Operate normally. Fees carry the 1.5× surcharge, and quotes carry a 1.5× confi
 
 ### `Stress`
 
-Mint and redeem are blocked by default (`MintNotAllowedInStress`, `RedeemNotAllowedInStress`). The bin books still trade. If you build a UI, say so:
+Mint and redeem are blocked by default (`MintNotAllowedInStress`, `RedeemNotAllowedInStress`). Committed orders still fill while the keeper pushes prices, and the bin books open once the price is more than 300 s old. If you build a UI, say so:
 
-> "QQQ is in Stress mode. Minting and redeeming are paused; the QQQL and QQQS books still trade."
+> "QQQ is in Stress mode. Minting and redeeming are paused; you can still trade QQQL and QQQS."
 
 ### `Recovery`
 
@@ -91,7 +91,7 @@ The risk state can lag reality by one keeper tick. Outside `Normal`, the price a
 
 ## State during maintenance
 
-For a hard halt, the market authority sets `market.is_active = false` with `update_market`. Mint and redeem then revert (`MarketNotActive`), and so do `commit_swap` and `clp_swap` (`MarketInactive`). `pool_swap` and `settle_swap` don't check the flag, so the books keep trading and pending orders can still settle; `cancel_swap` refunds after the TTL whatever the state.
+For a hard halt, the market authority sets `market.is_active = false` with `update_market`. Mint and redeem then revert (`MarketNotActive`), and so does `commit_swap` (`MarketInactive`). `pool_swap` and `settle_swap` don't check the flag, so pending orders can still settle and the books still fill while the price is stale; after the TTL anyone can send `cancel_swap` to refund an order, whatever the state.
 
 ## Read more
 

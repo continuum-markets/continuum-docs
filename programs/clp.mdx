@@ -3,22 +3,22 @@ title: clp
 description: Continuous Liquidity Provider. The protocol's cUSDC vaults, the native bin books and committed orders.
 ---
 
-The CLP program holds the protocol's market-making capital and runs both trading venues: native bin books for instant swaps and committed orders for larger trades. It also mints and redeems its own L+S inventory through CPI into mint-redeem. A single `GlobalClp` PDA tracks funding and per-market allocations, and its cUSDC vault is the protocol treasury. Each market has a `Clp` PDA with its inventory, swap guards and committed-order spread, plus two `Pool` PDAs, one bin book per side.
+The CLP program holds the protocol's market-making capital and runs both trading venues: committed orders, which fill at the next price push while a market is open, and native bin books, which fill instantly while its price is stale. It also mints and redeems its own L+S inventory through CPI into mint-redeem. A single `GlobalClp` PDA tracks funding and per-market allocations, and its cUSDC vault is the protocol treasury. Each market has a `Clp` PDA with its inventory, swap guards and committed-order spread, plus two `Pool` PDAs, one bin book per side.
 
 ```
 Devnet ID: 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES
 ```
 
-Anyone can call `pool_swap`, `clp_swap`, `commit_swap` and `settle_swap`. `cancel_swap` needs the order's owner. The sections below give the signer every other instruction requires, usually `global_clp.authority`, the market's `clp.authority` or the pool's `pool.authority`.
+Anyone can call `pool_swap`, `commit_swap` and `settle_swap`, and anyone can send `cancel_swap` once an order has expired. `clp_swap` is retired and always fails. The sections below give the signer every other instruction requires, usually `global_clp.authority`, the market's `clp.authority` or the pool's `pool.authority`.
 
 ## The two venues
 
-| Venue | Instructions | Price | Fee |
-|---|---|---|---|
-| Bin book (instant) | `pool_swap` | Walks the keeper's posted bins out from the book centre, with real slippage | None; you pay the bin spread |
-| Committed order | `commit_swap`, then `settle_swap` | NAV ± `max(commit_spread_bps, 10)` bps at a price push after the commit | The spread |
+| Venue | Instructions | When | Price | Fee |
+|---|---|---|---|---|
+| Committed order | `commit_swap`, then `settle_swap` | While the market's price is live | NAV ± `max(commit_spread_bps, 10)` bps at a price push after the commit | The spread |
+| Bin book (instant) | `pool_swap` | Only while the market's price is stale | Walks the keeper's posted bins out from the book centre, with real slippage | None; you pay the bin spread |
 
-The keeper sizes the bin books to expected demand, and committed orders take larger trades where they are enabled. A committed order fills at a price pushed after the commit, so the trader never trades against a quote seen before committing. As of 10 Oct 2026, committed orders and `clp_swap` (an instant swap at NAV ± `swap_guards.spread_bps`, filled from CLP inventory) work only on QQQ, SPY and XAU. See `SwapGuardsState` below.
+A committed order fills at a price pushed after the commit, so the trader never trades against a quote seen before committing. Since 11 Oct 2026 committed orders are the only venue while a market's price is live, on every market except MSTR. `pool_swap` fills only while the market floats (its risk state isn't `Normal` and its last push is more than 300 s old) and fails with `PoolClosedWhileLive` otherwise. The keeper sizes the bin books to expected demand. The instant oracle swap, `clp_swap`, was retired the same day. See `SwapGuardsState` below.
 
 ## Accounts
 
@@ -28,7 +28,7 @@ The keeper sizes the bin books to expected demand, and committed orders take lar
 seeds = [b"global_clp"]
 ```
 
-One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held 18,524,820.82 cUSDC on 11 Oct 2026: 5,534,820.82 from funding, plus 12,990,000 of idle CLP cash that the keeper returned to it. See [Treasury](#treasury).
+One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held about 22.13M cUSDC after the keeper's returns of 11 Oct 2026: 5,534,820.82 from funding, plus idle CLP cash that the keeper returned to it, 12.99M on the first pass and 3.6M more once the instant swap was retired. See [Treasury](#treasury).
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -69,28 +69,28 @@ One per market. Its operating vault (`clp_vault`) is this PDA's cUSDC associated
 | `total_meteora_fees_earned` | u64 | Legacy Meteora LP fees |
 | `meteora_long_pool`, `meteora_short_pool`, `meteora_long_position`, `meteora_short_position` | Pubkey | Legacy Meteora addresses |
 | `allocated_from_global` | u64 | cUSDC allocated from the global vault |
-| `swap_guards` | `SwapGuardsState` | Guards for `clp_swap` and committed orders (below) |
-| `swap_window_start` / `swap_window_used` | i64 / u64 | Rolling notional-cap window |
-| `swap_prev_price` | u64 | Last price a swap accepted (the deviation anchor) |
+| `swap_guards` | `SwapGuardsState` | Guards for committed orders (below) |
+| `swap_window_start` / `swap_window_used` | i64 / u64 | Rolling notional-cap window for `pool_swap` |
+| `swap_prev_price` | u64 | Price of the last committed fill (the deviation anchor) |
 | `commit_spread_bps` | u16 | Committed-order half-spread posted by the keeper |
 
 ### `SwapGuardsState`
 
-Stored in `Clp.swap_guards` and set with `configure_swap`. The all-zero default leaves `clp_swap` and committed orders off. `clp_swap` and `settle_swap` both apply the staleness, confidence and deviation limits.
+Stored in `Clp.swap_guards` and set with `configure_swap`. The all-zero default leaves committed orders off. `settle_swap` applies the staleness, confidence and deviation limits and the collateral floor.
 
 | Field | Type | Purpose |
 |---|---|---|
-| `enabled` | bool | Required by `clp_swap` and `commit_swap` (`SwapDisabled`). `pool_swap` ignores it |
-| `frozen` | bool | Blocks `clp_swap`, `commit_swap` and `settle_swap` (`SwapFrozen`). `pool_swap` and `cancel_swap` ignore it |
-| `spread_bps` | u16 | `clp_swap` spread around NAV |
+| `enabled` | bool | Required by `commit_swap` (`SwapDisabled`). `pool_swap` ignores it |
+| `frozen` | bool | Blocks `commit_swap` and `settle_swap` (`SwapFrozen`). `pool_swap` and `cancel_swap` ignore it |
+| `spread_bps` | u16 | Spread of the retired `clp_swap`. No live instruction reads it |
 | `max_staleness_secs` | i64 | Maximum age of the Market price, in seconds (`OracleStale`) |
 | `max_confidence_bps` | u16 | Maximum `Market.oracle_confidence`, in bps of price (`OracleConfidenceTooWide`) |
 | `max_deviation_bps` | u16 | Maximum move from `swap_prev_price`, in bps (`OracleDeviationTooLarge`) |
-| `window_cap_usd` | u64 | cUSDC notional allowed per window, shared by `pool_swap` and `clp_swap`; 0 means no cap. Committed fills don't count |
+| `window_cap_usd` | u64 | cUSDC notional allowed per window on `pool_swap`; 0 means no cap. Committed fills don't count |
 | `window_secs` | i64 | Window length |
-| `collateral_floor_bps` | u16 | Minimum market collateral ratio after a `clp_swap` or a committed fill |
+| `collateral_floor_bps` | u16 | Minimum market collateral ratio, at the settle price, for a committed fill |
 
-As of 10 Oct 2026, QQQ, SPY and XAU have guards enabled, with a 30 bps `clp_swap` spread, a 600 s staleness limit and a cap of 1,000,000 cUSDC per hour. The other 11 markets keep the zero default, so `clp_swap` and `commit_swap` revert there with `SwapDisabled`.
+As of 11 Oct 2026, 13 markets (all but MSTR) have guards enabled and not frozen, with the same limits: a 600 s staleness limit, a 5,000 bps confidence limit (off in practice), a 10,000 bps deviation limit (off; `update_risk_state_v2` already refuses a move of more than 25% per push) and a 10,000 bps (100%) collateral floor. Their spread and window cap were left as they were: QQQ, SPY and XAU keep a 30 bps spread and a cap of 1,000,000 cUSDC per hour, and the other markets have no cap. MSTR's guards are off, so `commit_swap` reverts there with `SwapDisabled`.
 
 ### `Pool` PDA
 
@@ -116,7 +116,7 @@ Two per market, so 28 for the 14 live markets. Each is a native bin book for one
 | `wing_step_bps` | u32 | Wing step for the 2-zone geometry (0 = uniform ladder) |
 | `core_bins` | u8 | Number of fine core bins before the wings start |
 
-There is no pool kill switch. Once a pool has a shape, nothing can disable it.
+There is no pool kill switch. Once a pool has a shape, nothing can disable it, though it fills only while its market floats (see `pool_swap` below).
 
 **Bin geometry.** Ask bin `i` sits at `base · r^(i+1)` and bid bin `i` at `base · r^-(i+1)`. The centre itself is an empty mid, so the smallest round trip costs about two steps. With 2-zone geometry, the first `core_bins` steps use `step_bps` for fine pricing near the centre. The rest use `wing_step_bps`, so the same 16 bins can span a large move.
 
@@ -171,7 +171,7 @@ The program refills `allowance` only when an instruction touches the policy. To 
 
 The live policy on 11 Oct 2026, with nothing pending:
 
-- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. The rate was set to empty the 5.53M funded treasury in about 24 h. At the 18.52M it held on 11 Oct 2026, a full exit takes about 80 h.
+- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. The rate was set to empty the 5.53M funded treasury in about 24 h. At the 22.13M it held after the returns of 11 Oct 2026, a full exit takes about 96 h.
 - Burst: 230,617.53 cUSDC, one hour of refill.
 - Delay: 24 h.
 
@@ -181,7 +181,7 @@ The live policy on 11 Oct 2026, with nothing pending:
 seeds = [b"revenue_attribution"]
 ```
 
-One per cluster (`A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` on devnet). It splits protocol revenue into keeper flow and external flow. `pool_swap`, `deposit_profit` and `vault_record_liquidity_recall` take it as their last account. Amounts are cUSDC base units.
+One per cluster (`A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` on devnet). It splits protocol revenue into keeper flow and external flow. `deposit_profit` and `vault_record_liquidity_recall` take it as their last account, and `pool_swap` takes it just before the market. Amounts are cUSDC base units.
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -204,7 +204,7 @@ A fill's spread capture is its distance from the book centre: cUSDC paid minus s
 
 `PoolSwapParams { direction: u8, amount_in: u64, min_out: u64 }`. Direction 0 buys synth with cUSDC, and 1 sells synth for cUSDC. A buy walks the ask bins up from `base·r`; a sell walks the bid bins down from `base/r`. The handler decrements reserves in place, so the stored book always matches the vault balances, and partial bin fills round in the pool's favour. If the book runs out first, the swap fills what it can and takes only what it used. There is no swap fee.
 
-The pool must be enabled and not frozen (`SwapDisabled`), and `base_price_1e6` must be nonzero (`OracleStale`). Something must fill (`InsufficientFunds`), the output must reach `min_out` (`SlippageExceeded`), and the fill must fit the `Clp` window cap (`WindowCapExceeded`). `pool_swap` doesn't read `swap_guards.enabled`, `frozen` or the oracle guards: it trades on the book as posted. Off-hours the keeper keeps a capped free-float book, with a guard that can only pull bins on the stale side.
+The pool must be enabled and not frozen (`SwapDisabled`), and `base_price_1e6` must be nonzero (`OracleStale`). The market must be floating: its `risk_state` isn't `Normal` and its `twap_updated_at` is more than 300 s old, the age at which mint and redeem freeze (`PoolClosedWhileLive` otherwise). Something must fill (`InsufficientFunds`), the output must reach `min_out` (`SlippageExceeded`), and the fill must fit the `Clp` window cap (`WindowCapExceeded`). `pool_swap` doesn't read `swap_guards.enabled`, `frozen` or the oracle guards: it trades on the book as posted. Off-hours the keeper keeps a capped free-float book, with a guard that can only pull bins on the stale side. Until 11 Oct 2026 the books traded at any hour.
 
 Accounts, in order:
 
@@ -218,17 +218,18 @@ Accounts, in order:
 | 5 | `synth_vault` | The pool's synth ATA |
 | 6 | `usdc_vault` | The pool's cUSDC ATA |
 | 7 | `token_program` | SPL Token |
-| 8 | `revenue_attribution` | PDA `[b"revenue_attribution"]`; must be last |
+| 8 | `revenue_attribution` | PDA `[b"revenue_attribution"]` |
+| 9 | `market` | The pool's mint-redeem `Market` PDA, read for its risk state and price age; must be last. Added on 11 Oct 2026 |
 
 The pool PDA signs the outbound transfer. Each fill updates `RevenueAttribution` and emits `SwapExecuted` with route 1.
 
-#### `clp_swap(side: u8, direction: u8, amount_in: u64, min_out: u64)` (anyone)
+#### `clp_swap(side: u8, direction: u8, amount_in: u64, min_out: u64)` (retired)
 
-The instant swap against CLP inventory at NAV ± `swap_guards.spread_bps`, with NAV from `Market.user_twap_price`. It moves tokens that are already issued, so supply and collateral don't change; the keeper refills inventory with `vault_mint_pairs`. It needs `market.is_active` and `swap_guards.enabled`, then runs every guard: frozen, staleness, confidence, deviation, window cap and collateral floor. Accounts: `user`, `user_usdc`, `user_synth`, `clp`, `clp_vault`, `clp_synth`, `market`, `token_program`. Emits `SwapExecuted` with route 0.
+Retired on 11 Oct 2026. It was the instant swap against CLP inventory at NAV ± `swap_guards.spread_bps`, with NAV from `Market.user_twap_price`. The instruction keeps its accounts (`user`, `user_usdc`, `user_synth`, `clp`, `clp_vault`, `clp_synth`, `market`, `token_program`) and arguments, so existing clients still decode it, but every call fails with `SwapDisabled`. Use a committed order instead. Its fills emitted `SwapExecuted` with route 0.
 
 #### `commit_swap(side: u8, direction: u8, amount_in: u64, min_out: u64, nonce: u64)` (anyone)
 
-Opens a committed order. It escrows `amount_in` (cUSDC for buys, synth for sells) and sets `expires_at = now + 180`. The user pays rent for the order and escrow accounts and gets it back on every terminal path. The payout account (`user_out`) must already exist, so settlement can't stall on it. It checks `market.is_active`, `swap_guards.enabled` and `frozen`. Accounts: `user`, `market`, `clp`, `order`, `in_mint`, `escrow`, `user_in`, `user_out`, `clp_vault`, `token_program`, `system_program`. Emits `OrderCommitted`.
+Opens a committed order. It escrows `amount_in` (cUSDC for buys, synth for sells) and sets `expires_at = now + 180`. The user pays rent for the order and escrow accounts and gets it back on every terminal path. The payout account (`user_out`) must already exist, so settlement can't stall on it. It checks `market.is_active` (`MarketInactive`), `swap_guards.enabled` (`SwapDisabled`) and `frozen` (`SwapFrozen`). Accounts: `user`, `market`, `clp`, `order`, `in_mint`, `escrow`, `user_in`, `user_out`, `clp_vault`, `token_program`, `system_program`. Emits `OrderCommitted`.
 
 #### `settle_swap()` (anyone)
 
@@ -242,17 +243,19 @@ It doesn't recheck `market.is_active` or `swap_guards.enabled`.
 
 | Condition | Result |
 |---|---|
+| An oracle guard fails | Revert (`SwapFrozen`, `OracleStale`, `OracleConfidenceTooWide` or `OracleDeviationTooLarge`). The order stays pending and can fill at a later push |
 | Quote at or above `min_out` | Fill: escrow to the CLP, payout to the user, accounts close. Emits `OrderSettled` and `SwapExecuted` (route 2) |
 | Quote below `min_out` | Full refund instead of a revert, so a runaway price can't leave the order retrying until expiry. The accounts close and `OrderRefunded` is emitted |
+| Market below `collateral_floor_bps` at the settle price | Revert (`CollateralFloorBreach`). The order stays pending and can fill at a later push once the market is topped up |
 | CLP inventory short | Revert. The order stays pending while the keeper adds inventory and retries |
 
 The collateral floor is checked only on the fill path. A fill updates `swap_prev_price` but doesn't count toward the window cap. Accounts: `cranker` (signer), `user` (receives the rent), `order`, `escrow`, `clp`, `clp_vault`, `clp_synth`, `market`, `user_out`, `user_in`, `token_program`.
 
 The keeper posts `commit_spread_bps` with `set_commit_spread`, as `clamp(half-spread, 10, 500)` from its volatility model, and re-posts it whenever it moves by 2 bps or more. As of 10 Oct 2026 it is 18 bps on QQQ, 15 on SPY and 18 on XAU.
 
-#### `cancel_swap()` (order owner)
+#### `cancel_swap()` (anyone, after expiry)
 
-Refunds an expired order once `now > expires_at` (else `OrderNotExpired`). Settle owns `now ≤ expires_at`, so there is no gap or overlap. The order's owner must sign. Nothing else is checked (no frozen, enabled, oracle or market-active gate), so escrowed funds can always be recovered after the 180 s TTL. Returns the escrow and all rent to the user and emits `OrderCancelled`. Accounts: `user`, `order`, `escrow`, `user_in`, `token_program`.
+Refunds an expired order once `now > expires_at` (else `OrderNotExpired`). Settle owns `now ≤ expires_at`, so there is no gap or overlap, and before expiry nobody can cancel. Since 11 Oct 2026 anyone may send it: `user` must be the order's owner but doesn't sign, and the escrow can go only to `user_in`, a token account the owner holds for the escrowed mint (`SwapAccountMismatch`). Nothing else is checked (no frozen, enabled, oracle or market-active gate), so escrowed funds can always be recovered after the 180 s TTL. Returns the escrow and all rent to the owner and emits `OrderCancelled`. The keeper sends it for every expired order about 5 s after expiry. Accounts: `user`, `order`, `escrow`, `user_in`, `token_program`.
 
 ### Bin book management
 
@@ -370,15 +373,17 @@ Hands the guardian role to a new key at once. If a pending change kept the old g
 
 Moves treasury cUSDC straight into a market's collateral vault and credits `total_collateral`. It calls mint-redeem's `fund_collateral_from` by CPI, with the `GlobalClp` PDA as funder. The signer is the global authority, which must also be the market's authority. It is not rate limited, because the funds stay inside the protocol, and it works while frozen.
 
+The keeper's liquidity reallocator calls it: at once for a market below 100% collateral at its stored price, and after 5 minutes for one short of its posted target by more than one confidence band. It fills to the posted target, at most 112% (102% for MSTR), and never takes a fill back. See [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
+
 Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's), `global_vault`, `mint_redeem_program`, `token_program`. Emits `MarketBackstopped`, and mint-redeem emits `CollateralFunded`.
 
 ### Configuration
 
 - `initialize_clp(oi_cap: u64, oracle_config: Pubkey)` creates a market's `Clp` with the default inventory budget, yield off and zeroed swap guards. The signer must be the Market's `authority` and becomes `clp.authority`.
-- `configure_swap(enabled, frozen, spread_bps, max_staleness_secs, max_confidence_bps, max_deviation_bps, window_cap_usd, window_secs, collateral_floor_bps)` (`clp.authority`) sets `SwapGuardsState`. Every argument is optional, and `None` leaves a field unchanged. `frozen = true` stops `clp_swap`, `commit_swap` and `settle_swap`, but not `pool_swap` or `cancel_swap`.
+- `configure_swap(params: ConfigureSwapParams)` (`clp.authority`) sets `SwapGuardsState`. `ConfigureSwapParams { enabled, frozen, spread_bps, max_staleness_secs, max_confidence_bps, max_deviation_bps, window_cap_usd, window_secs, collateral_floor_bps }` holds the separate arguments the instruction took until 11 Oct 2026, with the same fields in the same order, so the bytes on the wire are unchanged. Every field is optional, and `None` leaves it unchanged. `frozen = true` stops `commit_swap` and `settle_swap`, but not `pool_swap` or `cancel_swap`.
 - `set_commit_spread(commit_spread_bps: u16)` (`clp.authority`) sets the committed-order half-spread. `settle_swap` floors it at 10 bps.
 - `update_oi_cap(new_cap: u64)` (`clp.authority`) sets the stored OI cap, which nothing enforces.
-- `configure_inventory_budget(...)` and `configure_yield_strategy(...)` (`clp.authority`) set the inventory bounds and the yield shares.
+- `configure_inventory_budget(params: ConfigureInventoryBudgetParams)` and `configure_yield_strategy(params: ConfigureYieldStrategyParams)` (`clp.authority`) set the inventory bounds and the yield shares. Each struct holds the instruction's former arguments as optional fields, in the same order, so the bytes on the wire are unchanged: `ConfigureInventoryBudgetParams { soft_lower_bps, soft_upper_bps, hard_lower_bps, hard_upper_bps, max_drawdown_bps, target_drawdown_bps, enforce_hard_bounds }` and `ConfigureYieldStrategyParams { normal_deployment_bps, proxy_deployment_bps, stress_deployment_bps, recovery_deployment_bps, min_liquid_reserve, min_liquid_reserve_bps, oi_liquidity_buffer_bps, enabled }`.
 - `configure_liquidity_seeder(threshold: Option<u64>)` and `realloc_clp()` (`global_clp.authority`) set the seed threshold and grow an older `Clp` to the current layout.
 - `init_revenue_attribution(params: RevenueAttributionParams)` and `configure_revenue_attribution(params: RevenueAttributionParams)` (`global_clp.authority`) create the `RevenueAttribution` singleton and replace its `keeper_authorities`. `RevenueAttributionParams` is `{ keeper_authorities: [Pubkey; 4] }`. Configuring leaves the counters and `started_at` alone.
 
@@ -406,7 +411,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | `market` | Pubkey | Market PDA |
 | `collateral_mint` / `synth_mint` | Pubkey | cUSDC and the traded leg |
 | `order` | Pubkey | Order PDA for a committed fill; default pubkey otherwise |
-| `route` | u8 | 0 = `clp_swap`, 1 = `pool_swap`, 2 = `settle_swap` fill |
+| `route` | u8 | 0 = `clp_swap` (retired), 1 = `pool_swap`, 2 = `settle_swap` fill |
 | `side` / `direction` | u8 | 0 = long, 1 = short / 0 = buy synth, 1 = sell synth |
 | `is_keeper` | bool | `user` is a keeper key: `clp.authority` or a `keeper_authorities` entry on route 1, `clp.authority` or `Market.keeper_authority` on routes 0 and 2 |
 | `amount_in` / `amount_out` | u64 | Base units in and out |
@@ -421,20 +426,20 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6000 | `Unauthorized` | Signer isn't the stored authority, or a token account has the wrong owner |
 | 6001 | `WithdrawalLocked` | Unused (legacy LP lockup) |
 | 6002 | `InvalidAmount` | Zero or out-of-range argument |
-| 6003 | `SwapDisabled` | `swap_guards.enabled` is false (`clp_swap`, `commit_swap`), or the pool isn't enabled (`pool_swap`) |
-| 6004 | `SwapFrozen` | `swap_guards.frozen` is true (`clp_swap`, `commit_swap`, `settle_swap`) |
+| 6003 | `SwapDisabled` | Every `clp_swap` (retired on 11 Oct 2026), `swap_guards.enabled` is false (`commit_swap`), or the pool isn't enabled (`pool_swap`) |
+| 6004 | `SwapFrozen` | `swap_guards.frozen` is true (`commit_swap`, `settle_swap`) |
 | 6005 | `InvalidSide` | Side or direction isn't 0 or 1 |
 | 6006 | `SwapAccountMismatch` | A token account's mint or owner doesn't match the market or pool, or the order isn't pending |
-| 6007 | `MarketInactive` | `market.is_active` is false (`clp_swap`, `commit_swap`) |
-| 6008 | `SlippageExceeded` | Output below `min_out` (`pool_swap`, `clp_swap`; `settle_swap` refunds instead) |
+| 6007 | `MarketInactive` | `market.is_active` is false (`commit_swap`) |
+| 6008 | `SlippageExceeded` | Output below `min_out` (`pool_swap`; `settle_swap` refunds instead) |
 | 6009 | `OrderExpired` | Settle after `expires_at`; use `cancel_swap` to refund |
 | 6010 | `OrderNotExpired` | Cancel at or before `expires_at` |
 | 6011 | `NoFreshOraclePush` | No price push since the commit yet |
 | 6012 | `OracleStale` | Market price is 0 or older than `max_staleness_secs`, or the pool's `base_price_1e6` is 0 |
 | 6013 | `OracleConfidenceTooWide` | `Market.oracle_confidence` above `max_confidence_bps` |
 | 6014 | `OracleDeviationTooLarge` | Price moved more than `max_deviation_bps` from `swap_prev_price` |
-| 6015 | `WindowCapExceeded` | Rolling notional cap hit (`pool_swap`, `clp_swap`) |
-| 6016 | `CollateralFloorBreach` | Market collateral ratio below `collateral_floor_bps` |
+| 6015 | `WindowCapExceeded` | Rolling notional cap hit (`pool_swap`) |
+| 6016 | `CollateralFloorBreach` | Market collateral ratio below `collateral_floor_bps` at the settle price; the order stays pending |
 | 6017 | `InsufficientShares` | Unused (legacy LP shares) |
 | 6018 | `InsufficientFunds` | A vault, book or inventory can't cover the request |
 | 6019 | `InsufficientLiquidFunds` | `admin_withdraw` or `backstop_market` is larger than the global vault balance |
@@ -462,6 +467,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6041 | `NoPendingTreasuryChange` | `apply_treasury_limits` with nothing pending |
 | 6042 | `TreasuryChangeNotReady` | `apply_treasury_limits` before `pending_at` |
 | 6043 | `MarketMismatch` | A vault instruction named a market other than the CLP's own |
+| 6044 | `PoolClosedWhileLive` | `pool_swap` while the market's price is live: its risk state is `Normal`, or its last push is at most 300 s old |
 
 → [Full error catalog](/reference/errors)
 
@@ -508,11 +514,12 @@ const ix = await clp.methods
     usdcVault: getAssociatedTokenAddressSync(pool.usdcMint, longPool, true),
     tokenProgram: TOKEN_PROGRAM_ID,
     revenueAttribution,
+    market, // the mint-redeem Market, last
   })
   .instruction();
 ```
 
-On 10 Oct 2026 the read printed a centre of 751.27, a committed spread of 18 bps and `true` for the swap guards. A simulation of the instruction filled 10 cUSDC for 0.013257 QQQ-L. Send it in a transaction that first creates the user's synth ATA if it doesn't exist.
+On 10 Oct 2026 the read printed a centre of 751.27, a committed spread of 18 bps and `true` for the swap guards. A simulation of the instruction filled 10 cUSDC for 0.013257 QQQ-L. That was a Saturday, with QQQ's price stale; while its price is live, the same instruction fails with `PoolClosedWhileLive`. Send it in a transaction that first creates the user's synth ATA if it doesn't exist.
 
 ## See also
 

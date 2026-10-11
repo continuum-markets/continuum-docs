@@ -18,23 +18,23 @@ As of 11 Oct 2026:
 | QQQ | Invesco QQQ (Nasdaq-100 ETF) | 480 | 18 | NAV ± 18 bps | 1,884,831 |
 | SPY | SPDR S&P 500 ETF | 715 | 16 | NAV ± 15 bps | 1,693,972 |
 | XAU | Gold spot, USD per troy ounce | 4,683 | 18 | NAV ± 18 bps | 1,575,888 |
-| XAG | Silver spot, USD per troy ounce | 64.84 | 25 | Off | 1,284,032 |
-| NVDA | NVIDIA | 210.71 | 31 | Off | 1,272,447 |
-| AAPL | Apple | 298.17 | 22 | Off | 1,292,209 |
-| EUR | EUR/USD | 1.14746 | 10 | Off | 1,273,458 |
-| MSFT | Microsoft | 483.31864 | 29 | Off | 1,275,541 |
-| TSLA | Tesla | 362.79505 | 38 | Off | 1,263,894 |
-| AMZN | Amazon | 258.62 | 32 | Off | 1,268,942 |
-| GOOGL | Alphabet (Class A) | 344.72516 | 32 | Off | 1,268,326 |
-| GBP | GBP/USD | 1.36438 | 10 | Off | 1,273,554 |
-| JPY | USD/JPY (yen per dollar) | 158.986 | 10 | Off | 1,272,703 |
+| XAG | Silver spot, USD per troy ounce | 64.84 | 25 | On | 1,284,032 |
+| NVDA | NVIDIA | 210.71 | 31 | On | 1,272,447 |
+| AAPL | Apple | 298.17 | 22 | On | 1,292,209 |
+| EUR | EUR/USD | 1.14746 | 10 | On | 1,273,458 |
+| MSFT | Microsoft | 483.31864 | 29 | On | 1,275,541 |
+| TSLA | Tesla | 362.79505 | 38 | On | 1,263,894 |
+| AMZN | Amazon | 258.62 | 32 | On | 1,268,942 |
+| GOOGL | Alphabet (Class A) | 344.72516 | 32 | On | 1,268,326 |
+| GBP | GBP/USD | 1.36438 | 10 | On | 1,273,554 |
+| JPY | USD/JPY (yen per dollar) | 158.986 | 10 | On | 1,272,703 |
 | MSTR | MicroStrategy | 122.65 | 52 | Off | 1,278,382 |
 
 Every market set `initial_l_price` and `initial_s_price` to the same value, so its constant K is that price squared. No market has been re-anchored yet.
 
 The keeper posts one fee as both the mint fee and the redeem fee. All devnet markets run in ProxyMode, which charges 1.5× the posted fee, so QQQ's 18 bps costs 27 bps.
 
-Committed orders fill at NAV plus or minus the spread shown. On the 11 markets marked Off, `commit_swap` and the CLP's instant `clp_swap` revert with `SwapDisabled`, while the bin books still trade. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
+Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every market except MSTR, and they are the only way to trade while a market's price is live. On MSTR, marked Off, `commit_swap` reverts with `SwapDisabled`. The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
 
 Each market's `Clp` stores an OI cap of 250,000 cUSDC, which nothing enforces yet. The bin books charge no swap fee.
 
@@ -47,7 +47,7 @@ On devnet the keeper prices every market from a public quote source. Before each
 | **GlobalClp PDA** | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` |
 | **GlobalClp vault** (the treasury) | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
 | **`TreasuryPolicy` PDA** | `58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` |
-| **`RevenueAttribution` PDA** (last account of `pool_swap`) | `A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` |
+| **`RevenueAttribution` PDA** (a `pool_swap` account, just before the market) | `A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` |
 
 Each market keeps its collateral in its own vault, the cUSDC ATA of its Market PDA, listed in its table below. QQQ, SPY and XAU moved there from the shared unified vault on 11 Oct 2026, and that vault now holds 0 cUSDC.
 
@@ -267,7 +267,7 @@ Derive the PDAs from the market symbol rather than copying them by hand. [Addres
 
 ## Trading hours
 
-Mint and redeem aren't 24/7. They revert with `TwapNotAvailable` once the keeper's last price is more than 300 s old, and the keeper pushes no prices while the underlying is closed. The bin books stay open around the clock. While mint and redeem are frozen, the keeper caps each of the seven single-stock books at \$1,250 a side.
+Mint and redeem aren't 24/7. They revert with `TwapNotAvailable` once the keeper's last price is more than 300 s old, and the keeper pushes no prices while the underlying is closed. The bin books are the reverse: they fill only while mint and redeem are frozen, and the keeper then caps each of the seven single-stock books at \$1,250 a side. While prices are pushing, trades go through committed orders.
 
 → [Concepts → Markets → Trading hours](/concepts/markets#trading-hours)
 

@@ -17,17 +17,21 @@ description: Continuum-specific terms in one place.
 
 **Base price** - A book's posted centre, `Pool.base_price_1e6`: NAV moved by the inventory centre-shift, or the last price during free float. Ask bins ladder above it, bid bins below.
 
-**Bid cap** - Keeper inventory rule: standing bid cUSDC is held at $5,000 per side (`CLMM_BID_TARGET_USD`). The excess goes to the CLP vault, and bids that sellers spent are refilled from it. Large sells use committed orders on the markets that have them.
+**Bid cap** - Keeper inventory rule: standing bid cUSDC is held at $5,000 per side (`CLMM_BID_TARGET_USD`). The excess goes to the CLP vault, and bids that sellers spent are refilled from it. Large sells use committed orders while the market is open.
 
 **Bin step** - The spacing between bins, in bps. Books use a fine core step for the first `core_bins` bins and a wide wing step beyond. On the live books the core is 10 to 50 bps over 3 bins and the wings 200 to 700 bps.
 
 **bps** (basis points) - 1 bps = 0.01%. Fees are quoted in bps: `mint_fee_bps = 18` means 0.18%.
 
-**CLP** (Continuous Liquidity Provider) - Continuum's on-chain treasury and trading program. It holds protocol capital and hosts the bin books, committed orders and the instant oracle swap. → [CLP concept](/concepts/clp).
+**Buffer target** - A market's overcollateralization target over parity, `Market.buffer_target_bps`, which the keeper posts with `set_buffer_target`. The target collateral ratio is 100% plus the buffer. Since 11 Oct 2026 each market has a fixed buffer from a jump-diffusion Monte Carlo, from 2% (QQQ, SPY, XAU and FX) to 24% (MSTR). On chain it gates only the donor fee waiver, how much excess a market can shed, and the donation gap-to-target credit; mints and redeems don't depend on it. The program clamps any target to 101% to 150%. → [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer).
+
+**CLP** (Continuous Liquidity Provider) - Continuum's on-chain treasury and trading program. It holds protocol capital and hosts committed orders and the bin books. The instant oracle swap it also hosted was retired on 11 Oct 2026. → [CLP concept](/concepts/clp).
 
 **CNTM** - Continuum's planned governance token. Not active.
 
-**Committed order** - The large-trade venue. `commit_swap(side, direction, amount_in, min_out, nonce)` escrows the input, which fills at NAV ± `max(commit_spread_bps, 10)` bps at any keeper push after the commit. The keeper posts `clamp(half-spread, 10, 500)` bps. As of 10 Oct 2026 only QQQ (18), SPY (15) and XAU (18) accept committed orders. After the 180 s TTL, the owner can sign `cancel_swap` to refund an unfilled order. → [Trade flow](/flows/trade).
+**Collateral floor** - `swap_guards.collateral_floor_bps`: the lowest collateral ratio, at the settle price, at which a committed order can fill. It is 100% on every market with swap guards on. Below it the order waits for a later push, and the keeper's treasury backstop tops the market up.
+
+**Committed order** - The open-hours venue, at any size. `commit_swap(side, direction, amount_in, min_out, nonce)` escrows the input, which fills at NAV ± `max(commit_spread_bps, 10)` bps at any keeper push after the commit. The keeper posts `clamp(half-spread, 10, 500)` bps; on 10 Oct 2026 that was 18 on QQQ, 15 on SPY and 18 on XAU. Since 11 Oct 2026 every market except MSTR accepts committed orders. A fill waits while the market is below its collateral floor or the price fails the oracle checks. After the 180 s TTL, anyone can send `cancel_swap` to refund an unfilled order to its owner, and the keeper does so about 5 s after expiry. → [Trade flow](/flows/trade).
 
 **Confidence interval** - The uncertainty band around a pushed price, stored as `Market.oracle_confidence`. On devnet it comes from a GJR-GARCH volatility model. Worst-case quoting widens mint and redeem quotes by it.
 
@@ -41,7 +45,7 @@ description: Continuum-specific terms in one place.
 
 **Drift gate (reposition gate)** - The move in a book's target centre that triggers a re-centre: 20 bps by default (`CLMM_REPOSITION_BPS`), cut further so the book moves before NAV reaches the floor of its first funded bin.
 
-**Dynamic buffer** - The overcollateralization target the keeper posts per market (`set_buffer_target`): `B = δ²/2 + |q|·δ + margin`, with δ scaled to volatility and `q` fixed at 0.3. The keeper never posts below 102%; the program clamps any target to 101% to 150%.
+**Dynamic buffer** - The formula the keeper used to compute each market's buffer target live from realized volatility, `B = δ²/2 + |q|·δ + margin`. Fixed per-market targets replaced it on 11 Oct 2026. See Buffer target.
 
 **Fee waiver** - A grant created by `donate_to_vault` that lets the donor mint and redeem fee-free for a period, through `mint_paired_with_waiver` and `redeem_paired_with_waiver`. It applies only while the market's vault is above its target ratio. The app no longer offers it.
 
@@ -55,7 +59,7 @@ description: Continuum-specific terms in one place.
 
 **`initial_l_price` / `initial_s_price`** - Anchors set when a market is initialized. Their product is K in the NAV formulas. NAV never falls back to them. `reanchor_gamma` folds γ into `initial_s_price`.
 
-**Instant depth** - The book's standing bin liquidity: what a `pool_swap` can fill immediately. Deliberately lean.
+**Instant depth** - The book's standing bin liquidity: what a `pool_swap` can fill immediately while the market's price is stale. Deliberately lean.
 
 **Inventory centre-shift** - The keeper's shift of each book's centre to work off the protocol's own inventory. When the public holds more L than S, the CLP holds the extra S, so the long book is quoted dearer and the short book cheaper. At most half the narrower leg's half-spread. On by default.
 
@@ -83,7 +87,7 @@ description: Continuum-specific terms in one place.
 
 **NAV** (Net Asset Value) - The on-chain protocol price for L and S, used by mint and redeem. → [NAV math](/concepts/nav).
 
-**Native book / bin book** - Continuum's own per-leg quote book: one `Pool` account per market and side, up to 16 bins stored inline (no per-bin rent), filled by `pool_swap`. Each bin holds a fixed amount at a fixed price, and a swap walks outward from the centre. The `CLMM_*` keeper variables and `clmm.rs` keep an older label. → [What the book actually is](/concepts/clp#what-the-book-actually-is).
+**Native book / bin book** - Continuum's own per-leg quote book: one `Pool` account per market and side, up to 16 bins stored inline (no per-bin rent), filled by `pool_swap` only while the market's price is stale (`PoolClosedWhileLive` otherwise). Each bin holds a fixed amount at a fixed price, and a swap walks outward from the centre. The `CLMM_*` keeper variables and `clmm.rs` keep an older label. → [What the book actually is](/concepts/clp#what-the-book-actually-is).
 
 **OI** (Open Interest) - Outstanding token supply, tracked per leg on the `Market` account (`total_l_supply`, `total_s_supply`).
 
@@ -127,7 +131,9 @@ description: Continuum-specific terms in one place.
 
 **Stress** - The risk state for extreme confidence or staleness. Mint and redeem are both blocked by default: `allow_mint_in_stress` and `allow_redeem_in_stress` are false on every live market.
 
-**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held 18,524,820.82 cUSDC on 11 Oct 2026, after the keeper's liquidity reallocator returned idle CLP cash to it. `backstop_market` moves it into a market's collateral with no limit. `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
+**Swap guards** - `Clp.swap_guards`, set with `configure_swap`: whether a market takes committed orders (`enabled`, `frozen`), plus the price checks and the collateral floor that `settle_swap` applies. On for every market except MSTR since 11 Oct 2026. → [Trade flow](/flows/trade#committed-orders).
+
+**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held about 22.13M cUSDC after the keeper's liquidity reallocator returned idle CLP cash to it on 11 Oct 2026. `backstop_market` moves it into a market's collateral with no limit. The keeper does that when a market falls below 100% or stays short of its posted target, filling to that target, at most 112% (102% for MSTR). `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
 
 **TWAP** (Time-Weighted Average Price) - A price averaged over a window. The oracle program keeps TWAPs in `OracleConfig`, but nothing updates them on devnet. `Market.user_twap_price` is a spot price despite its name.
 
@@ -137,7 +143,7 @@ description: Continuum-specific terms in one place.
 
 **Vault** (collateral vault) - The token account holding a market's backing cUSDC (`market.collateral_vault`). Every market has its own: the cUSDC ATA of its Market PDA. QQQ, SPY and XAU shared the unified vault (PDA `[b"unified_vault"]`, `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`) until 11 Oct 2026. It holds 0 cUSDC, and that day's upgrade removed it from the program.
 
-**Venue split** - Routing by size: bin books for instant trades on all 14 markets, and committed orders plus the instant oracle swap (`clp_swap`) on QQQ, SPY and XAU. All price off the same keeper-pushed NAV.
+**Venue split** - Routing by market state: committed orders while a market's price is live (every market except MSTR), and the bin books while it is stale. The instant oracle swap (`clp_swap`) was retired on 11 Oct 2026. Both venues price off the same keeper-pushed NAV.
 
 **Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ`, redeem L at P − c and S at `K / (P + c) × γ`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
 

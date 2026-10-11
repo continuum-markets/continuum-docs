@@ -39,10 +39,10 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
 
     In the trade panel, choose **Long (QQQL)** or **Short (QQQS)**, then **Buy** or **Sell**. **Sell** appears only when you hold that leg. Enter an amount and submit. Selling your QQQS leaves you long QQQ (QQQL plus cUSDC); selling your QQQL leaves you short.
 
-    Instant trades fill from the leg's bin book at the bin prices posted there, with no swap fee. On QQQ, SPY and XAU (as of 10 Oct 2026) you can also send a committed order while the market is open: choose **next print** under **Execution**. Buys above 5,000 cUSDC switch to one automatically. A committed order fills at NAV ± the posted commit spread, at a price pushed after you submit. If none arrives within 180 s, **Cancel & refund (TTL elapsed)** returns your input. While the market is closed, the panel says **Market closed. You can still trade.**, **next print** is disabled, and every order fills instantly from the book.
+    While the market is open, every order is a committed order (every market except MSTR). It fills at NAV ± the posted commit spread, at the next price pushed after you submit. If it can't fill within 3 minutes, the keeper returns your input automatically, and a **Refund now** button appears if it hasn't come back a minute after the deadline. While the market is closed, the panel says **Market closed. You can still trade.** and offers the leg's bin book, which fills instantly at prices around the last close up to a capped size, or the [order book](/flows/order-book), where you trade with other traders.
   </Step>
   <Step title="Redeem">
-    To exit at NAV, go back to [/mint](https://continuum.markets/mint) and choose **Redeem**. Redeem burns both legs together, so you need some of each. Enter a cUSDC amount, and the app redeems the same fraction of each leg you hold. The value must be at least 10 cUSDC. If you sold one leg, buy some back on its book first, or sell the remaining leg instead.
+    To exit at NAV, go back to [/mint](https://continuum.markets/mint) and choose **Redeem**. Redeem burns both legs together, so you need some of each. Enter a cUSDC amount, and the app redeems the same fraction of each leg you hold. The value must be at least 10 cUSDC. If you sold one leg, buy some back first, or sell the remaining leg instead.
 
     Click **Redeem paired tokens**. You receive cUSDC at NAV, less the redeem fee (also 0.27% on QQQ as of 10 Oct 2026). A round trip at an unchanged price costs about the two fees combined.
   </Step>

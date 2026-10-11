@@ -73,27 +73,27 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 
 Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
 
-Codes 6003 to 6016 are swap errors from `pool_swap`, `clp_swap` and the committed-order instructions. 6031 and 6032 come only from the legacy Meteora instructions, which the live bin books don't use.
+Codes 6003 to 6016 and 6044 are swap errors from `pool_swap` and the committed-order instructions. `clp_swap`, retired on 11 Oct 2026, always fails with 6003. 6031 and 6032 come only from the legacy Meteora instructions, which the live bin books don't use.
 
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
 | 6000 | `0x1770` | `Unauthorized` | `Unauthorized` | The signer isn't the required authority (`clp.authority`, `pool.authority`, `GlobalClp.authority` or the treasury guardian), or `deposit_profit`'s admin token account isn't owned by `GlobalClp.admin_wallet`. |
 | 6001 | `0x1771` | `WithdrawalLocked` | `Withdrawal locked for 7 days after deposit` | Never raised. |
 | 6002 | `0x1772` | `InvalidAmount` | `Invalid amount` | A zero amount, or out-of-range pool or book parameters. |
-| 6003 | `0x1773` | `SwapDisabled` | `Swap path disabled (configure_swap enabled=true)` | `pool_swap` on a book that isn't `enabled` or is `frozen`, or `clp_swap` / `commit_swap` on a market whose swap path is off in `configure_swap`. As of 10 Oct 2026 the swap path is on only for QQQ, SPY and XAU, so committed orders and `clp_swap` revert on the other 11 markets. `pool_swap` works on all 14. |
-| 6004 | `0x1774` | `SwapFrozen` | `Swaps frozen (circuit breaker)` | `commit_swap`, `clp_swap` or a settlement while the market's swap guards are frozen. |
+| 6003 | `0x1773` | `SwapDisabled` | `Swap path disabled (configure_swap enabled=true)` | Every `clp_swap`: the instant oracle swap was retired on 11 Oct 2026, and the instruction now only returns this error. Also `pool_swap` on a book that isn't `enabled` or is `frozen`, and `commit_swap` on a market whose swap guards are off in `configure_swap`. As of 11 Oct 2026 the guards are on for every market except MSTR, so committed orders revert there. |
+| 6004 | `0x1774` | `SwapFrozen` | `Swaps frozen (circuit breaker)` | `commit_swap` or a settlement while the market's swap guards are frozen. |
 | 6005 | `0x1775` | `InvalidSide` | `Invalid swap side/direction` | `side` or `direction` isn't 0 or 1. |
 | 6006 | `0x1776` | `SwapAccountMismatch` | `Swap account mismatch (mint/owner)` | A token account's mint or owner doesn't match the pool, market or order, or the pool or CLP account belongs to another market. |
-| 6007 | `0x1777` | `MarketInactive` | `Market inactive` | `clp_swap` or `commit_swap` on a market with `is_active` false. |
-| 6008 | `0x1778` | `SlippageExceeded` | `Slippage exceeded (output below min_out)` | The fill is below `min_out` (`pool_swap`, `clp_swap`). A committed order that misses `min_out` is refunded at settlement instead. |
-| 6009 | `0x1779` | `OrderExpired` | `Order expired — use cancel_swap to refund` | `settle_swap` after the 180 s TTL. Sign `cancel_swap` to get the escrow back. |
-| 6010 | `0x177a` | `OrderNotExpired` | `Order not yet expired — wait for settlement or the TTL` | `cancel_swap` before the 180 s TTL has passed. |
+| 6007 | `0x1777` | `MarketInactive` | `Market inactive` | `commit_swap` on a market with `is_active` false. |
+| 6008 | `0x1778` | `SlippageExceeded` | `Slippage exceeded (output below min_out)` | The fill is below `min_out` (`pool_swap`). A committed order that misses `min_out` is refunded at settlement instead. |
+| 6009 | `0x1779` | `OrderExpired` | `Order expired — use cancel_swap to refund` | `settle_swap` after the 180 s TTL. The keeper refunds the order about 5 s after expiry, and anyone can send `cancel_swap` to return the escrow to its owner. |
+| 6010 | `0x177a` | `OrderNotExpired` | `Order not yet expired — wait for settlement or the TTL` | `cancel_swap` before the 180 s TTL has passed. Nobody can cancel an order before it expires. |
 | 6011 | `0x177b` | `NoFreshOraclePush` | `No oracle push strictly newer than the commit yet` | `settle_swap` before a keeper price push newer than the commit. Retry after the next push. |
-| 6012 | `0x177c` | `OracleStale` | `Oracle/TWAP stale` | `pool_swap` on a book with no posted price, or `clp_swap` / `settle_swap` with a price older than the market's `max_staleness_secs`. |
-| 6013 | `0x177d` | `OracleConfidenceTooWide` | `Oracle confidence too wide` | `clp_swap` / `settle_swap` with confidence wider than `max_confidence_bps` of the price. |
-| 6014 | `0x177e` | `OracleDeviationTooLarge` | `Oracle deviation too large` | `clp_swap` / `settle_swap` with a price more than `max_deviation_bps` from the last accepted price. |
-| 6015 | `0x177f` | `WindowCapExceeded` | `Swap window notional cap exceeded` | The trade would push the market's rolling notional total past `window_cap_usd` for the current `window_secs`. `pool_swap` and `clp_swap` share the window. |
-| 6016 | `0x1780` | `CollateralFloorBreach` | `Collateral floor breach` | `clp_swap` / `settle_swap` while the market's collateral is below `collateral_floor_bps` of its liability at NAV. |
+| 6012 | `0x177c` | `OracleStale` | `Oracle/TWAP stale` | `pool_swap` on a book with no posted price, or `settle_swap` with a price older than the market's `max_staleness_secs`. A committed order stays pending for a later push. |
+| 6013 | `0x177d` | `OracleConfidenceTooWide` | `Oracle confidence too wide` | `settle_swap` with confidence wider than `max_confidence_bps` of the price. The limit is 5,000 bps on every market with guards on, so in practice it doesn't fire. |
+| 6014 | `0x177e` | `OracleDeviationTooLarge` | `Oracle deviation too large` | `settle_swap` with a price more than `max_deviation_bps` from the last accepted price. The limit is 10,000 bps on every market with guards on, which turns the check off; the price write itself refuses a move of more than 25%. |
+| 6015 | `0x177f` | `WindowCapExceeded` | `Swap window notional cap exceeded` | A `pool_swap` would push the market's rolling notional total past `window_cap_usd` for the current `window_secs`. Committed fills don't count. |
+| 6016 | `0x1780` | `CollateralFloorBreach` | `Collateral floor breach` | `settle_swap` while the market's collateral is below `collateral_floor_bps` of its liability at NAV, 100% on every market with guards on. The order stays pending and fills at a later push once the keeper has topped the market up from the treasury. |
 | 6017 | `0x1781` | `InsufficientShares` | `Insufficient LP shares` | Never raised. |
 | 6018 | `0x1782` | `InsufficientFunds` | `Insufficient clp funds` | The book or CLP inventory can't fill the order (zero output or a short balance), or an operator transfer exceeds a vault balance. |
 | 6019 | `0x1783` | `InsufficientLiquidFunds` | `Insufficient liquid funds in vault. Wait for keeper to rebalance or perform forced DEX liquidation.` | `admin_withdraw` or `backstop_market` above the global vault's balance. |
@@ -121,6 +121,7 @@ Codes 6003 to 6016 are swap errors from `pool_swap`, `clp_swap` and the committe
 | 6041 | `0x1799` | `NoPendingTreasuryChange` | `No pending treasury change` | `apply_treasury_limits` with nothing pending. |
 | 6042 | `0x179a` | `TreasuryChangeNotReady` | `The pending treasury change is still inside its delay` | `apply_treasury_limits` before `pending_at`. |
 | 6043 | `0x179b` | `MarketMismatch` | `Market is not this CLP's market` | `vault_mint_pairs`, `vault_redeem_pairs` or `vault_redeem_single` with a market other than the CLP's own. |
+| 6044 | `0x179c` | `PoolClosedWhileLive` | `The book trades only while the market is closed; use a committed order` | `pool_swap` while the market's price is live: its risk state is `Normal`, or its last price push is at most 300 s old. Send a committed order instead. The book reopens once the price is more than 300 s old outside `Normal`. |
 
 ## oracle
 
@@ -203,15 +204,19 @@ Program log: AnchorError thrown in programs/mint-redeem/src/lib.rs:2826. Error C
 
 ### Mint or redeem fails with `TwapNotAvailable` (6012)
 
-The market's price is 0 or more than 300 s old. The keeper doesn't push prices while the underlying market is closed (for equities, nights and weekends), so mint and redeem stay closed until it reopens. The bin books keep trading in the meantime. If it happens during market hours and persists, check #announcements on [Discord](https://discord.gg/U5hPCB8ufJ), where the team posts outages, or ask in #help.
+The market's price is 0 or more than 300 s old. The keeper doesn't push prices while the underlying market is closed (for equities, nights and weekends), so mint and redeem stay closed until it reopens. The bin books trade in the meantime. If it happens during market hours and persists, check #announcements on [Discord](https://discord.gg/U5hPCB8ufJ), where the team posts outages, or ask in #help.
 
 ### Mint or redeem fails with `MintNotAllowedInStress` or `RedeemNotAllowedInStress`
 
-The market is in `Stress`, which blocks both mint and redeem on every live market. Read `market.riskState` and surface it to the user as "mint and redeem paused". The bin books stay open.
+The market is in `Stress`, which blocks both mint and redeem on every live market. Read `market.riskState` and surface it to the user as "mint and redeem paused". Committed orders still fill while the keeper pushes prices.
 
 ### Redeem fails with `InvalidAmount` (6001)
 
-Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. Sell a lone leg on its bin book, or through a committed order on QQQ, SPY and XAU. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
+Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. Sell a lone leg with a committed order while the market is open (every market except MSTR), or on its bin book while its price is stale. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
+
+### `pool_swap` fails with `PoolClosedWhileLive` (6044)
+
+The market's price is live, and the bin books trade only while it is stale. Send a committed order (`commit_swap`) instead; it fills at the next price push. See [Trade](/flows/trade).
 
 ### Mint or redeem fails with `BelowMinimum` (6019)
 

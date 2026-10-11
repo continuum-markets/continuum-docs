@@ -26,9 +26,9 @@ User clicks "Buy QQQ long" with 100 cUSDC
 
 The short wrapper sells the L leg instead. The amounts use QQQ's devnet state on 10 Oct 2026, where the 27 bps mint fee leaves 99.73 cUSDC split evenly between the legs.
 
-Build both instructions into one transaction: `mint_paired` and `pool_swap` settle atomically for amounts the bin book can absorb. For larger size on QQQ, SPY or XAU, mint and then sell the unwanted leg with `commit_swap`. A committed order fills at NAV ± `max(commit_spread_bps, 10)` bps at a keeper price push after the commit. The keeper posts the spread as `clamp(half-spread, 10, 500)` bps: 18 for QQQ, 15 for SPY and 18 for XAU as of 10 Oct 2026. Settlement still fails if the CLP's inventory or the market's collateral floor can't cover the order. An unfilled order expires after 180 s, and the user signs `cancel_swap` to get the escrow back.
+Mint, then sell the unwanted leg with `commit_swap`. A committed order fills at NAV ± `max(commit_spread_bps, 10)` bps at a keeper price push after the commit. The keeper posts the spread as `clamp(half-spread, 10, 500)` bps: 18 for QQQ, 15 for SPY and 18 for XAU as of 10 Oct 2026. Settlement waits while the market is below its 100% collateral floor or the price fails the oracle checks, and reverts until the keeper provisions the CLP's inventory. An unfilled order expires after 180 s, and the keeper refunds it about 5 s later; anyone can send that `cancel_swap`, and the escrow goes back to the user. `mint_paired` and `pool_swap` can't share a transaction: mint needs a price at most 300 s old, and the bin books fill only once it is older than that.
 
-Committed orders work only on QQQ, SPY and XAU today. On the other 11 markets the CLP's `swap_guards.enabled` is false, so `commit_swap` reverts with `SwapDisabled`. The bin books ignore swap guards and trade on all 14 markets.
+Committed orders work on every market except MSTR, whose `swap_guards.enabled` is false, so `commit_swap` reverts there with `SwapDisabled`. The bin books ignore swap guards but fill only while a market's price is stale.
 
 ## 2. Arb bot
 
@@ -39,18 +39,18 @@ loop:
     for each (market, side) book:
         nav    = NAV from the Market account (see /build/reading-prices)
         centre = Pool.base_price_1e6
-        if a fast move left in-the-money bins before the keeper re-posted the book:
+        if the price is stale (the book is open) and a move elsewhere left in-the-money bins:
             take them with pool_swap (no privilege needed)
             close the position with the paired round trip (mint or redeem)
 ```
 
 What to know before building one:
 
-- The window lasts until the keeper re-posts the book, and the take is capped by the depth of the in-the-money bins.
-- Closing a one-sided position without price risk needs the paired round trip. Its hurdle is the mint or redeem fee (posted at 10 to 52 bps as of 10 Oct 2026, then multiplied by 1.5 in ProxyMode) plus the book's spread. Near NAV it rarely clears.
-- `settle_swap` is permissionless: anyone can crank a pending committed order, for no reward. It still depends on the keeper, because an order settles only at a price push newer than its commit. If the keeper stops pushing, orders expire after 180 s and each user has to sign `cancel_swap`.
+- The books fill only while the market's price is stale. The window lasts until the keeper's guard pulls the stale side or a fresh push closes the book, and the take is capped by the depth of the in-the-money bins.
+- Closing a one-sided position needs the paired round trip. Mint and redeem reopen only with the next fresh price, so the position carries price risk until then. The round trip's hurdle is the mint or redeem fee (posted at 10 to 52 bps as of 10 Oct 2026, then multiplied by 1.5 in ProxyMode) plus the book's spread. Near NAV it rarely clears.
+- `settle_swap` is permissionless: anyone can crank a pending committed order, for no reward. It still depends on the keeper, because an order settles only at a price push newer than its commit. If the keeper stops pushing, orders expire after 180 s, and anyone can then send `cancel_swap` to return the escrow to its owner.
 
-A settlement watchdog is more useful here than an arb engine: crank pending orders after each push, and tell users when an order has expired.
+A settlement watchdog is more useful here than an arb engine: crank pending orders after each push, and refund orders that have expired.
 
 ## 3. Structured products
 
@@ -150,10 +150,10 @@ Schedule rebalances inside market hours. Mint and redeem revert once a price is 
 
 A user who wants short QQQ exposure has two paths inside Continuum:
 
-1. Mint a pair and sell the L leg on the bin book.
-2. Buy QQQ S on the bin book with `pool_swap`, or, for size, with a committed order.
+1. Mint a pair and sell the L leg with a committed order.
+2. Buy QQQ S with a committed order while QQQ is open, or on the bin book with `pool_swap` while its price is stale.
 
-A router can quote both, along with any outside venue, and take the cheaper. On markets other than QQQ, SPY and XAU, the committed-order path isn't available today.
+A router can quote both, along with any outside venue, and take the cheaper. On MSTR the committed-order path isn't available.
 
 ## 9. Pre-trade quotes
 
@@ -193,9 +193,9 @@ A history of book depth, NAV and spreads is a useful dataset for trading and ana
 ## Patterns we like
 
 - Use the Market price as the price of record. Every mint, redeem and committed order uses it, and the keeper writes it.
-- Route by size. Send small trades to `pool_swap`. On QQQ, SPY and XAU, send anything that would walk the book to `commit_swap`, which fills at NAV ± the committed spread within the CLP's inventory and the collateral floor. Mint or redeem when you want the pair itself.
+- Route by market state. While a market's price is live, send trades to `commit_swap` (every market except MSTR), which fills at NAV ± the committed spread within the CLP's inventory and the 100% collateral floor. While it is stale, `pool_swap` fills small trades instantly. Mint or redeem when you want the pair itself.
 - Watch the risk state. Stress blocks mint and redeem by default, so show it to the user.
-- Plan for gaps in keeper pushes. After 300 s without a push, mint and redeem revert with `TwapNotAvailable` and committed orders can't settle. That happens whenever the underlying market is closed. The bin books keep trading.
+- Plan for gaps in keeper pushes. After 300 s without a push, mint and redeem revert with `TwapNotAvailable` and committed orders can't settle. That happens whenever the underlying market is closed. The bin books open then.
 
 ## Patterns to avoid
 

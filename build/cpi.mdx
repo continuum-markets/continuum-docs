@@ -13,7 +13,7 @@ Your on-chain program can mint and redeem Continuum pairs through cross-program 
 
 Most integrations don't need CPI. Bots and frontends sign transactions directly; CPI is for protocols that run on chain themselves.
 
-Only the public instructions are open to other programs. `mint_paired` and `redeem_paired` need no signer beyond the owner of the tokens. `pool_swap`, `commit_swap` and `settle_swap` in the CLP program are public too, though committed orders are enabled on QQQ, SPY and XAU only as of 10 Oct 2026. The rest check fixed signers stored on chain:
+Only the public instructions are open to other programs. `mint_paired` and `redeem_paired` need no signer beyond the owner of the tokens. `pool_swap`, `commit_swap` and `settle_swap` in the CLP program are public too, as is `cancel_swap` once an order has expired. Committed orders are enabled on every market except MSTR, and `pool_swap` fills only while the market's price is stale. The rest check fixed signers stored on chain:
 
 - `keeper_mint_single`, `keeper_redeem_single` and the other keeper instructions require `market.keeper_authority`.
 - CLP book and inventory instructions (`set_pool_shape`, `pool_sweep_synth`, `pool_sweep_usdc`, `vault_mint_pairs`) require the CLP or pool authority.

@@ -138,7 +138,7 @@ Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at 
 
 #### `mint_paired_with_waiver` and `redeem_paired_with_waiver`
 
-Same arguments as `mint_paired` and `redeem_paired`. The accounts are the base accounts nested under `base`, plus the caller's `feeWaiver`. The fee is 0 when the waiver hasn't expired, the price is at most 300 s old and the market's collateral ratio is at or above its target ratio (102% on every market as of 10 Oct 2026). Otherwise the normal fee applies.
+Same arguments as `mint_paired` and `redeem_paired`. The accounts are the base accounts nested under `base`, plus the caller's `feeWaiver`. The fee is 0 when the waiver hasn't expired, the price is at most 300 s old and the market's collateral ratio is at or above its target ratio (102% to 124% by market since 11 Oct 2026; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)). Otherwise the normal fee applies.
 
 #### `donate_to_vault(amount: u64)`
 
@@ -166,7 +166,7 @@ The keeper's price write. It maps the price and the confidence through the corpo
 
 #### `set_buffer_target(buffer_target_bps: u16)`
 
-Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The target gates fee waivers, donations, excess withdrawals and rebalances.
+Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The keeper posts a fixed value per market, and only when it differs from the stored one; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). The target gates only three things: the fee waiver, the waiver credit a donation earns for closing the gap to target, and how much excess a market can shed (`withdraw_excess_to_clp`, `rebalance_collateral`). Mints and redeems don't read it.
 
 #### `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`
 
@@ -202,9 +202,9 @@ Fees at most 1,000 bps each; `dev_tax_pct` at most 25. The keeper posts fees thr
 
 Rotate the keeper signer, repoint the oracle account (validated like `initialize_market`), or change the fee recipient.
 
-#### `configure_risk_fees(proxy_fee_multiplier?, stress_fee_multiplier?, stress_mint_cap?, allow_mint_in_stress?, allow_redeem_in_stress?)`
+#### `configure_risk_fees(params: ConfigureRiskFeesParams)`
 
-Sets the fields of `risk_fee_config`. Multipliers use 100 = 1×.
+`ConfigureRiskFeesParams { proxy_fee_multiplier, stress_fee_multiplier, stress_mint_cap, allow_mint_in_stress, allow_redeem_in_stress }`, every field optional. Sets the fields of `risk_fee_config`; a field left `None` is unchanged. Multipliers use 100 = 1×. The struct holds the separate arguments the instruction took until 11 Oct 2026, with the same fields in the same order, so the bytes on the wire are unchanged.
 
 #### `configure_worst_case_quoting(enabled?, normal_multiplier?, proxy_multiplier?, stress_multiplier?)`
 
@@ -259,7 +259,7 @@ Tops up a market's collateral from the authority's own cUSDC account. It transfe
 | 4 | `funder_collateral` (mut) | Mint must be the collateral mint (`InvalidAmount`) and owner must be `funder` (`Unauthorized`) |
 | 5 | `token_program` | SPL Token |
 
-The CLP's [`backstop_market`](/programs/clp#treasury) calls it with the `GlobalClp` PDA as funder.
+The CLP's [`backstop_market`](/programs/clp#treasury) calls it with the `GlobalClp` PDA as funder. The keeper sends that backstop when a market falls below 100% or stays short of its target.
 
 #### `enable_multi_collateral()`, `add_collateral_vault(collateral_type, weight_bps)`, `update_collateral_vault(collateral_mint, is_active?, weight_bps?)`
 

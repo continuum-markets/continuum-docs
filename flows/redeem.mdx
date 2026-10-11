@@ -79,12 +79,12 @@ await program.methods
 
 If you minted and then sold one side, you hold the other side alone, and the program won't redeem it on its own. Sell it instead:
 
-- On its [bin book](/flows/trade#bin-books) with `pool_swap`. The fill is instant, at the book's prices, with slippage that grows with size.
-- With a [committed order](/flows/trade#committed-orders). It fills at NAV minus the market's commit spread, at a keeper price push after you commit. As of 10 Oct 2026 committed orders run only on QQQ, SPY and XAU.
+- With a [committed order](/flows/trade#committed-orders) while the market is open. It fills at NAV minus the market's commit spread, at a keeper price push after you commit. Committed orders run on every market except MSTR.
+- On its [bin book](/flows/trade#bin-books) with `pool_swap` while the market's price is stale. The fill is instant, at the book's prices, with slippage that grows with size.
 
 If you hold both legs, in any ratio, one `redeem_paired` can burn all of them. Your profit or loss is all the cUSDC you received, from redeems and sales, minus what you paid to mint.
 
-For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee was 27 bps as of 10 Oct 2026. The first bins of a QQQ book sit one 20 bps core step from the book's centre, which the keeper shifts with the CLP's inventory, and larger sales walk into wider bins. A committed sale pays the commit spread, 18 bps on QQQ that day, one leg at a time.
+For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee was 27 bps as of 10 Oct 2026. A committed sale pays the commit spread, 18 bps on QQQ that day, one leg at a time. The bin books trade only while mint and redeem are frozen; there the first bins of a QQQ book sit one 20 bps core step from the book's centre, which the keeper shifts with the CLP's inventory, and larger sales walk into wider bins.
 
 ## Limits
 
@@ -152,6 +152,6 @@ The rest of the fee never leaves the vault. The program then emits `PairedAction
     The inverse: deposit cUSDC and receive both legs.
   </Card>
   <Card title="Trade" icon="chart-mixed" href="/flows/trade">
-    Bin books, committed orders and the instant oracle swap.
+    Committed orders and the bin books.
   </Card>
 </CardGroup>
