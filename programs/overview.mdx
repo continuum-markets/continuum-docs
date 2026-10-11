@@ -12,10 +12,9 @@ Continuum runs on five programs built with Anchor 0.32.1. They are deployed on *
 | [`oracle`](/programs/oracle) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` | A per-market `OracleConfig` and Pyth feed registry. It is not updated on devnet; markets are priced from `Market.user_twap_price`. |
 | [`registry`](/programs/registry) | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` | Symbol entries that point at mints and venues. Deployed and initialized, but it holds no markets and nothing reads it yet. |
 | [`faucet`](/programs/faucet) (devnet only) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` | Drips 1,000 cUSDC per wallet every 24 h. |
-| [`auction`](/flows/auction) | `HJ9AaPoBtGDEe7qVrdP2iakQ8qGtoEHWFK75NKpCuej5` | The off-hours call auction: two books per market where traders match with each other every 5 minutes at one price. It holds only traders' escrow and reads `Market` for each batch's centre price. |
 | [`trading`](/flows/order-book) | `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA` | Trading accounts over the Manifest order books. The owner's wallet funds and withdraws; a trading key in the browser places and cancels orders within a price band and a per-order limit, and can never withdraw. It reads `Market` for the band's centre and holds nothing but the traders' own book funds. |
 
-A sixth program, governance (`6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT`), is deployed on devnet but inactive. None of the five programs, the keeper or the app calls it, and it has no published IDL.
+A seventh program, governance (`6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT`), is deployed on devnet but inactive. None of the six programs, the keeper or the app calls it, and it has no published IDL.
 
 ## How they relate
 
