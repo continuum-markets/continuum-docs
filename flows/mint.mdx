@@ -56,7 +56,7 @@ Names are as in Anchor's TypeScript client.
 | `userLongAccount` (mut) | Token account for `market.long_mint`. Must already exist |
 | `userShortAccount` (mut) | Token account for `market.short_mint`. Must already exist |
 | `longMint`, `shortMint` (mut) | `market.long_mint` and `market.short_mint` |
-| `collateralVault` (mut) | `market.collateral_vault`. QQQ, SPY and XAU share the unified vault `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`; the other 11 markets each have their own |
+| `collateralVault` (mut) | `market.collateral_vault`, the market's own vault (the Market PDA's cUSDC ATA) |
 | `devTokenAccount` (mut) | A cUSDC account owned by `market.fee_recipient` (its ATA) |
 | `oracle` | `market.oracle_address`. The program checks the address; outside `Normal` it reads no price from it |
 | `tokenProgram` | SPL Token |
@@ -148,7 +148,7 @@ See the [full error catalog](/reference/errors).
 | `Stress` | `user_twap_price`, at most 300 s old | 3× | Blocked by default |
 | `Recovery` | `user_twap_price`, at most 300 s old | Falls linearly from 3× to 1× over the hour after `risk_state_updated_at` | Allowed |
 
-These multipliers are surcharges. No state discounts the fee, and there is no size throttle outside `Stress`. Every keeper push rewrites `risk_state_updated_at`, so in `Recovery` the multiplier stays close to 3× while pushes continue. See [Risk states](/concepts/risk-states).
+These multipliers are surcharges. No state discounts the fee, and there is no size throttle outside `Stress`. `risk_state_updated_at` changes only when the state does, so the `Recovery` multiplier keeps falling while the keeper pushes prices. See [Risk states](/concepts/risk-states).
 
 ## Fee waivers
 

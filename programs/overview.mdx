@@ -43,7 +43,7 @@ An IDL is the JSON description of a program's instructions, accounts, types, eve
 | mint-redeem | `Market` | `[b"market", symbol]`, raw symbol bytes such as `QQQ` |
 | mint-redeem | `FeeWaiver` | `[b"fee_waiver", donor, market]` |
 | mint-redeem | `CollateralAuthority` (one, global) | `[b"collateral_authority"]` |
-| mint-redeem | unified cUSDC vault (token account) | `[b"unified_vault"]` |
+| mint-redeem | unified cUSDC vault (token account, retired 11 Oct 2026) | `[b"unified_vault"]` |
 | oracle | `OracleConfig` | `[b"oracle_config", market]` |
 | oracle | `OracleFeed` | `[b"oracle_feed", oracle_config, pyth_price_account]` |
 | clp | `GlobalClp` | `[b"global_clp"]` |
@@ -69,7 +69,8 @@ Each instruction that changes state checks one signer. The table follows the `ha
 |---|---|
 | Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account). clp: `pool_swap`, `commit_swap`, `clp_swap`, `settle_swap` (any cranker), `cancel_swap` (the order's owner), `deposit_profit` (the signer's own funds). faucet: `drip`. |
 | `market.keeper_authority` | mint-redeem: `update_risk_state`, `update_risk_state_v2`, `set_s_gamma_index`, `set_buffer_target`, `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `rebalance_collateral` (keeper of both markets), `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`. |
-| `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `migrate_to_unified_vault`. oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
+| `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `exit_unified_vault`, `fund_collateral`, `migrate_to_unified_vault` (retired; always fails). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
+| mint-redeem program upgrade authority | mint-redeem: `initialize_market`, `sweep_unified_surplus`. |
 | CLP PDA `[b"clp", market]` | mint-redeem: `redeem_single_for_vault`, reachable only through the CLP's `vault_redeem_single`. |
 | `clp.authority` (per market) | clp: `configure_swap`, `set_commit_spread`, `configure_inventory_budget`, `configure_yield_strategy`, `update_inventory`, `update_oi`, `update_oi_cap`, `collect_fees`, `record_deployment`, `record_withdrawal`, `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `clp_burn_excess`, `pool_sweep_usdc`, `pool_sweep_synth`, `clp_fund_pool_synth`, and the legacy Meteora instructions (`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees`, `clp_close_meteora_position`). |
 | `pool.authority` (per bin book) | clp: `set_pool_shape`, `configure_pool_geom`, `realloc_pool`. |
@@ -116,7 +117,7 @@ Listing is an operator process; integrators get market addresses from [Addresses
     Create the L and S mints (classic SPL Token, 6 decimals, the future Market PDA as mint authority, no freeze authority) and a cUSDC token account owned by the Market PDA (live markets use the PDA's associated token account). `initialize_market` creates none of these.
   </Step>
   <Step title="Call initialize_market">
-    The program's upgrade authority calls `initialize_market(params: InitMarketParams)`, passing the program and its `program_data` as the last two accounts, with `asset_symbol` (at most 10 bytes), `oracle_type` (`Pyth` or `Continuum`), `initial_l_price`, `initial_s_price`, `mint_fee_bps`, `redeem_fee_bps` and `keeper_authority`. With `Continuum`, the `oracle` account must be the market's `OracleConfig` PDA, which doesn't exist yet. The signer becomes `market.authority`.
+    The program's upgrade authority calls `initialize_market(params: InitMarketParams)`, passing the program and its `program_data` as the last two accounts, with `asset_symbol` (at most 10 bytes), `oracle_type` (`Pyth` or `Continuum`), `initial_l_price`, `initial_s_price`, `mint_fee_bps`, `redeem_fee_bps` and `keeper_authority`. With `Continuum`, the `oracle` account must be the market's `OracleConfig` PDA, which doesn't exist yet. The signer becomes `market.authority`. The market starts with `yield_enabled = true` and a yield ceiling of 0.
   </Step>
   <Step title="Create the oracle config">
     `initialize_oracle_config(max_confidence_interval, max_staleness, keeper_authority)`, signed by `market.authority`, creates the `OracleConfig`. `upsert_oracle_feed(priority, kind, is_active)`, signed by the config's admin, registers a Pyth price account as a feed.

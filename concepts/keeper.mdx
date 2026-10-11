@@ -31,7 +31,7 @@ Per market, each tick:
 - Posts one **free-float book** per side off-hours, anchored at the last price, flat across the ladder, and capped at \$10,000 per side (\$1,250 for the single-name stocks). A guard can then pull bins on the side that other venues show is stale. It never moves the centre or adds depth.
 - Posts the **dynamic buffer** target (`set_buffer_target`), the **mint/redeem fee** (`update_market`, `clamp(fee_mult × half-spread, 10, 100)` bps, the same value for both) and the **committed spread** (`set_commit_spread`, `clamp(half-spread, 10, 500)` bps) once they move by at least 50, 5 and 2 bps respectively. The keeper posts a committed spread on all 14 markets, but as of 10 Oct 2026 only QQQ, SPY and XAU accept committed orders.
 - Posts the **short-leg volatility decay** (`set_s_gamma_index`). It is always on and has no switch. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
-- Runs the **cross-market collateral rebalance**, which moves only excess above a source market's own dynamic target.
+- Runs the **cross-market collateral rebalance**, which moves only excess above a source market's own dynamic target. The program caps each move at that excess.
 
 ### Commit settler (20 s idle, 5 s while orders pend)
 
@@ -39,7 +39,7 @@ The settler finds pending `Order` accounts with one filtered `getProgramAccounts
 
 ### Yield router
 
-The router is off by default (`COLLATERAL_YIELD_ENABLED=false`), and `yield_enabled` is false on every market as of 10 Oct 2026, so no collateral is deployed. When on, it routes deployed collateral across Kamino, Save (Solend) and Jupiter Lend by **30-day-mean** supply APY from a DefiLlama-backed cache, with switch hysteresis so it doesn't churn between near-equal venues. MarginFi is wired in but dormant, because DefiLlama doesn't index its lending rate. With `COLLATERAL_YIELD_RATE_AWARE` (default on), it splits a deployment so every funded venue ends at the same marginal rate. Harvests go to the cUSDC account of the market's `fee_recipient`, which `harvest_collateral_yield` names `clp_vault`.
+The router is off by default (`COLLATERAL_YIELD_ENABLED=false`), and `yield_enabled` is false on every live market as of 11 Oct 2026, so no collateral is deployed. When on, it routes deployed collateral across Kamino, Save (Solend) and Jupiter Lend by **30-day-mean** supply APY from a DefiLlama-backed cache, with switch hysteresis so it doesn't churn between near-equal venues. MarginFi is wired in but dormant, because DefiLlama doesn't index its lending rate. With `COLLATERAL_YIELD_RATE_AWARE` (default on), it splits a deployment so every funded venue ends at the same marginal rate. `harvest_collateral_yield` pays harvests into the market's own collateral vault and adds them to `total_collateral`.
 
 On devnet, a yield emulator (`DEVNET_YIELD_EMULATION`, default on, devnet only) mints cUSDC at the top venue's APY and pushes it through the real `harvest_collateral_yield` every hour. It skips markets with `yield_enabled = false`, which today is all of them.
 

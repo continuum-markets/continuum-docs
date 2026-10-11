@@ -16,8 +16,8 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
 | 6000 | `0x1770` | `MarketNotActive` | `Market is not active` | `Market.is_active` is false. Wait for the operator to reactivate the market. |
-| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. |
-| 6002 | `0x1772` | `InsufficientCollateral` | `Insufficient collateral in vault` | A keeper single-side redeem would leave the market under 100%, or a withdrawal or rebalance would take it below its target ratio. User mint and redeem don't raise it. |
+| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. It also covers a `rebalance_collateral` from a market to itself and a wrong vault account on the collateral instructions. |
+| 6002 | `0x1772` | `InsufficientCollateral` | `Insufficient collateral in vault` | A keeper single-side redeem would leave the market under 100%, or a withdrawal would take it below its target ratio. `rebalance_collateral` raises it when the source has nothing above its target, `deploy_collateral_to_yield` when the vault holds less than the amount, and `exit_unified_vault` when the unified vault holds less than the market's `total_collateral`. User mint and redeem don't raise it. |
 | 6003 | `0x1773` | `InvalidOracle` | `Invalid oracle account` | At setup or on a Normal-state read: the oracle account isn't the market's `OracleConfig` PDA (`Continuum`) or doesn't parse as a Pyth feed. A wrong `oracle` on mint or redeem fails Anchor's address check (2012) instead. |
 | 6004 | `0x1774` | `UnsupportedOracleType` | `Unsupported oracle type` | `oracle_type` is `Switchboard`. Only `Pyth` and `Continuum` are accepted. |
 | 6005 | `0x1775` | `OraclePriceUnavailable` | `Oracle price unavailable` | No usable price: a Normal-state oracle read failed (Pyth older than 60 s, or confidence over 2% of price), the confidence band is as wide as the price, or a keeper write carried a rejected source timestamp. |
@@ -36,10 +36,10 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6018 | `0x1782` | `CollateralNotFound` | `Collateral type not found` | `update_collateral_vault` with a mint that isn't listed. |
 | 6019 | `0x1783` | `BelowMinimum` | `Amount below minimum ($10)` | A mint deposit under 10 cUSDC (`10_000_000` base units), or a redeem worth under 10 cUSDC at the quoted NAV. |
 | 6020 | `0x1784` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `market.keeper_authority`, `redeem_single_for_vault` wasn't signed by the market's CLP PDA, or `realloc_market` wasn't signed by `market.authority`. |
-| 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. Admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
-| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. |
+| 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. `exit_unified_vault` and `fund_collateral` raise it for a signer other than `market.authority`. Other admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
+| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral, and `exit_unified_vault` when the market has collateral deployed to yield. |
 | 6023 | `0x1787` | `ExceedsYieldCeiling` | `Deployment would exceed yield ceiling` | A yield deployment above `yield_ceiling_bps` of `total_collateral`, or a ceiling above 9,000 bps. |
-| 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false, as it is on every live market. |
+| 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false. It is false on every live market as of 11 Oct 2026; `initialize_market` sets it to true on new markets. |
 | 6025 | `0x1789` | `RecallExceedsDeployed` | `Recall amount exceeds deployed_to_yield balance` | A recall or impairment larger than `deployed_to_yield`. |
 | 6026 | `0x178a` | `SingleSideMintStressFloor` | `Single-side mint would leave the vault under-collateralized under an adverse NAV shock` | `keeper_mint_single` would leave the market's collateral ratio below the lower of its pre-trade ratio and 100%. |
 | 6027 | `0x178b` | `GammaMustRatchetDown` | `s_gamma_index may only ratchet down; raising the short decay scalar is rejected` | `set_s_gamma_index` with a value above the current γ. |
@@ -47,7 +47,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6029 | `0x178d` | `GammaStepTooLarge` | `unused (γ per-transaction rate cap removed)` | Reserved placeholder. The per-transaction γ cap was removed and this code is never raised; it stays so later codes don't shift. |
 | 6030 | `0x178e` | `GammaDailyCapExceeded` | `unused (γ per-day rate cap removed)` | Reserved placeholder. The per-day γ cap was removed and this code is never raised; it stays so later codes don't shift. |
 | 6031 | `0x178f` | `GammaEpochMismatch` | `γ epoch mismatch: this post was computed against a different epoch (a re-anchor landed in between)` | `expected_epoch` doesn't match `gamma_epoch`: a re-anchor landed after the keeper computed the write. |
-| 6032 | `0x1790` | `InvalidMarketAccount` | `Account is not a Market owned by this program (bad owner, discriminator, or length)` | `realloc_market` on an account that isn't a mint-redeem `Market` (wrong owner, too short, or wrong discriminator). |
+| 6032 | `0x1790` | `InvalidMarketAccount` | `Account is not a Market owned by this program (bad owner, discriminator, or length)` | `realloc_market` on an account that isn't a mint-redeem `Market` (wrong owner, too short, or wrong discriminator). A `sweep_unified_surplus` remaining account that isn't a `Market` raises it too. |
 | 6033 | `0x1791` | `ReanchorNoDecay` | `Nothing to re-anchor: γ is already 1.0 (or unset)` | `reanchor_gamma` while γ is already 1.0 (or unset). |
 | 6034 | `0x1792` | `ReanchorTooSoon` | `Re-anchor is inside the minimum interval since the last one` | `reanchor_gamma` less than 14 days after the previous one. |
 | 6035 | `0x1793` | `ReanchorPrecisionFloor` | `Re-anchor would leave the short anchor without enough precision to price against` | The folded `initial_s_price` would drop below 1,000 (0.001 cUSDC) or below 1/10,000 of its genesis value. |
@@ -62,7 +62,12 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6044 | `0x179c` | `CorporateActionEffectiveTooFarAhead` | `Corporate-action effective_ts is implausibly far ahead — check the unit (seconds, not milliseconds)` | `effective_ts` more than 400 days ahead, usually milliseconds passed as seconds. |
 | 6045 | `0x179d` | `CorporateActionPendingExists` | `A future corporate action is already pending; wait until it takes effect` | Another action is armed and hasn't taken effect yet. |
 | 6046 | `0x179e` | `UnauthorizedInitializer` | `Market initialization requires the program upgrade authority` | `initialize_market` signed by anyone other than the mint-redeem program's upgrade authority. Only the admin can list a market. |
-| 6047 | `0x179f` | `InvalidProgramData` | `Market initialization requires this program's ProgramData account` | `initialize_market` passed a `program_data` account that is not this program's ProgramData. |
+| 6047 | `0x179f` | `InvalidProgramData` | `Market initialization requires this program's ProgramData account` | `initialize_market` or `sweep_unified_surplus` passed a `program_data` account that is not this program's ProgramData. |
+| 6048 | `0x17a0` | `UnifiedVaultRetired` | `The unified vault is retired; migrate_to_unified_vault is disabled` | Any call to `migrate_to_unified_vault`. The unified vault was retired on 11 Oct 2026. |
+| 6049 | `0x17a1` | `NotOnUnifiedVault` | `Market collateral is not held in the unified vault` | `exit_unified_vault` on a market that already has its own vault, as every live market does, or a `sweep_unified_surplus` remaining account for such a market. |
+| 6050 | `0x17a2` | `MixedVaultRebalance` | `Cannot rebalance between the unified vault and a per-market vault; exit the unified vault first` | `rebalance_collateral` between two different vaults that aren't both owned by their Market PDAs, such as a market still on the unified vault and one with its own vault. |
+| 6051 | `0x17a3` | `UnauthorizedSweep` | `Sweeping the unified vault requires the program upgrade authority` | `sweep_unified_surplus` signed by anyone other than the mint-redeem program's upgrade authority. |
+| 6052 | `0x17a4` | `SweepExceedsSurplus` | `Sweep would take collateral still attributed to a market on the unified vault` | `sweep_unified_surplus` for more than the unified vault's balance minus the `total_collateral` of the markets passed as remaining accounts. |
 
 ## clp
 
@@ -182,7 +187,7 @@ try {
 When you simulate with `@solana/web3.js`, `AnchorError.parse(logs)` reads the same fields from the logs. The raw log line looks like this:
 
 ```
-Program log: AnchorError thrown in programs/mint-redeem/src/lib.rs:2581. Error Code: TwapNotAvailable. Error Number: 6012. Error Message: TWAP price not available - keeper has not updated.
+Program log: AnchorError thrown in programs/mint-redeem/src/lib.rs:2826. Error Code: TwapNotAvailable. Error Number: 6012. Error Message: TWAP price not available - keeper has not updated.
 ```
 
 ## Common error sequences

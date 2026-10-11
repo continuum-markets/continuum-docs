@@ -110,7 +110,7 @@ pub struct PairAccounts<'info> {
     pub dev_token_account: UncheckedAccount<'info>,
     /// CHECK: mint-redeem requires market.oracle_address.
     pub oracle: UncheckedAccount<'info>,
-    /// CHECK: mint-redeem's CollateralAuthority PDA.
+    /// CHECK: mint-redeem's CollateralAuthority PDA. Optional; no market needs it.
     #[account(seeds = [b"collateral_authority"], bump, seeds::program = mint_redeem::ID)]
     pub collateral_authority: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
@@ -118,7 +118,7 @@ pub struct PairAccounts<'info> {
 }
 ```
 
-`collateral_authority` is the optional last account of `redeem_paired`: mint-redeem's PDA `[b"collateral_authority"]`. QQQ, SPY and XAU need it, because their collateral sits in the unified vault (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`) that this PDA owns. The other 11 markets have their own vaults, owned by their Market PDAs, and ignore it, so you can pass it for every market. `mint_paired` doesn't take it.
+`collateral_authority` is the optional last account of `redeem_paired`: mint-redeem's PDA `[b"collateral_authority"]`. It signed payouts from the unified vault (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`), which no market has used since 11 Oct 2026. Every market's vault is now owned by its Market PDA, which signs the payout, so no market needs the account. Passing it does no harm, so the struct above still works for every market. `mint_paired` doesn't take it.
 
 ## Mint and redeem
 
@@ -177,7 +177,7 @@ pub mod my_vault {
             dev_token_account: a.dev_token_account.to_account_info(),
             oracle: a.oracle.to_account_info(),
             token_program: a.token_program.to_account_info(),
-            // QQQ, SPY and XAU need it; the other markets ignore it.
+            // Optional. No market needs it since 11 Oct 2026; passing it is harmless.
             collateral_authority: Some(a.collateral_authority.to_account_info()),
         };
         let seeds: &[&[u8]] = &[b"vault", &[ctx.bumps.vault]];

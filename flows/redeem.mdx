@@ -47,20 +47,15 @@ Redeem takes the mint accounts, with the same names and checks, plus one optiona
 | `devTokenAccount` (mut) | The fee recipient's cUSDC account; receives `dev_tax` |
 | `oracle` | `market.oracle_address` |
 | `tokenProgram` | SPL Token |
-| `collateralAuthority` (optional) | PDA `[b"collateral_authority"]` under mint_redeem (`7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3`). It owns the unified vault and signs its payouts, so QQQ, SPY and XAU need it. The other 11 markets' vaults are owned by their Market PDA, which signs instead, and passing the account there does no harm |
+| `collateralAuthority` (optional) | PDA `[b"collateral_authority"]` under mint_redeem (`7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3`). It signed payouts from the unified vault, which no market has used since 11 Oct 2026. Every market's vault is owned by its Market PDA, which signs instead, so no market needs this account. Passing it does no harm |
 
-Anchor's TypeScript client fills in `collateralAuthority` when you leave it out, because its seeds are constant. Passing `null` omits it, and a QQQ, SPY or XAU payout then fails in the token transfer.
+Anchor's TypeScript client fills in `collateralAuthority` when you leave it out, because its seeds are constant. Passing `null` omits it. The payout works either way.
 
 ## TypeScript
 
 Set up `program`, `user`, `marketPda`, `market` and the four token accounts as on [Mint](/flows/mint#typescript), then:
 
 ```typescript
-const [collateralAuthority] = PublicKey.findProgramAddressSync(
-  [Buffer.from("collateral_authority")],
-  program.programId,
-);
-
 await program.methods
   .redeemPaired(new BN(663_742), new BN(1_637_066)) // 0.663742 QQQL and 1.637066 QQQS
   .accounts({
@@ -75,7 +70,6 @@ await program.methods
     devTokenAccount,
     oracle: market.oracleAddress,
     tokenProgram: TOKEN_PROGRAM_ID,
-    collateralAuthority,
   })
   .rpc();
 ```

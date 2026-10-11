@@ -74,14 +74,15 @@ It charges **realized variance** and ignores direction. A smooth directional run
 
 ## How the collateral ratio refills
 
-Four channels push the ratio up over time:
+Five channels push the ratio up over time:
 
 1. 90% of every mint and redeem fee stays in the vault, immediately.
 2. Each volatility-decay step marks short claims down.
 3. When the price moves back toward a position's mint price, its claim falls and the vault over-collateralizes passively.
-4. Anyone can add collateral with `donate_to_vault`. CLP trading profits and harvested yield reach a market's collateral only this way, and the keeper doesn't call it in its default configuration.
+4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. CLP trading profits reach a market's collateral only through these two, and the keeper calls neither in its default configuration. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
+5. Harvested collateral yield is added to `total_collateral` by `harvest_collateral_yield`.
 
-Collateral yield adds nothing today: `yield_enabled` is false on every market and nothing is deployed, as of 10 Oct 2026. On devnet, yield would be simulated, with the keeper minting cUSDC.
+Collateral yield adds nothing today: `yield_enabled` is false on every live market and nothing is deployed, as of 11 Oct 2026. On devnet, yield would be simulated, with the keeper minting cUSDC.
 
 ## Supporting structural protections
 
@@ -89,7 +90,7 @@ Collateral yield adds nothing today: `yield_enabled` is false on every market an
 - Price writes are bounded. `update_risk_state_v2` rejects a move of more than 25% per push and a source publish time more than 300 s old, so a compromised keeper key can't teleport NAV. On mainnet the keeper adds its own 10% envelope before pushing.
 - A staleness gate stops pricing off a dead feed. Outside `Normal`, mint and redeem revert with `TwapNotAvailable` once the last push is more than 300 s old. See [Risk states](/concepts/risk-states).
 - Swap guards run on every oracle-priced fill. `clp_swap` and `settle_swap` check price age, confidence, deviation and a collateral floor, and `clp_swap` and `pool_swap` share a rolling notional cap where one is set.
-- Each market keeps its own ledger. QQQ, SPY and XAU share one unified vault, and the other 11 markets have their own. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only excess above the source's dynamic target, with the floor enforced on-chain.
+- Each market keeps its own ledger and its own vault, and on 11 Oct 2026 every vault's balance equaled its ledger. Every outflow is limited to the market's own liquid share, `total_collateral − deployed_to_yield`, so one market can't spend another's backing. The rebalancer moves only collateral above the source's dynamic target, and the program caps each move at that amount.
 - Redemption goes pro rata in a shortfall. If a tail move pushes the collateral ratio below 100%, redeem pays `nominal × min(1, CR)`. The vault can't be overdrawn, and every remaining holder gets the same ratio, so there's no first-mover advantage and no bank-run dynamic.
 
 ## What this means for users

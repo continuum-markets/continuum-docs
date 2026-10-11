@@ -79,7 +79,7 @@ const addresses: Record<string, PublicKey> = {
   market,
   feeWaiver: pda([seed("fee_waiver"), wallet.toBuffer(), market.toBuffer()], MINT_REDEEM),
   collateralAuthority: pda([seed("collateral_authority")], MINT_REDEEM),
-  unifiedVault: pda([seed("unified_vault")], MINT_REDEEM),
+  unifiedVault: pda([seed("unified_vault")], MINT_REDEEM), // retired 11 Oct 2026; holds 0 cUSDC
   // oracle
   oracleConfig: pda([seed("oracle_config"), market.toBuffer()], ORACLE),
   // clp
@@ -203,24 +203,11 @@ const mintIx = await program.methods
   .accountsStrict(accounts)
   .instruction();
 
-// redeem_paired adds collateralAuthority, required when the market's
-// collateral sits in the unified vault (QQQ, SPY and XAU).
-const [collateralAuthority] = PublicKey.findProgramAddressSync(
-  [Buffer.from("collateral_authority")],
-  program.programId,
-);
-const [unifiedVault] = PublicKey.findProgramAddressSync(
-  [Buffer.from("unified_vault")],
-  program.programId,
-);
+// redeem_paired also takes an optional collateralAuthority. It signed payouts
+// from the unified vault, which no market uses since 11 Oct 2026, so pass null.
 const redeemIx = await program.methods
   .redeemPaired(new BN(1_000_000), new BN(1_000_000)) // 1 L and 1 S
-  .accountsStrict({
-    ...accounts,
-    collateralAuthority: market.collateralVault.equals(unifiedVault)
-      ? collateralAuthority
-      : null,
-  })
+  .accountsStrict({ ...accounts, collateralAuthority: null })
   .instruction();
 ```
 

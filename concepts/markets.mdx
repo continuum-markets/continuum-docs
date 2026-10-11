@@ -7,7 +7,7 @@ A **market** in Continuum is one synthetic asset. Each market has:
 
 - A `Market` PDA (mint-redeem program) holding initial prices, fees, supply, the keeper's latest price, the risk state, the buffer target and the keeper authority.
 - Two SPL mints, long (`L`) and short (`S`), both with the Market PDA as mint authority.
-- A collateral vault (a cUSDC token account) backing the outstanding L and S supply. QQQ, SPY and XAU share one unified vault. Each of the other 11 markets has its own vault, owned by its Market PDA.
+- A collateral vault backing the outstanding L and S supply. It is the Market PDA's own cUSDC token account; QQQ, SPY and XAU moved to theirs from a shared vault on 11 Oct 2026.
 - Two native bin-book `Pool` PDAs (clp program), one per side.
 - A `Clp` PDA and CLP vault holding the protocol's trading inventory and capital for the market.
 - An `OracleConfig` PDA (oracle program), which mint and redeem take as their `oracle` account.
@@ -34,7 +34,7 @@ Public fields you'll likely read:
 | `asset_symbol` | string | Market ticker. |
 | `long_mint` / `short_mint` | Pubkey | L and S SPL mints. |
 | `collateral_mint` | Pubkey | cUSDC mint. |
-| `collateral_vault` | Pubkey | Token account holding the backing cUSDC. For QQQ, SPY and XAU this is the shared unified vault. |
+| `collateral_vault` | Pubkey | Token account holding the backing cUSDC: the Market PDA's cUSDC ATA on every live market. |
 | `oracle_address` | Pubkey | The market's `OracleConfig` PDA, passed to mint and redeem as `oracle`. The keeper doesn't update it on devnet, so it is not a price source. |
 | `fee_recipient` | Pubkey | Owner of the cUSDC account (`devTokenAccount`) that receives the dev tax. |
 | `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees the keeper posts, `clamp(fee_mult × half-spread, 10, 100)` bps. The risk-state multiplier applies on top. |
@@ -81,7 +81,7 @@ Run on Saturday 10 Oct 2026, it printed fees of 18 bps, 1,883,044.75 cUSDC of to
 
 ## Live markets
 
-Fourteen markets are live on devnet. They have 28 bin books between them and about \$19.0M of total collateral (10 Oct 2026). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
+Fourteen markets are live on devnet. They have 28 bin books between them and about \$19.2M of total collateral (11 Oct 2026). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
 
 | Symbol | Asset | Core step × core bins | Wing step | Bins a side |
 |---|---|---|---|---|

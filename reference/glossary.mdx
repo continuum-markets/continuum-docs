@@ -101,7 +101,7 @@ description: Continuum-specific terms in one place.
 
 **Realized ratchet** - The spread engine's fast term: a trailing empirical q90 of window moves, warm after about 8 windows. One of four terms in the half-spread.
 
-**Recovery** - The risk state after Stress. The fee and confidence multiplier falls from 3× to 1× over 1 hour.
+**Recovery** - The risk state after Stress. The fee and confidence multiplier falls from 3× to 1× over the hour after the market enters Recovery.
 
 **`redeem_fee_bps`** - Per-market redeem fee. The keeper posts the same value as `mint_fee_bps`.
 
@@ -131,13 +131,13 @@ description: Continuum-specific terms in one place.
 
 **`user_twap_price`** - The `Market` field that drives `L_NAV`. The keeper writes it with mint-redeem `update_risk_state_v2`, along with `twap_updated_at`.
 
-**Vault** (collateral vault) - The token account holding a market's backing cUSDC (`market.collateral_vault`). QQQ, SPY and XAU share the unified vault (PDA `[b"unified_vault"]`, `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`), so redeeming from them needs the `collateral_authority` PDA. The other 11 markets have vaults owned by their Market PDA.
+**Vault** (collateral vault) - The token account holding a market's backing cUSDC (`market.collateral_vault`). Every market has its own: the cUSDC ATA of its Market PDA. QQQ, SPY and XAU shared the unified vault (PDA `[b"unified_vault"]`, `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`) until 11 Oct 2026. It is now retired and holds 0 cUSDC.
 
 **Venue split** - Routing by size: bin books for instant trades on all 14 markets, and committed orders plus the instant oracle swap (`clp_swap`) on QQQ, SPY and XAU. All price off the same keeper-pushed NAV.
 
 **Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ`, redeem L at P − c and S at `K / (P + c) × γ`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
 
-**Yield router** - The keeper task that would lend idle collateral to lending venues. It is off by default, and every devnet market has `yield_enabled = false` as of 10 Oct 2026.
+**Yield router** - The keeper task that would lend idle collateral to lending venues. It is off by default, and every live devnet market has `yield_enabled = false` as of 11 Oct 2026. New markets start with it true. Harvested yield is added to the market's own collateral.
 
 ## See also
 

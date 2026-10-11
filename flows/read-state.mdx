@@ -96,7 +96,7 @@ Output on devnet at 19:30 UTC on Saturday 10 Oct 2026 (Node 26):
 }
 ```
 
-`totalCollateral` is this market's own collateral. QQQ, SPY and XAU keep their cUSDC in one unified vault, so that vault's token balance covers all three. Read `market.totalCollateral`, not the vault balance.
+`totalCollateral` is this market's own collateral ledger, the figure the solvency checks read. Each market has its own vault, and on 11 Oct 2026 every vault's token balance equaled its ledger. A plain token transfer into a vault raises its balance without changing the ledger, so use `market.totalCollateral` for solvency.
 
 `committedOrders` reads `swap_guards` from the `Clp` account. It is true only for QQQ, SPY and XAU as of 10 Oct 2026. On the other 11 markets `commit_swap` and `clp_swap` revert with `SwapDisabled`, while their bin books still trade.
 

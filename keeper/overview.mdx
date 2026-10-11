@@ -16,10 +16,10 @@ Most loops have an environment switch, but not all. γ posting has no switch of 
 | **Inventory** | With the book manager | Refills a side whose asks fall below half its bids by minting pairs (`vault_mint_pairs`), trims asks above 1.5× the bids, and caps standing bid cUSDC at $5,000 per side. |
 | **Parameter posting** | With the book manager | Posts the mint and redeem fee, `clamp(fee_mult × half-spread, 10, 100)` bps (`update_market`), the committed-order spread, `clamp(half-spread, 10, 500)` bps (`set_commit_spread`), the overcollateralization target (`set_buffer_target`) and the γ index (`set_s_gamma_index`). |
 | **Commit settler** | 20 s idle, 5 s while orders are pending | Finds pending committed orders, provisions inventory (sells first), and settles up to 10 per tick, largest first. `settle_swap` is permissionless; the keeper is the cranker that is always running. |
-| **Cross-market rebalance** | With the book manager | Moves collateral from markets above their target ratio to markets below it (`rebalance_collateral`). The program checks the source market's floor, so a stale plan can move too little but cannot drain the source. |
+| **Cross-market rebalance** | With the book manager | Moves collateral from markets above their target ratio to markets below it (`rebalance_collateral`). The program caps each move at what the source holds above its own target, so a plan made at an old price moves less than requested and never drains the source. |
 | **Health** | 300 s | Watches the SOL balances of both signers. Below a critical line it tops the wallet up (a devnet airdrop, a mainnet USDC-to-SOL swap of at most $250, or a transfer from the other signer) and posts a Discord alert if the wallet is still below. |
 
-The yield router, which would lend idle collateral, is off by default (`COLLATERAL_YIELD_ENABLED=false`), and every devnet market has `yield_enabled = false` as of 10 Oct 2026.
+The yield router, which would lend idle collateral, is off by default (`COLLATERAL_YIELD_ENABLED=false`), and every live devnet market has `yield_enabled = false` as of 11 Oct 2026.
 
 Every transaction that moves funds is first written to a journal in R2 or on a persistent disk. If a send ends with an unknown outcome, the keeper pauses those sends until it has reconciled the transaction and restarted. Price pushes skip the journal because repeating one is harmless.
 
@@ -30,6 +30,6 @@ Every transaction that moves funds is first written to a journal in R2 or on a p
 
 ## Signing roles
 
-The keeper wallet is each market's `keeper_authority`. It pushes prices, posts buffer targets and the γ index, rebalances collateral, and can call the keeper-only single-leg instructions (`keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`). It could also move collateral to a keeper-owned account for lending (`deploy_collateral_to_yield`), but only on a market with `yield_enabled` set, and no devnet market has it.
+The keeper wallet is each market's `keeper_authority`. It pushes prices, posts buffer targets and the γ index, rebalances collateral, and can call the keeper-only single-leg instructions (`keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`). It could also move collateral to a keeper-owned account for lending (`deploy_collateral_to_yield`), but only on a market with `yield_enabled` set, and no live devnet market has it as of 11 Oct 2026.
 
 The CLP authority signs book shapes, sweeps, inventory moves and `set_commit_spread`. On devnet it is also each market's admin `authority`, which `update_market` requires, so it is the key that posts fees.

@@ -167,11 +167,9 @@ async function main() {
   // 6. Redeem what was just minted. Both amounts must be > 0.
   const nominal = ((l1 - l0) * q.redeem.l) / E6 + ((s1 - s0) * q.redeem.s) / E6;
   console.log(`expect    ~${fmt(nominal - (nominal * q.redeem.feeBps) / 10_000n)} cUSDC back`);
-  const [collateralAuthority] = PublicKey.findProgramAddressSync(
-    [Buffer.from("collateral_authority")], mr.programId);
   const redeemIx = await mr.methods
     .redeemPaired(new BN((l1 - l0).toString()), new BN((s1 - s0).toString()))
-    .accounts({ ...accounts, collateralAuthority }) // optional; QQQ, SPY and XAU need it
+    .accounts(accounts) // Anchor adds the optional collateralAuthority; no market needs it
     .instruction();
   const c0 = await balance(userCollateral);
   const redeemSig = await provider.sendAndConfirm(new Transaction().add(redeemIx));

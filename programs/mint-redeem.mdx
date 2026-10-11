@@ -31,7 +31,7 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `long_mint` | Pubkey | L token mint. |
 | `short_mint` | Pubkey | S token mint. |
 | `collateral_mint` | Pubkey | Collateral mint (cUSDC on devnet). |
-| `collateral_vault` | Pubkey | Token account that holds the collateral: the unified vault for QQQ, SPY and XAU, a per-market vault owned by the Market PDA for the other 11 markets. |
+| `collateral_vault` | Pubkey | Token account that holds the collateral. On every live market it is the Market PDA's own cUSDC ATA. |
 | `multi_collateral_enabled` | bool | Multi-collateral list switched on. False on every live market. |
 | `collateral_vault_count` | u8 | Number of `collateral_vaults` entries. |
 | `collateral_vaults` | Vec\<CollateralVault\> | Extra collateral types, at most 5. Mint and redeem don't read it. |
@@ -41,11 +41,11 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `redeem_fee_bps` | u16 | Base redeem fee, at most 1,000. Posted by the keeper. |
 | `total_l_supply` | u64 | L supply ledger. |
 | `total_s_supply` | u64 | S supply ledger. Paired flow keeps it equal to L supply; keeper single-side instructions let the two differ. |
-| `total_collateral` | u64 | This market's collateral ledger and its solvency source of truth. On a shared vault it is the market's share, not the vault balance. |
+| `total_collateral` | u64 | This market's collateral ledger and its solvency source of truth. The vault's token balance can differ from it. A plain token transfer into the vault raises the balance but not the ledger, and collateral deployed to yield leaves the vault but stays in the ledger. |
 | `is_active` | bool | False blocks mint, redeem, donations and keeper single-side instructions. |
 | `bump` | u8 | PDA bump. |
 | `risk_state` | RiskState | `Normal`, `ProxyMode`, `Stress` or `Recovery`. Every devnet market is in `ProxyMode`. |
-| `risk_state_updated_at` | i64 | Chain time of the last keeper price write. Every write sets it, not only a change of state. |
+| `risk_state_updated_at` | i64 | Chain time of the last change of risk state, first set by `initialize_market`. Since 11 Oct 2026, a keeper write that keeps the same state leaves it unchanged, so the `Recovery` surcharge decays from the moment the market enters `Recovery`. |
 | `risk_fee_config` | RiskFeeConfig | `proxy_fee_multiplier` (150), `stress_fee_multiplier` (300), `stress_mint_cap` (0), `allow_mint_in_stress` and `allow_redeem_in_stress` (both false). Values are the defaults and the live settings. |
 | `user_twap_price` | u64 | The price P, written by the keeper. A spot price despite the name, adjusted for corporate actions. |
 | `twap_updated_at` | i64 | Source publish time of that price. Mint and redeem need it to be at most 300 s old. |
@@ -56,7 +56,7 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `yield_ceiling_bps` | u16 | Largest share of `total_collateral` that may be deployed to yield. 0 until `configure_yield_ceiling` sets it. |
 | `deployed_to_yield` | u64 | Collateral deployed to yield. |
 | `total_yield_harvested` | u64 | Cumulative harvested yield. |
-| `yield_enabled` | bool | False on every live market. |
+| `yield_enabled` | bool | Gates `deploy_collateral_to_yield` and `harvest_collateral_yield`. `initialize_market` sets it to true. It is false on all 14 live markets as of 11 Oct 2026. |
 | `buffer_target_bps` | u16 | Keeper-posted buffer over parity. The target ratio is 10,000 plus this value clamped to 100 to 5,000 bps; 0 reads as 200 (a 102% target). |
 | `s_gamma_index` | u64 | γ at 1e9 scale. 0 reads as 1.0. Moves only down, never below 0.5. |
 | `gamma_day_start_ts` | i64 | Start of the current γ day bucket (telemetry). |
@@ -90,7 +90,9 @@ Created by the donor's first `donate_to_vault` on a market and read by the `_wit
 seeds = [b"collateral_authority"]   // 7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3 on devnet
 ```
 
-One global account with two fields, `unified_vault` and `bump`. It owns the unified cUSDC vault, a token account at PDA `[b"unified_vault"]` (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`). QQQ, SPY and XAU keep their collateral there, so any instruction that pays out of their vault needs the optional `collateral_authority` account. The other 11 markets have per-market vaults owned by their Market PDA.
+One global account with two fields, `unified_vault` and `bump`. It owns the unified cUSDC vault, a token account at PDA `[b"unified_vault"]` (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`). QQQ, SPY and XAU kept their collateral there until 11 Oct 2026, when each moved to its own vault with `exit_unified_vault`. The unified vault is retired and holds 0 cUSDC.
+
+Instructions that pay out of a collateral vault still accept an optional `collateral_authority` account, but no market needs it. Every vault is now owned by its Market PDA, which signs the payout.
 
 ## Pricing and fees
 
@@ -102,11 +104,11 @@ In `ProxyMode`, `Stress` and `Recovery`, mint and redeem price from `user_twap_p
 
 With P the price above, L = P and S = K / P × γ, where K = `initial_l_price × initial_s_price` and γ = `s_gamma_index` / 1e9.
 
-Mint and redeem quote each leg against the user. Let c be `oracle_confidence` times the state's confidence multiplier: 1.5× in `ProxyMode`, 3× in `Stress`, 1× in `Normal`, and in `Recovery` 3× falling to 1× over the hour after `risk_state_updated_at`. A mint prices L at P + c and S at K / (P − c) × γ. A redeem prices L at P − c and S at K / (P + c) × γ. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 10 Oct 2026 it is off on QQQ.
+Mint and redeem quote each leg against the user. Let c be `oracle_confidence` times the state's confidence multiplier: 1.5× in `ProxyMode`, 3× in `Stress`, 1× in `Normal`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). A mint prices L at P + c and S at K / (P − c) × γ. A redeem prices L at P − c and S at K / (P + c) × γ. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 10 Oct 2026 it is off on QQQ.
 
 ### Fees
 
-The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after `risk_state_updated_at`. The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31, MSTR 52 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
+The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31, MSTR 52 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
 
 The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account. The rest stays in the vault and counts in `total_collateral`.
 
@@ -126,7 +128,7 @@ Deposits `collateral_amount` cUSDC (at least 10 cUSDC) and mints L and S to the 
 
 #### `redeem_paired(l_amount: u64, s_amount: u64)`
 
-Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus the optional `collateralAuthority`, which QQQ, SPY and XAU need. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. See the [redeem flow](/flows/redeem).
+Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus an optional `collateralAuthority`, which no market needs since 11 Oct 2026; passing it does no harm. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. See the [redeem flow](/flows/redeem).
 
 #### `mint_paired_with_waiver` and `redeem_paired_with_waiver`
 
@@ -144,11 +146,11 @@ Burns L or S from the signer's own token account with no payout, which lowers th
 
 #### `initialize_market(params: InitMarketParams)`
 
-`InitMarketParams { asset_symbol, oracle_type, initial_l_price, initial_s_price, mint_fee_bps, redeem_fee_bps, keeper_authority }`. Only the mint-redeem program's upgrade authority can call it: the instruction takes the program and its `program_data` as its last two accounts and fails with `UnauthorizedInitializer` (6046) for any other signer. The signer becomes `market.authority` and `fee_recipient`. The symbol must be at most 10 bytes, both fees at most 1,000 bps, and both prices above 0. `oracle_type` must be `Pyth` or `Continuum`, and for `Continuum` the `oracle` account must be the market's `OracleConfig` PDA. The instruction doesn't create the L and S mints or the vault: they must already exist, with the Market PDA as mint authority of both mints. A new market starts in `Normal` with `user_twap_price = initial_l_price`, `dev_tax_pct` 10, the default risk-fee and worst-case settings, and a 1/1 price adjustment. The full sequence is in [listing a market](/programs/overview#listing-a-market-operator-process).
+`InitMarketParams { asset_symbol, oracle_type, initial_l_price, initial_s_price, mint_fee_bps, redeem_fee_bps, keeper_authority }`. Only the mint-redeem program's upgrade authority can call it: the instruction takes the program and its `program_data` as its last two accounts and fails with `UnauthorizedInitializer` (6046) for any other signer. The signer becomes `market.authority` and `fee_recipient`. The symbol must be at most 10 bytes, both fees at most 1,000 bps, and both prices above 0. `oracle_type` must be `Pyth` or `Continuum`, and for `Continuum` the `oracle` account must be the market's `OracleConfig` PDA. The instruction doesn't create the L and S mints or the vault: they must already exist, with the Market PDA as mint authority of both mints. A new market starts in `Normal` with `user_twap_price = initial_l_price`, `dev_tax_pct` 10, the default risk-fee and worst-case settings, and a 1/1 price adjustment. It also sets `yield_enabled = true` and leaves `yield_ceiling_bps` at 0, so harvests can run at once but nothing can be deployed to a lending venue until `configure_yield_ceiling` raises the ceiling. The full sequence is in [listing a market](/programs/overview#listing-a-market-operator-process).
 
 #### `init_collateral_authority()`
 
-Creates the global `CollateralAuthority` and the unified vault it owns. It takes any signer but can succeed only once, and it has already run on devnet.
+Creates the global `CollateralAuthority` and the unified vault it owns. It takes any signer but can succeed only once, and it has already run on devnet. The unified vault it created is retired.
 
 ### Keeper (signer = `market.keeper_authority`)
 
@@ -170,11 +172,17 @@ Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target rat
 
 #### `rebalance_collateral(amount: u64)`
 
-Moves collateral from one market to another; the signer must be the keeper of both. The source must stay at or above its own target ratio with a price at most 300 s old, and only liquid collateral moves. Between two markets on the unified vault the move is a ledger change with no token transfer.
+Moves up to `amount` of collateral from one market's vault to another's. The signer must be the keeper of both markets, and the two markets must differ (`InvalidAmount`). The move is capped at the smallest of the request, the source's collateral above its own target ratio at the stored price, and its liquid collateral (`total_collateral − deployed_to_yield`). A request above the cap moves the capped amount, and the log line shows both figures. It fails only when the source has nothing above target (`InsufficientCollateral`) or no liquid collateral (`InsufficientLiquidCollateral`). The source's price must be at most 300 s old.
+
+Both vaults must be owned by their Market PDAs, as every live market's vault is. A pair where one market still points at the unified vault fails with `MixedVaultRebalance`.
 
 #### `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`
 
-`(amount: u64, _protocol: u8)` for deploy and recall, `(yield_amount: u64)` for harvest. They move collateral to and from a lending venue through the keeper's token account. Yield is disabled on every market, so these revert today.
+`(amount: u64, _protocol: u8)` for deploy and recall, `(yield_amount: u64)` for harvest. Deploy and recall move collateral to and from a lending venue through the keeper's token account. A deployment must stay within `yield_ceiling_bps` of `total_collateral`.
+
+Harvest moves `yield_amount` from the keeper's token account into `market.collateral_vault` and adds it to `total_collateral` and `total_yield_harvested`, so harvested yield raises the market's collateral ratio. Collateral above the target can still reach the CLP through `withdraw_excess_to_clp`. Harvest's fourth account was named `clp_vault` and received the yield until 11 Oct 2026. It is now `collateral_vault`, in the same position, and must be the market's own vault.
+
+Every live market has `yield_enabled = false`, so deploy and harvest revert on them today.
 
 ### CLP PDA (CPI only)
 
@@ -232,13 +240,29 @@ Grows a `Market` account to 899 bytes after an upgrade that adds fields, with th
 
 Zero-fills a market account and returns its lamports to the signer. For an account in the current `Market` layout it fails with `MarketNotEmpty` unless L supply, S supply, `total_collateral` and `deployed_to_yield` are all 0.
 
+#### `exit_unified_vault()`
+
+Moves a market off the unified vault and into its own vault. It transfers exactly `total_collateral` from the unified vault, signed by the `CollateralAuthority` PDA, to `market_vault`, a cUSDC account owned by the Market PDA. Live markets use the PDA's ATA, created before the call. Then it points `collateral_vault` at the new vault. The market must point at the unified vault (`NotOnUnifiedVault`) and have nothing deployed to yield (`InsufficientLiquidCollateral`). Any balance already in `market_vault` stays there and isn't added to the ledger. Emits `UnifiedVaultExited`. It ran for QQQ, SPY and XAU on 11 Oct 2026.
+
+#### `fund_collateral(amount: u64)`
+
+Tops up a market's collateral from the authority's own cUSDC account. It transfers `amount` into `market.collateral_vault` and adds it to `total_collateral`. Unlike `donate_to_vault`, it grants no fee waiver and has no price check. Emits `CollateralFunded`.
+
 #### `migrate_to_unified_vault()`
 
-Moves a per-market vault's balance into the unified vault and points `collateral_vault` at it. It does nothing on a market that has already moved; QQQ, SPY and XAU have.
+Retired. It always fails with `UnifiedVaultRetired` (6048). It used to move a market's vault into the unified vault.
 
 #### `enable_multi_collateral()`, `add_collateral_vault(collateral_type, weight_bps)`, `update_collateral_vault(collateral_mint, is_active?, weight_bps?)`
 
 Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is empty on every market.
+
+### Program upgrade authority
+
+#### `sweep_unified_surplus(amount: u64)`
+
+Moves cUSDC that no market's ledger claims out of the unified vault to `destination`, any cUSDC token account. Only the mint-redeem program's upgrade authority can call it. Like `initialize_market`, it takes the program and its `program_data` as accounts, and any other signer fails with `UnauthorizedSweep`.
+
+Pass every Market that still points at the unified vault as a remaining account. The sweep can take at most the vault balance minus those markets' `total_collateral` (`SweepExceedsSurplus`). A listed market that doesn't point at the unified vault fails with `NotOnUnifiedVault`. The program can't enumerate markets, so this check protects only the markets passed in. Emits `UnifiedSurplusSwept`.
 
 ## Events
 
@@ -247,12 +271,15 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 | `PairedActionExecuted` | every paired mint and redeem, including the waiver variants and the CLP's CPI calls | `user`, `market`, `collateral_mint`, `long_mint`, `short_mint`, `action` (0 mint, 1 redeem), `is_keeper`, `collateral_amount` (paid in or out), `gross_collateral_amount` (before the fee), `long_amount`, `short_amount`, `fee_amount`, `dev_tax`, `long_decimals`, `short_decimals` |
 | `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
 | `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
+| `UnifiedVaultExited` | `exit_unified_vault` | `market`, `market_vault`, `amount` (the `total_collateral` moved), `prior_balance` (already in `market_vault` and not credited), `ts` |
+| `UnifiedSurplusSwept` | `sweep_unified_surplus` | `destination`, `amount`, `balance_before`, `attributed` (the listed markets' `total_collateral`), `ts` |
+| `CollateralFunded` | `fund_collateral` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |
 
 `is_keeper` is true when the user is the market authority, the keeper or the market's CLP PDA.
 
 ## Errors
 
-mint-redeem errors run from 6000 to 6045. Codes 6029 and 6030 are reserved placeholders that are never raised. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
+mint-redeem errors run from 6000 to 6052. Codes 6029 and 6030 are reserved placeholders that are never raised. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
 
 ## TypeScript
 

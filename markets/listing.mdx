@@ -37,7 +37,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
     }
     ```
 
-    With `OracleType::Continuum`, the `oracle` account must be the market's `OracleConfig` PDA (`[b"oracle_config", market]`), which the next step creates. The market starts active, in the `Normal` risk state, with `dev_tax_pct = 10`. Its first reference price is the initial L price.
+    With `OracleType::Continuum`, the `oracle` account must be the market's `OracleConfig` PDA (`[b"oracle_config", market]`), which the next step creates. The market starts active, in the `Normal` risk state, with `dev_tax_pct = 10`. Its first reference price is the initial L price. Collateral yield starts enabled (`yield_enabled = true`) with a ceiling of 0, so harvests work but nothing can be deployed until `configure_yield_ceiling` raises the ceiling.
   </Step>
   <Step title="Create the oracle config">
     On the oracle program, `initialize_oracle_config(max_confidence_interval, max_staleness, keeper_authority)` creates the `OracleConfig` PDA. `upsert_oracle_feed(priority, kind, is_active)` registers each Pyth price account as a feed. Mint and redeem check only the `OracleConfig` address. On devnet the keeper doesn't update it and writes prices to `Market.user_twap_price` instead.

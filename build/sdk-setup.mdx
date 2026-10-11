@@ -44,7 +44,7 @@ curl -s https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/
 # 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
 ```
 
-Don't use `anchor idl fetch` for these programs. Their on-chain IDL accounts are out of date: as of 10 Oct 2026, mint-redeem's lists 14 of its 38 instructions and has no `collateral_authority` account. The devnet program IDs are in [Programs overview](/programs/overview).
+Don't use `anchor idl fetch` for these programs. Their on-chain IDL accounts are out of date: as of 11 Oct 2026, mint-redeem's lists 14 of its 41 instructions and has no `collateral_authority` account. The devnet program IDs are in [Programs overview](/programs/overview).
 
 ## Boilerplate (`client.ts`)
 
@@ -138,7 +138,7 @@ S mint      BisvPibkUJqix3ZzaeHCxJ2W7KqoroFpnyf55nzFoicG
 collateral  1883044.749247 cUSDC
 ```
 
-Every devnet market runs in ProxyMode. `totalCollateral` is the market's own collateral ledger. QQQ, SPY and XAU share one vault (`5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8`), so read this field, not the vault's token balance, for one market's share.
+Every devnet market runs in ProxyMode. `totalCollateral` is the market's own collateral ledger, which the solvency checks read. Each market has its own vault, but a plain token transfer can raise a vault's balance without changing this field.
 
 ## Typed clients
 

@@ -682,6 +682,161 @@
       "args": []
     },
     {
+      "name": "exit_unified_vault",
+      "discriminator": [
+        220,
+        7,
+        192,
+        156,
+        113,
+        61,
+        209,
+        253
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "collateral_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "unified_vault",
+          "writable": true
+        },
+        {
+          "name": "market_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fund_collateral",
+      "discriminator": [
+        55,
+        123,
+        168,
+        146,
+        36,
+        55,
+        209,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "authority_collateral",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "harvest_collateral_yield",
       "discriminator": [
         202,
@@ -727,7 +882,7 @@
           "writable": true
         },
         {
-          "name": "clp_vault",
+          "name": "collateral_vault",
           "writable": true
         },
         {
@@ -2385,6 +2540,82 @@
       ]
     },
     {
+      "name": "sweep_unified_surplus",
+      "discriminator": [
+        56,
+        104,
+        138,
+        198,
+        145,
+        230,
+        123,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "collateral_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "unified_vault",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "program",
+          "address": "5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4"
+        },
+        {
+          "name": "program_data"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "update_collateral_vault",
       "discriminator": [
         31,
@@ -2978,6 +3209,19 @@
   ],
   "events": [
     {
+      "name": "CollateralFunded",
+      "discriminator": [
+        176,
+        29,
+        180,
+        247,
+        39,
+        194,
+        77,
+        114
+      ]
+    },
+    {
       "name": "CorporateActionApplied",
       "discriminator": [
         181,
@@ -3014,6 +3258,32 @@
         52,
         131,
         212
+      ]
+    },
+    {
+      "name": "UnifiedSurplusSwept",
+      "discriminator": [
+        253,
+        183,
+        134,
+        20,
+        212,
+        39,
+        149,
+        46
+      ]
+    },
+    {
+      "name": "UnifiedVaultExited",
+      "discriminator": [
+        110,
+        194,
+        253,
+        162,
+        143,
+        42,
+        74,
+        77
       ]
     }
   ],
@@ -3257,6 +3527,31 @@
       "code": 6047,
       "name": "InvalidProgramData",
       "msg": "Market initialization requires this program's ProgramData account"
+    },
+    {
+      "code": 6048,
+      "name": "UnifiedVaultRetired",
+      "msg": "The unified vault is retired; migrate_to_unified_vault is disabled"
+    },
+    {
+      "code": 6049,
+      "name": "NotOnUnifiedVault",
+      "msg": "Market collateral is not held in the unified vault"
+    },
+    {
+      "code": 6050,
+      "name": "MixedVaultRebalance",
+      "msg": "Cannot rebalance between the unified vault and a per-market vault; exit the unified vault first"
+    },
+    {
+      "code": 6051,
+      "name": "UnauthorizedSweep",
+      "msg": "Sweeping the unified vault requires the program upgrade authority"
+    },
+    {
+      "code": 6052,
+      "name": "SweepExceedsSurplus",
+      "msg": "Sweep would take collateral still attributed to a market on the unified vault"
     }
   ],
   "types": [
@@ -3272,6 +3567,30 @@
           {
             "name": "bump",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CollateralFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "total_collateral",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
           }
         ]
       }
@@ -3894,6 +4213,62 @@
           {
             "name": "expected_epoch",
             "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UnifiedSurplusSwept",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "balance_before",
+            "type": "u64"
+          },
+          {
+            "name": "attributed",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UnifiedVaultExited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "prior_balance",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
           }
         ]
       }

@@ -105,13 +105,13 @@ bin books ◄──── pool_sweep_usdc / pool_sweep_synth ──── excess
 
 `vault_mint_pairs`, `vault_redeem_pairs` and `vault_redeem_single` are CPIs into mint-redeem signed by the CLP PDA. The paired ones go through the ordinary `mint_paired` and `redeem_paired`, at NAV and with the same fee and price checks as any user.
 
-Collateral sits in two kinds of vault. QQQ, SPY and XAU share one unified vault (PDA `[b"unified_vault"]`); the other 11 markets each have their own vault, owned by the Market PDA. Either way each market keeps its own `total_collateral` ledger, and every outflow is limited to that market's liquid share, `total_collateral − deployed_to_yield`. A cross-market rebalancer moves only excess above the source market's own dynamic buffer target, and `rebalance_collateral` on mint-redeem enforces that floor on-chain. Between two unified-vault markets the move is a ledger update with no token transfer.
+Each market keeps its collateral in its own vault, owned by its Market PDA, and keeps its own `total_collateral` ledger. Every outflow is limited to that market's liquid share, `total_collateral − deployed_to_yield`. QQQ, SPY and XAU shared a unified vault until 11 Oct 2026. After they moved out, every vault's balance equaled its market's ledger. A cross-market rebalancer moves only collateral above the source market's own dynamic buffer target. `rebalance_collateral` on mint-redeem caps each move at that amount on-chain, so a larger request moves less and never takes the source below target.
 
 ## Where protocol revenue accumulates
 
-- Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only through `donate_to_vault`, which anyone can call; the keeper doesn't call it in its default configuration.
+- Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only when someone adds them: anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. The keeper calls neither in its default configuration.
 - Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient.
-- Harvested collateral yield, when yield is on, goes to the fee recipient's cUSDC account. Yield is off on every market as of 10 Oct 2026.
+- Harvested yield goes into the market's own vault and is added to `total_collateral`, so it raises that market's collateral ratio. Collateral above the target can still move to the CLP with `withdraw_excess_to_clp`. Yield is off on every live market as of 11 Oct 2026.
 
 See [Solvency](/concepts/solvency) for how these channels affect the collateral ratio.
 

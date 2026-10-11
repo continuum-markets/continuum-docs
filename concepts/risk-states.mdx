@@ -35,7 +35,7 @@ These are the defaults, and the values on every live market as of 10 Oct 2026. T
 
 On devnet the 1.5× fee multiplier always applies: QQQ posts an 18 bps fee and is charged 27 bps.
 
-The `Recovery` decline is linear and is measured from `risk_state_updated_at`. Every push rewrites that timestamp, so while the keeper keeps pushing `Recovery`, the surcharge stays close to 3×. The keeper holds `Recovery` for an hour after leaving `Stress`.
+The `Recovery` decline is linear and starts when the market enters `Recovery`. The program sets `risk_state_updated_at` only when the state changes, so later pushes in `Recovery` don't restart the clock. The keeper holds `Recovery` for an hour after leaving `Stress`, so the surcharge is back to 1× by the time the keeper moves the market to its next state.
 
 ### Transition rules
 
@@ -71,7 +71,7 @@ Mint and redeem are blocked by default (`MintNotAllowedInStress`, `RedeemNotAllo
 
 ### `Recovery`
 
-Mint and redeem reopen. Expect fees and confidence markups near 3× while the keeper keeps the market in `Recovery`.
+Mint and redeem reopen. Fees and confidence markups start at 3× and fall evenly to 1× over the first hour.
 
 ## Reading risk state
 

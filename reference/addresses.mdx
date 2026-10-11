@@ -3,7 +3,7 @@ title: Address registry
 description: Every devnet address Continuum uses, in one place. Programs, mints, markets, vaults, CLP accounts and bin books, checked on chain on 10 Oct 2026.
 ---
 
-This is the public lookup table for Continuum's devnet deployment. Every address on this page was derived from its seeds or read from its Market account. Each one was checked on devnet on 10 Oct 2026: the account exists and is owned by the program shown.
+This is the public lookup table for Continuum's devnet deployment. Every address on this page was derived from its seeds or read from its Market account. Each one was checked on devnet on 10 Oct 2026: the account exists and is owned by the program shown. The collateral vaults were checked again on 11 Oct 2026, after QQQ, SPY and XAU moved to their own vaults.
 
 <Note>
   Mainnet addresses will be added when mainnet launches. Until then, all addresses on this page are **devnet only**.
@@ -74,17 +74,13 @@ OIL (withdrawn 30 Aug 2026) and VXX (delisted June 2026) are not on this page. D
 
 ## Collateral vaults
 
-QQQ, SPY and XAU share the unified collateral vault. It is a PDA with seeds `[b"unified_vault"]` on mint-redeem, and its token-account owner is the `CollateralAuthority` PDA (`[b"collateral_authority"]`). Redeems on these three markets must pass `collateralAuthority`.
-
-| | Address |
-|---|---|
-| Unified collateral vault (QQQ, SPY, XAU) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
-| `CollateralAuthority` PDA | `7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3` |
-
-The other 11 markets each have their own vault: the cUSDC associated token account (ATA) of the Market PDA.
+Every market keeps its collateral in its own vault: the cUSDC associated token account (ATA) of the Market PDA.
 
 | Market | Collateral vault |
 |---|---|
+| QQQ | `CGEMQpzitYvEnWE7sggqD4aBMpTmXhckQPYMhzhy9oJm` |
+| SPY | `DgL6UTux2gjRubznEnEQ1WprjajW5KYaegBEKgSncgPc` |
+| XAU | `2Z9W8e64czfRDu7DoJmZbhZGbm6W7ERuUnXS7iWzU2xx` |
 | XAG | `2Gy5SFgx7uV7ybuVR9DmbD5921z8iJrrEVDMfo5XqRFQ` |
 | NVDA | `2rJ26he3T7VjjXVYoJRanx15pqWSERxHQCfSqh71uWMK` |
 | AAPL | `2qsaxGmZEBgh8WUcJisMb4pejMdAQJT6X8HD2VT3FMaD` |
@@ -97,7 +93,14 @@ The other 11 markets each have their own vault: the cUSDC associated token accou
 | JPY | `F78vUS2GfNgn2NC41bLJSPCb2wZaPoGGGDFYfxhoLGfA` |
 | MSTR | `HKStxHs4kWPqHWWN1fkcSCZ6n6QHvbafwcURV6LTQ3Ju` |
 
-`Market.total_collateral` is each market's own ledger figure, not a token balance. The unified vault's balance backs three markets, so it doesn't match any one market's figure.
+`Market.total_collateral` is each market's own ledger figure, and the solvency checks read it. On 11 Oct 2026 every vault's token balance equaled its market's ledger. A plain token transfer into a vault raises its balance without changing the ledger, so read the ledger for solvency.
+
+QQQ, SPY and XAU used to share a unified vault, a PDA with seeds `[b"unified_vault"]` on mint-redeem whose token-account owner is the `CollateralAuthority` PDA (`[b"collateral_authority"]`). They moved to their own vaults on 11 Oct 2026, and the unified vault now holds 0 cUSDC. Both accounts still exist. `redeem_paired` still accepts `collateralAuthority` as an optional account, but no market needs it.
+
+| | Address |
+|---|---|
+| Unified vault (retired) | `5a51yurKcqxy6rVAV1ykif5fDzhHdjgZs3EL7yncLrp8` |
+| `CollateralAuthority` PDA | `7m3ngNMqhSj6FtWLe87CW6L1fhuqSvu4eqjof6qnMcA3` |
 
 ## Fee recipient
 
