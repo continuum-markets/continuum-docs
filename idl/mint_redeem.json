@@ -202,33 +202,11 @@
       ],
       "args": [
         {
-          "name": "proxy_fee_multiplier",
+          "name": "params",
           "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "stress_fee_multiplier",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "stress_mint_cap",
-          "type": {
-            "option": "u64"
-          }
-        },
-        {
-          "name": "allow_mint_in_stress",
-          "type": {
-            "option": "bool"
-          }
-        },
-        {
-          "name": "allow_redeem_in_stress",
-          "type": {
-            "option": "bool"
+            "defined": {
+              "name": "ConfigureRiskFeesParams"
+            }
           }
         }
       ]
@@ -2909,17 +2887,17 @@
     {
       "code": 6029,
       "name": "GammaStepTooLarge",
-      "msg": "unused (\u03b3 per-transaction rate cap removed)"
+      "msg": "unused (γ per-transaction rate cap removed)"
     },
     {
       "code": 6030,
       "name": "GammaDailyCapExceeded",
-      "msg": "unused (\u03b3 per-day rate cap removed)"
+      "msg": "unused (γ per-day rate cap removed)"
     },
     {
       "code": 6031,
       "name": "GammaEpochMismatch",
-      "msg": "\u03b3 epoch mismatch: this post was computed against a different epoch (a re-anchor landed in between)"
+      "msg": "γ epoch mismatch: this post was computed against a different epoch (a re-anchor landed in between)"
     },
     {
       "code": 6032,
@@ -2929,7 +2907,7 @@
     {
       "code": 6033,
       "name": "ReanchorNoDecay",
-      "msg": "Nothing to re-anchor: \u03b3 is already 1.0 (or unset)"
+      "msg": "Nothing to re-anchor: γ is already 1.0 (or unset)"
     },
     {
       "code": 6034,
@@ -2964,7 +2942,7 @@
     {
       "code": 6040,
       "name": "CorporateActionNoOp",
-      "msg": "Corporate-action ratio is 1:1 \u2014 nothing to apply"
+      "msg": "Corporate-action ratio is 1:1 — nothing to apply"
     },
     {
       "code": 6041,
@@ -2984,7 +2962,7 @@
     {
       "code": 6044,
       "name": "CorporateActionEffectiveTooFarAhead",
-      "msg": "Corporate-action effective_ts is implausibly far ahead \u2014 check the unit (seconds, not milliseconds)"
+      "msg": "Corporate-action effective_ts is implausibly far ahead — check the unit (seconds, not milliseconds)"
     },
     {
       "code": 6045,
@@ -3107,6 +3085,44 @@
           {
             "name": "weight_bps",
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureRiskFeesParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proxy_fee_multiplier",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "stress_fee_multiplier",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "stress_mint_cap",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "allow_mint_in_stress",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "allow_redeem_in_stress",
+            "type": {
+              "option": "bool"
+            }
           }
         ]
       }

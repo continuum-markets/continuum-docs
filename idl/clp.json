@@ -504,8 +504,7 @@
       "accounts": [
         {
           "name": "user",
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "order",
@@ -1900,45 +1899,11 @@
       ],
       "args": [
         {
-          "name": "soft_lower_bps",
+          "name": "params",
           "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "soft_upper_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "hard_lower_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "hard_upper_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "max_drawdown_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "target_drawdown_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "enforce_hard_bounds",
-          "type": {
-            "option": "bool"
+            "defined": {
+              "name": "ConfigureInventoryBudgetParams"
+            }
           }
         }
       ]
@@ -2212,57 +2177,11 @@
       ],
       "args": [
         {
-          "name": "enabled",
+          "name": "params",
           "type": {
-            "option": "bool"
-          }
-        },
-        {
-          "name": "frozen",
-          "type": {
-            "option": "bool"
-          }
-        },
-        {
-          "name": "spread_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "max_staleness_secs",
-          "type": {
-            "option": "i64"
-          }
-        },
-        {
-          "name": "max_confidence_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "max_deviation_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "window_cap_usd",
-          "type": {
-            "option": "u64"
-          }
-        },
-        {
-          "name": "window_secs",
-          "type": {
-            "option": "i64"
-          }
-        },
-        {
-          "name": "collateral_floor_bps",
-          "type": {
-            "option": "u16"
+            "defined": {
+              "name": "ConfigureSwapParams"
+            }
           }
         }
       ]
@@ -2311,51 +2230,11 @@
       ],
       "args": [
         {
-          "name": "normal_deployment_bps",
+          "name": "params",
           "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "proxy_deployment_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "stress_deployment_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "recovery_deployment_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "min_liquid_reserve",
-          "type": {
-            "option": "u64"
-          }
-        },
-        {
-          "name": "min_liquid_reserve_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "oi_liquidity_buffer_bps",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "enabled",
-          "type": {
-            "option": "bool"
+            "defined": {
+              "name": "ConfigureYieldStrategyParams"
+            }
           }
         }
       ]
@@ -3038,6 +2917,9 @@
               }
             ]
           }
+        },
+        {
+          "name": "market"
         }
       ],
       "args": [
@@ -4892,12 +4774,12 @@
     {
       "code": 6009,
       "name": "OrderExpired",
-      "msg": "Order expired \u2014 use cancel_swap to refund"
+      "msg": "Order expired — use cancel_swap to refund"
     },
     {
       "code": 6010,
       "name": "OrderNotExpired",
-      "msg": "Order not yet expired \u2014 wait for settlement or the TTL"
+      "msg": "Order not yet expired — wait for settlement or the TTL"
     },
     {
       "code": 6011,
@@ -5007,12 +4889,12 @@
     {
       "code": 6032,
       "name": "PoolNotConfigured",
-      "msg": "Meteora pool not configured \u2014 run configure_meteora_pools first"
+      "msg": "Meteora pool not configured — run configure_meteora_pools first"
     },
     {
       "code": 6033,
       "name": "AdminWithdrawCapExceeded",
-      "msg": "Admin withdrawal would exceed the 24h cap of $100K \u2014 wait for window to roll or rotate authority if attack is suspected"
+      "msg": "Admin withdrawal would exceed the 24h cap of $100K — wait for window to roll or rotate authority if attack is suspected"
     },
     {
       "code": 6034,
@@ -5063,6 +4945,11 @@
       "code": 6043,
       "name": "MarketMismatch",
       "msg": "Market is not this CLP's market"
+    },
+    {
+      "code": 6044,
+      "name": "PoolClosedWhileLive",
+      "msg": "The book trades only while the market is closed; use a committed order"
     }
   ],
   "types": [
@@ -5259,6 +5146,174 @@
           {
             "name": "weight_bps",
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureInventoryBudgetParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "soft_lower_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "soft_upper_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "hard_lower_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "hard_upper_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "max_drawdown_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "target_drawdown_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "enforce_hard_bounds",
+            "type": {
+              "option": "bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureSwapParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "enabled",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "frozen",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "spread_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "max_staleness_secs",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "max_deviation_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "window_cap_usd",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "window_secs",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "collateral_floor_bps",
+            "type": {
+              "option": "u16"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureYieldStrategyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "normal_deployment_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "proxy_deployment_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "stress_deployment_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "recovery_deployment_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "min_liquid_reserve",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "min_liquid_reserve_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "oi_liquidity_buffer_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "enabled",
+            "type": {
+              "option": "bool"
+            }
           }
         ]
       }
