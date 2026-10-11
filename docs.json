@@ -54,7 +54,6 @@
               "flows/redeem",
               "flows/trade",
               "flows/order-book",
-              "flows/auction",
               "flows/read-state"
             ]
           },
@@ -151,5 +150,11 @@
       "x": "https://x.com/ContinuumMkts",
       "discord": "https://discord.gg/U5hPCB8ufJ"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/flows/auction",
+      "destination": "/flows/order-book"
+    }
+  ]
 }
