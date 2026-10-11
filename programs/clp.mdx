@@ -28,7 +28,7 @@ The keeper sizes the bin books to expected demand, and committed orders take lar
 seeds = [b"global_clp"]
 ```
 
-One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held 5,534,820.82 cUSDC after funding on 11 Oct 2026. See [Treasury](#treasury).
+One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held 18,524,820.82 cUSDC on 11 Oct 2026: 5,534,820.82 from funding, plus 12,990,000 of idle CLP cash that the keeper returned to it. See [Treasury](#treasury).
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -42,7 +42,7 @@ One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The 
 | `admin_wallet` | Pubkey | Owner of the account that receives the `deposit_profit` tax |
 | `bump` | u8 | PDA bump |
 
-`allocate_to_market` adds a `market_allocations` entry the first time it funds a market. Once 10 markets have entries, funding an 11th fails with `MaxDeploymentsExceeded`. As of 10 Oct 2026, five entries exist: QQQ, SPY, XAU, MSTR and the delisted VXX market.
+`allocate_to_market` adds a `market_allocations` entry the first time it funds a market. The table is informational and holds 10 entries, fewer than the markets, so it never blocks a move. Once it is full, a market without an entry takes over one whose allocation has been fully returned. If there is none, the move still goes ahead, and the market's own `allocated_from_global` is the only record. Until the upgrade of 11 Oct 2026, funding an 11th market failed with `MaxDeploymentsExceeded`. As of 11 Oct 2026, five entries exist: QQQ, SPY, XAU, MSTR and the delisted VXX market.
 
 ### `Clp` PDA
 
@@ -171,7 +171,7 @@ The program refills `allowance` only when an instruction touches the policy. To 
 
 The live policy on 11 Oct 2026, with nothing pending:
 
-- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. A full exit of the funded treasury takes about 24 h.
+- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. The rate was set to empty the 5.53M funded treasury in about 24 h. At the 18.52M it held on 11 Oct 2026, a full exit takes about 80 h.
 - Burst: 230,617.53 cUSDC, one hour of refill.
 - Delay: 24 h.
 
@@ -279,6 +279,10 @@ Move cUSDC out of a pool's bid vault, or synth out of its ask vault, back to the
 #### `clp_fund_pool_synth(amount: u64)` (`clp.authority`)
 
 Moves synth from the CLP's L or S account into a pool's ask vault, the refill step after `vault_mint_pairs`. No counters change; the next `set_pool_shape` places the tokens in bins.
+
+#### `clp_fund_pool_usdc(amount: u64)` (`clp.authority`)
+
+Moves cUSDC from the market's CLP vault into a pool's bid vault: the bid-side refill. Sell flow spends a book's bid cUSDC. `pool_sweep_synth` takes back the synth the book bought, and this puts the cUSDC back. The source must be the CLP's own vault, the destination must be the pool's cUSDC vault, and the pool must belong to the CLP's market (`SwapAccountMismatch`). No counters change; the next `set_pool_shape` places the cUSDC in bins. Added 11 Oct 2026.
 
 ### Inventory minting (`clp.authority`)
 
@@ -440,7 +444,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6023 | `HardBoundBreach` | Unused |
 | 6024 | `YieldStrategyDisabled` | `record_deployment` while yield is off |
 | 6025 | `ExceedsMaxDeployment` | Deployment above the current state's limit |
-| 6026 | `MaxDeploymentsExceeded` | `allocate_to_market` for an 11th market, or a fourth yield deployment |
+| 6026 | `MaxDeploymentsExceeded` | A fourth yield deployment. `allocate_to_market` no longer raises it as of 11 Oct 2026 |
 | 6027 | `DeploymentNotFound` | Unknown yield protocol |
 | 6028 | `InsufficientDeployment` | Withdrawal or recall larger than what is deployed |
 | 6029 | `DeploymentTooHigh` | `configure_yield_strategy` share out of range |

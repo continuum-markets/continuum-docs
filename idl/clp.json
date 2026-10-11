@@ -1048,6 +1048,69 @@
       ]
     },
     {
+      "name": "clp_fund_pool_usdc",
+      "discriminator": [
+        110,
+        120,
+        27,
+        190,
+        96,
+        183,
+        55,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "clp.market_id",
+                "account": "Clp"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "clp"
+          ]
+        },
+        {
+          "name": "pool"
+        },
+        {
+          "name": "clp_vault",
+          "writable": true
+        },
+        {
+          "name": "pool_usdc_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "clp_init_bin_array",
       "discriminator": [
         37,

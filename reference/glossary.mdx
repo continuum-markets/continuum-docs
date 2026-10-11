@@ -17,7 +17,7 @@ description: Continuum-specific terms in one place.
 
 **Base price** - A book's posted centre, `Pool.base_price_1e6`: NAV moved by the inventory centre-shift, or the last price during free float. Ask bins ladder above it, bid bins below.
 
-**Bid cap** - Keeper inventory rule: standing bid cUSDC is capped at $5,000 per side (`CLMM_BID_TARGET_USD`) and the excess goes to the CLP vault. Large sells use committed orders on the markets that have them.
+**Bid cap** - Keeper inventory rule: standing bid cUSDC is held at $5,000 per side (`CLMM_BID_TARGET_USD`). The excess goes to the CLP vault, and bids that sellers spent are refilled from it. Large sells use committed orders on the markets that have them.
 
 **Bin step** - The spacing between bins, in bps. Books use a fine core step for the first `core_bins` bins and a wide wing step beyond. On the live books the core is 10 to 50 bps over 3 bins and the wings 200 to 700 bps.
 
@@ -127,7 +127,7 @@ description: Continuum-specific terms in one place.
 
 **Stress** - The risk state for extreme confidence or staleness. Mint and redeem are both blocked by default: `allow_mint_in_stress` and `allow_redeem_in_stress` are false on every live market.
 
-**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held 5,534,820.82 cUSDC after funding on 11 Oct 2026. `backstop_market` moves it into a market's collateral with no limit. `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
+**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held 18,524,820.82 cUSDC on 11 Oct 2026, after the keeper's liquidity reallocator returned idle CLP cash to it. `backstop_market` moves it into a market's collateral with no limit. `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
 
 **TWAP** (Time-Weighted Average Price) - A price averaged over a window. The oracle program keeps TWAPs in `OracleConfig`, but nothing updates them on devnet. `Market.user_twap_price` is a spot price despite its name.
 

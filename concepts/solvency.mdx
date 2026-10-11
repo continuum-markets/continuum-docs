@@ -31,7 +31,7 @@ The CLP account also stores an `oi_cap` (250,000 cUSDC per market), but nothing 
 
 The instant venues never expose unlimited size at NAV. The bin books carry lean, demand-sized depth (about \$5k of bids and at most \$7.5k of asks per side; off-hours, at most \$10,000 per side, or \$1,250 for the single-name stocks) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
 
-Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread.
+Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread. The cash a large fill needs comes from the treasury when it settles.
 
 ### 2. Vol-informed fees
 
@@ -86,11 +86,13 @@ On devnet, collateral yield is emulated. Every live market has `yield_enabled = 
 
 ## The treasury
 
-The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held 5,534,820.82 cUSDC after funding on 11 Oct 2026.
+The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held 18,524,820.82 cUSDC on 11 Oct 2026: 5,534,820.82 from funding, plus 12,990,000 of idle CLP cash that the keeper returned to it.
 
 Moving treasury cUSDC into a market is fast. `backstop_market` puts it straight into a market's vault and credits `total_collateral`. It has no rate limit and works while withdrawals are frozen, because the cUSDC stays inside the protocol.
 
-Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at 64.06 cUSDC a second, so emptying the funded treasury takes about 24 h. Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
+Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at 64.06 cUSDC a second, about 230,617 cUSDC an hour, so emptying the 18.52M treasury takes about 80 h. Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
+
+The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books, inventory restock and instant swaps can spend before the next top-up, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
 
 The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 

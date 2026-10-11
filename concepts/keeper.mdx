@@ -8,7 +8,8 @@ The **keeper** is an off-chain Rust service, run by the protocol, that drives Co
 1. The price updater pushes each market's price and confidence band on-chain, and withholds the push when the source goes stale.
 2. The book manager (`clmm_pool.rs`) centres and reshapes the books, sizes the spread, refills and trims inventory, and posts the buffer, fees, committed spread and volatility decay.
 3. The commit settler cranks committed-order settlement, which anyone may do.
-4. The yield allocator decides how much of each market's collateral to lend, and where. It lends only on mainnet, and only when switched on.
+4. The liquidity reallocator keeps each market's CLP vault at the cash it needs before its next top-up and holds the rest in the treasury.
+5. The yield allocator decides how much of each market's collateral to lend, and where. It lends only on mainnet, and only when switched on.
 
 The keeper is **not in your transaction**. User mints, redeems and trades go straight to the on-chain programs. But mint and redeem rely on its pushes: both revert with `TwapNotAvailable` when the last push is more than 300 s old.
 
@@ -27,7 +28,7 @@ Per market, each tick:
 - Feeds the vol state with the latest price, ignoring repeated closed-hours prices.
 - Centres each book on NAV plus an **inventory shift** (the GLFT / Avellaneda-Stoikov centre shift). The shift is one dollar amount, added to one leg's centre and subtracted from the other's, so the pair price doesn't move: a lone long buyer pays a small premium that funds a lone short buyer's discount.
 - **Repositions** a book with `set_pool_shape` when NAV drifts from its centre by more than a gate. The gate is 20 bps at most, cut down to each leg's funded quote edge.
-- **Refills and trims** both ways. Drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides). Bids cap at about \$5k per side, with the excess swept to the CLP vault, and asks trim to at most 1.5× bids.
+- **Refills and trims** both ways. Drained asks restock (sweep bids → `vault_mint_pairs` → fund both sides). Bids hold at about \$5k per side: the excess goes to the CLP vault, and bids that sellers spent are refilled from it (`clp_fund_pool_usdc`). Asks trim to at most 1.5× that \$5k target. Nothing refills while a book floats off-hours.
 - Posts one **free-float book** per side off-hours, anchored at the last price, flat across the ladder, and capped at \$10,000 per side (\$1,250 for the single-name stocks). A guard can then pull bins on the side that other venues show is stale. It never moves the centre or adds depth.
 - Posts the **dynamic buffer** target (`set_buffer_target`), the **mint/redeem fee** (`update_market`, `clamp(fee_mult × half-spread, 10, 100)` bps, the same value for both) and the **committed spread** (`set_commit_spread`, `clamp(half-spread, 10, 500)` bps) once they move by at least 50, 5 and 2 bps respectively. The keeper posts a committed spread on all 14 markets, but as of 10 Oct 2026 only QQQ, SPY and XAU accept committed orders.
 - Posts the **short-leg volatility decay** (`set_s_gamma_index`). It is always on and has no switch. Charges accrue until they reach a 2e-4 posting gate, and the unposted balance is saved to R2 or `DATA_DIR`, so a restart doesn't discard it. A market that hasn't had a γ write for a day is posted anyway once at least 1e-6 is pending, so slow markets such as FX are charged at least daily. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
@@ -35,7 +36,21 @@ Per market, each tick:
 
 ### Commit settler (20 s idle, 5 s while orders pend)
 
-The settler finds pending `Order` accounts with one filtered `getProgramAccounts` call, and also wakes early on websocket notifications. It provisions inventory (sells first, since they need cUSDC from `vault_redeem_pairs`) and settles up to 10 orders per tick, largest first. Anyone may settle; the keeper just does it promptly.
+The settler finds pending `Order` accounts with one filtered `getProgramAccounts` call, and also wakes early on websocket notifications. It provisions inventory, then settles up to 10 orders per tick, largest first. Sells pay out cUSDC. Buys need synth, which the CLP mints in pairs at twice the value it lacks. The CLP vault keeps only working cash, so the settler draws whatever the orders need beyond it from the treasury (`allocate_to_market`). A sell gap the treasury can't cover falls back to redeeming CLP-held pairs. Anyone may settle; the keeper just does it promptly.
+
+### Liquidity reallocator (30 s)
+
+The CLP's cUSDC sits in the treasury (the global vault) and in each market's CLP vault. The reallocator is the only task that moves it between them. A CLP vault holds what the market's instant consumers can spend before the next tick, each figure taken from that consumer's own setting:
+
+- Both books' bid refills: 2 × `CLMM_BID_TARGET_USD` for each book-manager tick in one reallocator tick (\$10,000).
+- The inventory restock: its \$10,000 payout reserve plus one \$20,000 restock cycle.
+- Instant swaps (`clp_swap`), on markets whose swap guards are on: the rolling-window notional cap, since one swap can spend all of it (\$1M an hour on QQQ, SPY and XAU).
+
+That comes to \$40,000 on 11 markets and \$1.04M on QQQ, SPY and XAU. Each vault is kept between that need and twice it. Below the need, it is topped up to 1.5×. Above twice the need, everything over 1.5× returns to the treasury. Every move is at least half a tick's spend, and even at the full spend rate a market needs at most one top-up per tick. An inactive market keeps nothing.
+
+The first pass, on 11 Oct 2026, returned \$12.99M from 11 markets, \$1.18M each, and left them \$60,000 apiece. QQQ, SPY and XAU kept about \$1.25M each for their instant-swap cap.
+
+Committed orders need no standing cash, because the settler draws from the treasury when they settle. A shared lock stops the reallocator from returning that cash before the orders settle. Cash waiting in the treasury is available to any market, and the yield allocator counts it as first-loss capital.
 
 ### Yield allocator (300 s)
 
@@ -57,7 +72,7 @@ Per market, only the liquidity budget binds: the liquid share of about 29.3% plu
 
 Inside those limits it fills the venues in order of marginal rate, so every funded venue ends at about the same marginal rate. When the venues can't take every market's full budget, each market lends the same share of its budget, so every market keeps the same liquid share. A market in Stress or Recovery recalls everything.
 
-Until 11 Oct 2026 the venue cap was half of each market's own collateral above 100%. At the 102% target that left about 3% of collateral lendable. On 11 Oct 2026 the new rule was measured against live mainnet venues for the 14 devnet markets, which hold \$19.2M of collateral. With the \$5.53M treasury, the plan lends 67.0% of that collateral, the same share in every market, and earns 2.84% on all of it, about \$545,000 a year. Jupiter Lend stops at the venue cap of \$5.72M. Kamino, Save and MarginFi stop at their exit caps of \$4.43M, \$2.49M and \$0.21M.
+Until 11 Oct 2026 the venue cap was half of each market's own collateral above 100%. At the 102% target that left about 3% of collateral lendable. On 11 Oct 2026 the new rule was measured against live mainnet venues for the 14 devnet markets, which hold \$19.2M of collateral. With the \$5.53M funded treasury, the plan lent about two-thirds of that collateral, held back by Jupiter Lend's venue cap of \$5.7M. Later that day the liquidity reallocator returned \$12.99M of idle CLP cash, taking the treasury to \$18.52M and first-loss capital to \$18.73M. The plan now lends 69.9%, the same share in every market, and earns 3.07% on all of it, about \$589,000 a year. Each market's liquid share is what binds now, not venue capacity. Kamino and MarginFi stop at their exit caps, and Jupiter Lend and Save share the rest where their marginal rates meet.
 
 It sends transactions only on mainnet USDC with `COLLATERAL_YIELD_ENABLED=true`, which is off by default. On every other cluster it plans and reports to the dashboard but sends nothing. The on-chain rails sit on top: `yield_enabled` and `yield_ceiling_bps` on each market. As of 11 Oct 2026 every market has yield enabled, with its ceiling set to the derived liquid share, about 7,000 bps.
 
@@ -103,9 +118,10 @@ Most keeper behavior sits behind env switches that default on. γ decay has none
 | `CLMM_FEE_SCALE_ENABLED` | on | Vol-informed fee posting |
 | `CLMM_COMMIT_SPREAD_ENABLED` | on | Committed-spread posting |
 | `CLMM_REBALANCE_ENABLED` | on | Cross-market collateral rebalance |
-| `CLMM_REFILL_ENABLED` | on | Refill and trim |
+| `CLMM_REFILL_ENABLED` | on | Refill (asks and bids) and trim |
 | `FF_GUARD_ENABLED` | on | Off-hours free-float guard |
 | `COMMIT_SETTLE_ENABLED` | on | Settlement crank |
+| `LIQUIDITY_REALLOCATOR_MODE` | `live` | Treasury ↔ CLP-vault moves (`off`, `dryrun` or `live`) |
 | `YIELD_ALLOCATOR_ENABLED` | on | Yield planning, on every cluster |
 | `COLLATERAL_YIELD_ENABLED` | off | Lending collateral (mainnet USDC only) |
 | `DEVNET_YIELD_EMULATION` | on (devnet only) | Devnet yield emulator |
@@ -121,8 +137,9 @@ Main tunables:
 | `UPDATE_INTERVAL_MS` | `15000` (`5000` in the Docker image) | Price updater cadence |
 | `HERMES_STALE_SECS` | `120` | Source-price age at which a push is withheld, for every source |
 | `CLMM_REPOSITION_BPS[_SYM]` | `20` | Largest drift gate before a reposition |
-| `CLMM_BID_TARGET_USD` | `5000` | Bid-side cUSDC cap per side |
-| `CLMM_TRIM_RATIO` | `1.5` | Max asks-to-bids value ratio |
+| `CLMM_BID_TARGET_USD` | `5000` | Bid-side cUSDC per side: swept above it, refilled below it |
+| `CLMM_TRIM_RATIO` | `1.5` | Max asks-to-bid-target value ratio |
+| `LIQUIDITY_REALLOCATOR_INTERVAL_SECS` | `30` | Reallocator cadence (min 30). A longer tick widens each vault's band |
 | `COMMIT_SETTLE_INTERVAL_SECS` | `20` | Settler cadence when idle |
 | `PORT`, `DASHBOARD_PORT` | `8484` | Dashboard port (`PORT` wins, then `DASHBOARD_PORT`) |
 

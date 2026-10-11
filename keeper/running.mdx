@@ -58,9 +58,9 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `CLMM_SKEW_ENABLED` | `true` | Protective trend skew. |
 | `CLMM_INVENTORY_SKEW_ENABLED` | `true` | Inventory centre-shift, tuned by `CLMM_INVENTORY_GAIN` (`1.0`) and `CLMM_INVENTORY_CAP_FRAC` (`0.5`). |
 | `CLMM_SHAPE_KEEP_BPS` | `7000` | Per-bin decay of the live shape (0.7 per bin). |
-| `CLMM_REFILL_ENABLED` | `true` | Refill, trim and bid cap. |
-| `CLMM_BID_TARGET_USD` | `5000` | Standing bid cUSDC per side. |
-| `CLMM_TRIM_RATIO` | `1.5` | Largest ask value as a multiple of the bid value. |
+| `CLMM_REFILL_ENABLED` | `true` | Ask refill, bid refill, trim and bid cap. |
+| `CLMM_BID_TARGET_USD` | `5000` | Standing bid cUSDC per side. Bids above it are swept to the CLP vault, and bids below it are refilled from there. |
+| `CLMM_TRIM_RATIO` | `1.5` | Largest ask value as a multiple of the bid target. |
 | `CLMM_FEE_SCALE_ENABLED` | `true` | Posts `clamp(fee_mult × half-spread, 10, 100)` bps as the mint and redeem fee when it moves by 5 bps or more. `fee_mult` is 1.0. |
 | `CLMM_COMMIT_SPREAD_ENABLED` | `true` | Posts `clamp(half-spread, 10, 500)` bps as the committed-order spread when it moves by 2 bps or more. |
 | `CLMM_BUFFER_POST_ENABLED` | `true` | Posts the overcollateralization target, never below 102%, when it moves by 50 bps or more. |
@@ -82,8 +82,15 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `COMMIT_SETTLE_ENABLED` | `true` | The settlement cranker. |
+| `COMMIT_SETTLE_ENABLED` | `true` | The settlement cranker. It draws any cash the orders need beyond the CLP vault from the treasury. |
 | `COMMIT_SETTLE_INTERVAL_SECS` | `20` | Idle cadence, minimum 5. It drops to 5 s while orders are pending. |
+
+### Liquidity reallocator
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `LIQUIDITY_REALLOCATOR_MODE` | `live` | `off`, `dryrun` (logs the moves) or `live`. Keeps each market's CLP vault between its working need and twice that need, topping up from the treasury and returning the rest. |
+| `LIQUIDITY_REALLOCATOR_INTERVAL_SECS` | `30` | Cadence, minimum 30. The working need counts every consumer run that fits in one tick, so a longer tick widens the band. |
 
 ### Health and alerts
 
