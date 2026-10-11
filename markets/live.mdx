@@ -34,7 +34,7 @@ Every market set `initial_l_price` and `initial_s_price` to the same value, so i
 
 The keeper posts one fee as both the mint fee and the redeem fee. All devnet markets run in ProxyMode, which charges 1.5× the posted fee, so QQQ's 18 bps costs 27 bps.
 
-Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every market except MSTR, and they are the only way to trade while a market's price is live. On MSTR, marked Off, `commit_swap` reverts with `SwapDisabled`. The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
+Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every market except MSTR, and they are the only way to trade while a market's price is live. On MSTR, marked Off, `commit_swap` reverts with `SwapDisabled`. MSTR is being wound down: since 12 Oct 2026 its books are empty and its protocol liquidity is returning to the treasury (see [MSTR](#mstr-microstrategy)). The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
 
 Each market's `Clp` stores an OI cap of 250,000 cUSDC, which nothing enforces yet. The bin books charge no swap fee.
 
@@ -247,6 +247,10 @@ Each market keeps its collateral in its own vault, the cUSDC ATA of its Market P
 | **Hyperliquid check** | `xyz:JPY`, also quoted as yen per dollar |
 
 ## MSTR: MicroStrategy
+
+<Note>
+MSTR is being wound down. On 12 Oct 2026 the keeper emptied both books, returned their inventory and the CLP's working cash, and set the buffer target to 2%. Every MSTR token is held by the protocol. While MSTR's price is fresh, the keeper redeems the CLP's pairs except one, then releases the collateral above 102% to the CLP vault, and the reallocator returns it to the treasury.
+</Note>
 
 | | Address |
 |---|---|
