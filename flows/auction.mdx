@@ -3,6 +3,10 @@ title: Off-hours auction
 description: Trade long and short tokens with other traders while a market is closed, in a call auction that matches every 5 minutes at one price.
 ---
 
+<Warning>
+  The auction is being replaced by the [order book](/flows/order-book), which matches continuously instead of every 5 minutes and supports market, limit and fill-or-kill orders. The app no longer offers new auction orders. Orders already placed keep running until they fill or expire, and are refunded in full when the books are switched off.
+</Warning>
+
 When the underlying market is closed, the [bin books](/flows/trade#bin-books) keep trading, but only up to a small capped size, and [committed orders](/flows/trade) can't settle because no price push arrives. The auction program covers the rest. There you trade with other traders instead of the protocol.
 
 Every 5 minutes, each book collects the orders placed since the last match and clears them at a single price, the one at which the most quantity trades. Buyers never pay more than their limit and sellers never get less than theirs. The protocol takes no side. Both sides escrow their own cUSDC or tokens, and the program only matches them.

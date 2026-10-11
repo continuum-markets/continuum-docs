@@ -1,0 +1,100 @@
+---
+title: Order book
+description: Trade long and short tokens with other traders on an on-chain order book, at any hour, with market, limit, fill-or-kill and immediate-or-cancel orders, and a trading key that signs without a wallet prompt.
+---
+
+Every long and short token has an order book on [Manifest](https://github.com/Bonasa-Tech/manifest), a permissionless on-chain order book. That is 28 books, each quoting one token in cUSDC. You trade there with other traders. The protocol takes no side, charges no fee, and Manifest charges none either.
+
+The books are open at any hour. They matter most while the underlying market is closed: the [bin books](/flows/trade#bin-books) keep trading then, but only up to a small capped size, and [committed orders](/flows/trade) can't settle because no price push arrives. On the order book, size is limited only by who is on the other side.
+
+<Note>
+  Book prices never feed NAV, the oracle, γ or the CLP. A thin off-hours book is easy to push around, so nothing outside the book reads its prices.
+</Note>
+
+## Orders
+
+| Order | What it does |
+|---|---|
+| Market | Fills now against resting orders, up to the worst price the [protection band](#protection-band) allows. Whatever can't fill inside that price is cancelled, not left on the book. |
+| Market, fill or kill | The same, but the whole amount fills or nothing does. |
+| Limit, until the reopen | Rests at your price and ends when the market reopens, so it can't be filled at a stale price once the first new print arrives. This is the default while a market is closed. |
+| Limit, until cancelled | Rests until it fills or you cancel it. |
+| Limit, fill now | Fills what it can at your price or better, then cancels the rest. |
+| Maker only | A resting limit order that is cancelled instead of filling against the book when placed. |
+
+Partial fills are normal on a book: a limit order can fill in several pieces as other traders arrive, and whatever is left keeps resting. Fills happen at the resting order's price, oldest first at each price.
+
+A buy is sized in cUSDC to spend and a sell in tokens. A resting buy sets aside its limit price times its size until it fills or ends; a resting sell sets aside the tokens.
+
+## Protection band
+
+A market order fills no worse than the leg's last posted price, widened by how far the price could plausibly have moved since that post:
+
+```
+band = 3 · σ · √(t / 30s) + jump        clamped to 1%–25%
+```
+
+- `σ` is the keeper's one-step GARCH volatility forecast, posted on-chain as the market's confidence.
+- `t` is the time since the last price post. The band widens through a night and further over a weekend.
+- Closed hours count at the rate prices actually move then, not the trading-hours rate. That is about a tenth of the trading-hours variance for stocks and indices, and a quarter for FX and metals, which keep trading somewhere until the weekend.
+- `jump` is 10% for single stocks and VXX, which can gap on earnings and news. Indices, FX and metals get none.
+
+Gold closed for a day and a half gets a band of about 2.5%. A single stock closed overnight gets about 13–15%, most of it the jump allowance. A limit order can sit anywhere. The app only warns when your price is outside the band.
+
+## Trading account and trading key
+
+Trading goes through a trading account, run by the [`trading` program](/programs/overview). Setting it up takes one wallet approval:
+
+1. It opens the account: a record of who may trade for you, and a trader address that holds your book funds and seats.
+2. It puts a **trading key** in your browser. The key is made by the browser's crypto API with a private key that can't be exported, and stored for this site only.
+3. It sends about 0.03 SOL: rent for book seats and orders, and fees for the key's transactions.
+
+For the next 7 days the key places and cancels your orders without a wallet prompt, up to $10,000 an order. Revoke it at any time with **Turn off**, which also sends the key's unused SOL back.
+
+What the key can and can't do:
+
+| | Your wallet | Trading key |
+|---|---|---|
+| Place and cancel orders | Yes | Yes |
+| Move funds between the account and a book | Yes | Yes |
+| Withdraw | Yes, only back to your own wallet | No |
+| Grant or revoke the key | Yes | No |
+
+A stolen key can't withdraw, but it could still trade badly with an accomplice on the other side. So the program holds every key-signed order to a wider backstop band, `3 · σ · √(t / 30s) + 10%` clamped to 10%–25% around the posted price, and to the per-order limit. Orders your wallet signs are not checked.
+
+If your trading account can't cover an order, the app moves the difference from your wallet in the same transaction and asks for one approval. After a fill, proceeds stay in the account, ready for the next order; **Withdraw** sends them to your wallet.
+
+## Stops, take-profits and TWAP
+
+These run in your browser tab, not on-chain. They only work while a tab with the app is open and online.
+
+- A stop loss or take profit sends a market order when the best bid (for a sell) or the best ask (for a buy) reaches your price.
+- A TWAP splits an order into equal parts over a period you choose.
+
+Each fill is a market order signed by your trading key, inside the same protection band as one you place by hand. They draw only on the trading account: a stop that would need a wallet approval fails instead of waiting for one.
+
+## Spam and overload
+
+Anyone can place orders on a Manifest book, so spam is the main risk to plan for.
+
+- Resting orders cost the placer rent. Every resting order takes an 80-byte block of the book account. Whoever grows the account pays about 0.00056 SOL per block, and it isn't refunded.
+- Expired orders are cleared by the next trade. An order past its last slot stays in the account until a trade walks into it, and that trade pays the compute to remove it. Measured against both builds of Manifest, removal costs 382–722 compute units per order. One transaction clears about 1,900–3,600 of them.
+- A side can be blocked, at a price. Someone who parks more expired orders at the top of a side than one transaction can clear would block new trades on that side. Doing it costs them roughly 1–2 SOL of rent per side, which they never get back.
+- Recovery is cheap. Funds in a blocked book are never stuck: withdrawals and cancels don't walk the book. The recovery is to list a fresh book for that token, about 0.007 SOL.
+- Global orders can stop a trade. A Manifest global order at the top of a book stops an immediate-or-cancel order at that point, and a resting order that would cross it fails. Passing global accounts is planned.
+
+## Addresses
+
+| | |
+|---|---|
+| Manifest | `MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms` |
+| `trading` program | `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA` (devnet) |
+| Book addresses | [`frontend/lib/manifest-markets.json`](https://github.com/nxfi777/continuum-frontend/blob/main/lib/manifest-markets.json), one long and one short book per market |
+| IDL | [`idl/trading.json`](https://github.com/nxfi777/continuum-docs/blob/main/idl/trading.json) |
+
+Trading account PDAs, under the `trading` program:
+
+| Account | Seeds |
+|---|---|
+| Rules | `["account", owner]` |
+| Trader (holds funds and seats, pays rent) | `["trader", owner]` |
