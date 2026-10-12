@@ -2709,6 +2709,86 @@
       ]
     },
     {
+      "name": "init_treasury_yield",
+      "docs": [
+        "Open the treasury's lending ledger (authority, once)."
+      ],
+      "discriminator": [
+        22,
+        195,
+        237,
+        255,
+        5,
+        23,
+        108,
+        140
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "treasury_yield",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  121,
+                  105,
+                  101,
+                  108,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initialize_clp",
       "discriminator": [
         248,
@@ -3792,6 +3872,270 @@
       "args": []
     },
     {
+      "name": "treasury_lend",
+      "docs": [
+        "Lend part of the treasury. Spends the withdrawal allowance exactly like `admin_withdraw`,",
+        "and is refused while the treasury is frozen."
+      ],
+      "discriminator": [
+        203,
+        9,
+        253,
+        73,
+        253,
+        239,
+        4,
+        117
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Must match `global_clp.authority`; owns `lend_account`."
+          ],
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_vault",
+          "writable": true
+        },
+        {
+          "name": "lend_account",
+          "docs": [
+            "The authority's own cUSDC account, which deposits into or withdraws from the",
+            "venue in the same transaction."
+          ],
+          "writable": true
+        },
+        {
+          "name": "treasury_yield",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  121,
+                  105,
+                  101,
+                  108,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "TreasuryLendParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "treasury_recall",
+      "docs": [
+        "Bring lent treasury money back: `principal` of `amount` repays `venue`, the rest is interest.",
+        "Restores the allowance the returned principal spent, up to the burst. Allowed while frozen."
+      ],
+      "discriminator": [
+        244,
+        179,
+        129,
+        132,
+        201,
+        4,
+        88,
+        152
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Must match `global_clp.authority`; owns `lend_account`."
+          ],
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "treasury_policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "global_vault",
+          "writable": true
+        },
+        {
+          "name": "lend_account",
+          "docs": [
+            "The authority's own cUSDC account, which deposits into or withdraws from the",
+            "venue in the same transaction."
+          ],
+          "writable": true
+        },
+        {
+          "name": "treasury_yield",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  121,
+                  105,
+                  101,
+                  108,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "TreasuryRecallParams"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "unfreeze_treasury",
       "discriminator": [
         71,
@@ -4552,6 +4896,19 @@
         16,
         188
       ]
+    },
+    {
+      "name": "TreasuryYield",
+      "discriminator": [
+        251,
+        235,
+        106,
+        204,
+        242,
+        49,
+        53,
+        28
+      ]
     }
   ],
   "events": [
@@ -4774,12 +5131,12 @@
     {
       "code": 6009,
       "name": "OrderExpired",
-      "msg": "Order expired — use cancel_swap to refund"
+      "msg": "Order expired \u2014 use cancel_swap to refund"
     },
     {
       "code": 6010,
       "name": "OrderNotExpired",
-      "msg": "Order not yet expired — wait for settlement or the TTL"
+      "msg": "Order not yet expired \u2014 wait for settlement or the TTL"
     },
     {
       "code": 6011,
@@ -4889,12 +5246,12 @@
     {
       "code": 6032,
       "name": "PoolNotConfigured",
-      "msg": "Meteora pool not configured — run configure_meteora_pools first"
+      "msg": "Meteora pool not configured \u2014 run configure_meteora_pools first"
     },
     {
       "code": 6033,
       "name": "AdminWithdrawCapExceeded",
-      "msg": "Admin withdrawal would exceed the 24h cap of $100K — wait for window to roll or rotate authority if attack is suspected"
+      "msg": "Admin withdrawal would exceed the 24h cap of $100K \u2014 wait for window to roll or rotate authority if attack is suspected"
     },
     {
       "code": 6034,
@@ -6354,6 +6711,28 @@
       }
     },
     {
+      "name": "TreasuryLendParams",
+      "docs": [
+        "Args for `treasury_lend` (one struct: the v1.45 multi-arg landmine)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "venue",
+            "docs": [
+              "`YieldProtocol` discriminant: 0 Kamino, 1 MarginFi, 2 Other, 3 Solend, 4 JupiterLend."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "TreasuryLimitsApplied",
       "type": {
         "kind": "struct",
@@ -6614,6 +6993,35 @@
       }
     },
     {
+      "name": "TreasuryRecallParams",
+      "docs": [
+        "Args for `treasury_recall`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "docs": [
+              "cUSDC returned to the treasury vault."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "principal",
+            "docs": [
+              "The part of `amount` that repays principal at `venue`; the rest is interest."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "venue",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "TreasuryWithdrawn",
       "type": {
         "kind": "struct",
@@ -6633,6 +7041,51 @@
           {
             "name": "ts",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryYield",
+      "docs": [
+        "The treasury's lending ledger, seeds `[b\"treasury_yield\"]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "by_venue",
+            "docs": [
+              "Principal out at each venue: Kamino, MarginFi, Other, Solend, JupiterLend."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                5
+              ]
+            }
+          },
+          {
+            "name": "principal",
+            "docs": [
+              "Sum of `by_venue`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "interest",
+            "docs": [
+              "Interest returned to the treasury, all time."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }
