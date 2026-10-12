@@ -40,18 +40,20 @@ A buy is sized in cUSDC to spend and a sell in tokens. A resting buy sets aside 
 
 ## Protection band
 
-A market order takes traders' orders no worse than the leg's last posted price, widened by how far the price could plausibly have moved since that post:
+A market order takes traders' orders no worse than the leg's last posted price, widened by how far the price could plausibly have gapped by the reopen:
 
 ```
-band = 3 · σ · √(t / 30s) + jump        clamped to 1%–25%
+band = max(1%, K · σ_day · √min(1, t / T)) + E        capped at 25%
 ```
 
-- `σ` is the keeper's one-step GARCH volatility forecast, posted on-chain as the market's confidence.
-- `t` is the time since the last price post. The band widens through a night and further over a weekend.
-- Closed hours count at the rate prices actually move then, not the trading-hours rate. That is about a tenth of the trading-hours variance for stocks and indices, and a quarter for FX and metals, which keep trading somewhere until the weekend.
-- `jump` is 10% for single stocks and VXX, which can gap on earnings and news. Indices, FX and metals get none.
+- `σ_day` is the market's daily volatility forecast: its realized daily volatility over the last 20 trading days, from the keeper's nightly run. Closed-market gaps scale with it almost one for one, so the band widens in a turbulent market and narrows in a calm one.
+- `t` is the time since the last price post, and `T` the scheduled closed period, about 17.5 hours on a weeknight and 65.5 over a weekend. The band reaches its full width at the scheduled reopen.
+- `K` is the 99th to 99.5th percentile of the gap measured in `σ_day`, over 2013–2026 (2019–2026 for FX and metals). It is 2 after a weeknight and 3 over a weekend or holiday for indices and single stocks, 2 for an FX weekend, and 1 for metals. A weekend gap is only about one and a half times a weeknight's, far less than its extra hours suggest.
+- `E` is 15% for a single stock in the weeks its earnings usually fall in, when its gaps run about five times larger. Other nights, and indices, FX and metals, get none.
 
-Gold closed for a day and a half gets a band of about 2.5%. A single stock closed overnight gets about 13–15%, most of it the jump allowance. A limit order can sit anywhere. The app only warns when your price is outside the band.
+With a 1% daily forecast, an index gets a 2% band after a weeknight and 3% at a weekend's reopen. A single stock at 2.5% a day gets 5% on an ordinary night and 20% in an earnings week. A limit order can sit anywhere. The app only warns when your price is outside the band.
+
+The earnings weeks are the usual ones, not a calendar, so an earnings release in an unusual week gets no allowance: a market order at the reopen price can then be refused, and a limit order still goes in.
 
 The pool's own quotes aren't held to the band. After outside markets move, the keeper pulls the quotes a trader could exploit, and the ones left on that side, further out, can honestly sit outside the band. A market order's pool share is bounded by its slippage instead.
 
