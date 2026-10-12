@@ -98,7 +98,7 @@ Output on devnet at 19:30 UTC on Saturday 10 Oct 2026 (Node 26):
 
 `totalCollateral` is this market's own collateral ledger, the figure the solvency checks read. Each market has its own vault, and on 11 Oct 2026 every vault's token balance equaled its ledger. A plain token transfer into a vault raises its balance without changing the ledger, so use `market.totalCollateral` for solvency.
 
-`committedOrders` reads `swap_guards` from the `Clp` account. It is true for every market except MSTR since 11 Oct 2026; on MSTR `commit_swap` reverts with `SwapDisabled`. A committed order still needs a fresh price push to settle. The bin books are the reverse: they fill only while `riskState` isn't `"normal"` and `priceAgeSec` is over 300, and `pool_swap` fails with `PoolClosedWhileLive` otherwise.
+`committedOrders` reads `swap_guards` from the `Clp` account. It is true for every live market since 11 Oct 2026. A committed order still needs a fresh price push to settle. The bin books are the reverse: they fill only while `riskState` isn't `"normal"` and `priceAgeSec` is over 300, and `pool_swap` fails with `PoolClosedWhileLive` otherwise.
 
 ## NAV
 
@@ -119,13 +119,13 @@ Mint and redeem don't fill at NAV. They quote each leg against the user by the c
 
 `oracleConfidence` is the keeper's confidence band in price units (1e6), from a GJR-GARCH volatility model. The program widens mint and redeem quotes by the band times the risk-state multiplier (1.5× in `ProxyMode`) on every market with worst-case quoting on. Before a push, the keeper checks each price against Hyperliquid and holds the push if they disagree.
 
-## Batch-fetch all 14 markets
+## Batch-fetch all 13 markets
 
 One `getMultipleAccountsInfo` call returns every live market:
 
 ```typescript
 const SYMBOLS = ["QQQ", "SPY", "XAU", "XAG", "NVDA", "AAPL", "EUR",
-                 "MSFT", "TSLA", "AMZN", "GOOGL", "GBP", "JPY", "MSTR"];
+                 "MSFT", "TSLA", "AMZN", "GOOGL", "GBP", "JPY"];
 const marketPdas = SYMBOLS.map((symbol) =>
   PublicKey.findProgramAddressSync([Buffer.from("market"), Buffer.from(symbol)], mintRedeem.programId)[0],
 );
@@ -162,7 +162,6 @@ Output at the same time:
 │ 10      │ 'GOOGL' │ 351.659999 │ 84654       │ 32         │ 1249813         │
 │ 11      │ 'GBP'   │ 1.3232     │ 73589       │ 10         │ 1249813         │
 │ 12      │ 'JPY'   │ 158.287    │ 71799       │ 10         │ 1249813         │
-│ 13      │ 'MSTR'  │ 154.34     │ 84654       │ 52         │ 1249813         │
 └─────────┴─────────┴────────────┴─────────────┴────────────┴─────────────────┘
 ```
 
@@ -179,7 +178,7 @@ const poolPdas = marketPdas.flatMap((m) =>
     )[0],
   ),
 );
-const pools = (await connection.getMultipleAccountsInfo(poolPdas)) // all 28 books, one call
+const pools = (await connection.getMultipleAccountsInfo(poolPdas)) // all 26 books, one call
   .map((info) => (info ? clp.coder.accounts.decode("pool", info.data) : null));
 
 const book = pools[0]; // QQQ long

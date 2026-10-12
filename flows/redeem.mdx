@@ -79,7 +79,7 @@ await program.methods
 
 If you minted and then sold one side, you hold the other side alone, and the program won't redeem it on its own. Sell it instead:
 
-- With a [committed order](/flows/trade#committed-orders) while the market is open. It fills at NAV minus the market's commit spread, at a keeper price push after you commit. Committed orders run on every market except MSTR.
+- With a [committed order](/flows/trade#committed-orders) while the market is open. It fills at NAV minus the market's commit spread, at a keeper price push after you commit.
 - On its [bin book](/flows/trade#bin-books) with `pool_swap` while the market's price is stale. The fill is instant, at the book's prices, with slippage that grows with size.
 
 If you hold both legs, in any ratio, one `redeem_paired` can burn all of them. Your profit or loss is all the cUSDC you received, from redeems and sales, minus what you paid to mint.

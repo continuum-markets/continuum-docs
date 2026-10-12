@@ -38,7 +38,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6020 | `0x1784` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `market.keeper_authority`, `redeem_single_for_vault` wasn't signed by the market's CLP PDA, or `realloc_market` wasn't signed by `market.authority`. |
 | 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. `fund_collateral` and `fund_collateral_from` raise it for a signer other than `market.authority`, and `fund_collateral_from` also when `funder` doesn't own `funder_collateral`. Other admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
 | 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral. |
-| 6023 | `0x1787` | `ExceedsYieldCeiling` | `Deployment would exceed yield ceiling` | A yield deployment above `yield_ceiling_bps` of `total_collateral`, or a ceiling above 9,000 bps. |
+| 6023 | `0x1787` | `ExceedsYieldCeiling` | `Deployment would exceed yield ceiling` | A yield deployment above `yield_ceiling_bps` of `total_collateral`, or a ceiling above 10,000 bps. |
 | 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false. It is true on every live market as of 11 Oct 2026, and `initialize_market` sets it to true on new markets. |
 | 6025 | `0x1789` | `RecallExceedsDeployed` | `Recall amount exceeds deployed_to_yield balance` | A recall or impairment larger than `deployed_to_yield`. |
 | 6026 | `0x178a` | `SingleSideMintStressFloor` | `Single-side mint would leave the vault under-collateralized under an adverse NAV shock` | `keeper_mint_single` would leave the market's collateral ratio below the lower of its pre-trade ratio and 100%. |
@@ -80,7 +80,7 @@ Codes 6003 to 6016 and 6044 are swap errors from `pool_swap` and the committed-o
 | 6000 | `0x1770` | `Unauthorized` | `Unauthorized` | The signer isn't the required authority (`clp.authority`, `pool.authority`, `GlobalClp.authority` or the treasury guardian), or `deposit_profit`'s admin token account isn't owned by `GlobalClp.admin_wallet`. |
 | 6001 | `0x1771` | `WithdrawalLocked` | `Withdrawal locked for 7 days after deposit` | Never raised. |
 | 6002 | `0x1772` | `InvalidAmount` | `Invalid amount` | A zero amount, or out-of-range pool or book parameters. |
-| 6003 | `0x1773` | `SwapDisabled` | `Swap path disabled (configure_swap enabled=true)` | Every `clp_swap`: the instant oracle swap was retired on 11 Oct 2026, and the instruction now only returns this error. Also `pool_swap` on a book that isn't `enabled` or is `frozen`, and `commit_swap` on a market whose swap guards are off in `configure_swap`. As of 11 Oct 2026 the guards are on for every market except MSTR, so committed orders revert there. |
+| 6003 | `0x1773` | `SwapDisabled` | `Swap path disabled (configure_swap enabled=true)` | Every `clp_swap`: the instant oracle swap was retired on 11 Oct 2026, and the instruction now only returns this error. Also `pool_swap` on a book that isn't `enabled` or is `frozen`, and `commit_swap` on a market whose swap guards are off in `configure_swap`. Since 11 Oct 2026 the guards are on for every live market. |
 | 6004 | `0x1774` | `SwapFrozen` | `Swaps frozen (circuit breaker)` | `commit_swap` or a settlement while the market's swap guards are frozen. |
 | 6005 | `0x1775` | `InvalidSide` | `Invalid swap side/direction` | `side` or `direction` isn't 0 or 1. |
 | 6006 | `0x1776` | `SwapAccountMismatch` | `Swap account mismatch (mint/owner)` | A token account's mint or owner doesn't match the pool, market or order, or the pool or CLP account belongs to another market. |
@@ -212,7 +212,7 @@ The market is in `Stress`, which blocks both mint and redeem on every live marke
 
 ### Redeem fails with `InvalidAmount` (6001)
 
-Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. Sell a lone leg with a committed order while the market is open (every market except MSTR), or on its bin book while its price is stale. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
+Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. Sell a lone leg with a committed order while the market is open, or on its bin book while its price is stale. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
 
 ### `pool_swap` fails with `PoolClosedWhileLive` (6044)
 

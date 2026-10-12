@@ -15,7 +15,7 @@ Devnet ID: 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC
 
 ## How mint-redeem uses it
 
-Mint-redeem reads `OracleConfig` only for a market whose `oracle_type` is `Continuum`, and only in the Normal risk state. It takes `last_price / 1_000` as the 1e6 price. It reverts with `OraclePriceUnavailable` if the config is paused or `Passive`, if `last_price` is 0, or if `last_update_time` is more than `max_staleness` seconds old. In every other risk state it prices from `Market.user_twap_price`. All 14 devnet markets are `Continuum` markets running in ProxyMode, so mint-redeem reads this account for none of them.
+Mint-redeem reads `OracleConfig` only for a market whose `oracle_type` is `Continuum`, and only in the Normal risk state. It takes `last_price / 1_000` as the 1e6 price. It reverts with `OraclePriceUnavailable` if the config is paused or `Passive`, if `last_price` is 0, or if `last_update_time` is more than `max_staleness` seconds old. In every other risk state it prices from `Market.user_twap_price`. All 13 live devnet markets are `Continuum` markets running in ProxyMode, so mint-redeem reads this account for none of them.
 
 ## Accounts
 

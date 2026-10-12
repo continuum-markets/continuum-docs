@@ -41,7 +41,7 @@ Public fields you'll likely read:
 | `initial_l_price` / `initial_s_price` | u64 | Prices set at init, scaled by 1e6. Their product is the constant `K`. `reanchor_gamma` can fold γ into `initial_s_price`. |
 | `total_l_supply` / `total_s_supply` | u64 | Outstanding supply on each side. |
 | `total_collateral` | u64 | This market's collateral ledger figure, not a token balance. |
-| `buffer_target_bps` | u16 | Overcollateralization target posted by the keeper: a fixed value per market since 11 Oct 2026, from 200 (QQQ, SPY, XAU and FX) to 2,400 (MSTR). See [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). |
+| `buffer_target_bps` | u16 | Overcollateralization target posted by the keeper: the market's daily Monte Carlo target, or a fixed fallback when that is more than 48 hours old. See [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). |
 | `is_active` | bool | If false, mint and redeem revert with `MarketNotActive`. |
 | `risk_state` | enum | `Normal` / `ProxyMode` / `Stress` / `Recovery`. Every devnet market runs in ProxyMode. |
 | `user_twap_price` / `twap_updated_at` | u64 / i64 | The keeper's latest reference price and when it was written. Despite the name it is a spot price, scaled by 1e6 and adjusted for corporate actions. Mint and redeem revert with `TwapNotAvailable` if it is 0 or more than 300 s old. |
@@ -98,15 +98,14 @@ Thirteen markets are live on devnet. They have 26 bin books between them and abo
 | `GOOGL` | Alphabet | 25 bps × 3 | 400 bps | 12 |
 | `GBP` | GBP/USD | 10 bps × 3 | 200 bps | 12 |
 | `JPY` | USD/JPY | 10 bps × 3 | 200 bps | 12 |
-| `MSTR` | MicroStrategy | 50 bps × 3 | 700 bps | 12 |
 
 Fine core steps quote tight near the centre, and wide wings hold inventory for larger moves. The keeper centres each book on an inventory-shifted price rather than on NAV itself, and re-centres it as the price moves (see [Book management](/keeper/book-management)). The books charge no swap fee.
 
-During market hours the keeper targets about \$5,000 of bids per book and trims asks worth more than 1.5 times the bids. While mint and redeem are frozen, it posts a capped "free float" book instead: at most \$1,250 a side for the seven single stocks (NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, MSTR) and at most \$10,000 a side for the other seven markets.
+During market hours the keeper targets about \$5,000 of bids per book and trims asks worth more than 1.5 times the bids. While mint and redeem are frozen, it posts a "free float" book instead: each side in one bin within 1% of the last price, sized to measured demand (\$500 a side until the keeper has measured flow), and at most \$1,250 a side for the six single stocks (NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL) or \$10,000 a side for the other seven markets.
 
 The books fill only while the market's price is stale: its risk state isn't `Normal` and its last push is more than 300 s old. On QQQ, SPY and XAU, book trades are held to a cap of 1,000,000 cUSDC of notional per one-hour window (`swap_guards.window_cap_usd`). The other 11 markets have no window cap set.
 
-While the price is live, trades go through committed orders. They are on for every market except MSTR since 11 Oct 2026, because every other market's `Clp` account has `swap_guards.enabled` set. On MSTR `commit_swap` reverts with `SwapDisabled`. The CLP's instant `clp_swap` was retired the same day and reverts with `SwapDisabled` on every market. An order fills at NAV ± `max(commit_spread_bps, 10)` bps, where the keeper posts `commit_spread_bps` as `clamp(half-spread, 10, 500)`. Committed orders have no window cap; the market's CLP inventory and a 100% collateral floor limit the fill.
+While the price is live, trades go through committed orders. They are on for every live market since 11 Oct 2026, because each one's `Clp` account has `swap_guards.enabled` set. The CLP's instant `clp_swap` was retired the same day and reverts with `SwapDisabled` on every market. An order fills at NAV ± `max(commit_spread_bps, 10)` bps, where the keeper posts `commit_spread_bps` as `clamp(half-spread, 10, 500)`. Committed orders have no window cap; the market's CLP inventory and a 100% collateral floor limit the fill.
 
 → [Live markets table with all pubkeys](/markets/live)
 
@@ -144,7 +143,7 @@ Mint and redeem follow the underlying's session, while the books trade around th
 
 | Markets | Sessions with keeper prices |
 |---|---|
-| US stocks and ETFs (QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, MSTR) | 09:30 to 16:00 ET, Monday to Friday |
+| US stocks and ETFs (QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL) | 09:30 to 16:00 ET, Monday to Friday |
 | FX (EUR, GBP, JPY) | Sunday 17:00 ET to Friday 17:00 ET |
 | Gold and silver (XAU, XAG) | Sunday 18:00 ET to Friday 17:00 ET, with a daily pause from 17:00 to 18:00 ET |
 
@@ -159,7 +158,7 @@ See [Oracle](/concepts/oracle) for how the price itself is produced.
 
 <CardGroup cols={2}>
   <Card title="Live market addresses" icon="address-book" href="/markets/live">
-    All 14 markets, every pubkey.
+    All 13 markets, every pubkey.
   </Card>
   <Card title="How to read market state" icon="magnifying-glass" href="/flows/read-state">
     Batch fetch markets, derive NAV, query book depth.

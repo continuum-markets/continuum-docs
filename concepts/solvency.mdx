@@ -71,7 +71,6 @@ A target rises at once and falls at most 50 bps or 25% a day, whichever is large
 | NVDA | 110.69% | 100.49% | 110% |
 | TSLA | 112.40% | 100.63% | 112% |
 | EUR, GBP, JPY | 101% | 100.06% to 100.09% | 101% |
-| MSTR | 101% while it is wound down | Not used: \|β\| is 0.25 | 124% |
 
 The program clamps any target to [100, 5000] bps over parity (101% to 150%).
 
@@ -113,7 +112,7 @@ Moving treasury cUSDC into a market is fast. `backstop_market` puts it straight 
 
 Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at a rate the keeper keeps in proportion to the balance, so emptying the treasury takes 24 h however much it holds (see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s)). Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
 
-The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books and inventory restock can spend before the next top-up, \$40,000 per market, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
+The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books and imbalance control's mint fallback can spend before the next top-up, \$40,000 per market, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
 
 ### Treasury backstop
 
@@ -122,7 +121,7 @@ The keeper's liquidity reallocator uses the treasury to top up a market's collat
 - Below 100%, it fills at once, at least up to the market's target. Committed orders refuse to fill below 100%, so this is what lets them resume.
 - Short of target by more than one confidence band for 5 minutes, it fills to the target plus the band. This is the same destination rule the cross-market rebalancer uses, and the rebalancer moves other markets' excess first.
 
-The target the treasury fills to is the market's posted target, capped at 130%. MSTR, which is being wound down, gets no backstop. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
+The target the treasury fills to is the market's posted target, capped at 130%. MSTR, closed on 12 Oct 2026, gets none. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
 
 The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 
@@ -137,7 +136,7 @@ The keeper's yield allocator counts the treasury as first-loss capital when it c
 
 ## What this means for users
 
-**You can't lose more than your collateral.** A paired position is fully prepaid, with no margin and no liquidations. Redeeming needs both legs (each amount above zero) and a price push no more than 300 s old, so it depends on the keeper pushing prices. While the vault is fully collateralized you get NAV, less the fee and markup; in a shortfall you get the pro-rata share. A single leg exits through a committed order while the market is open (every market except MSTR), or through its bin book while its price is stale.
+**You can't lose more than your collateral.** A paired position is fully prepaid, with no margin and no liquidations. Redeeming needs both legs (each amount above zero) and a price push no more than 300 s old, so it depends on the keeper pushing prices. While the vault is fully collateralized you get NAV, less the fee and markup; in a shortfall you get the pro-rata share. A single leg exits through a committed order while the market is open, or through its bin book while its price is stale.
 
 ## What this means for builders
 

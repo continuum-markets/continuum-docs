@@ -28,7 +28,7 @@ The short wrapper sells the L leg instead. The amounts use QQQ's devnet state on
 
 Mint, then sell the unwanted leg with `commit_swap`. A committed order fills at NAV ± `max(commit_spread_bps, 10)` bps at a keeper price push after the commit. The keeper posts the spread as `clamp(half-spread, 10, 500)` bps: 18 for QQQ, 15 for SPY and 18 for XAU as of 10 Oct 2026. Settlement waits while the market is below its 100% collateral floor or the price fails the oracle checks, and reverts until the keeper provisions the CLP's inventory. An unfilled order expires after 180 s, and the keeper refunds it about 5 s later; anyone can send that `cancel_swap`, and the escrow goes back to the user. `mint_paired` and `pool_swap` can't share a transaction: mint needs a price at most 300 s old, and the bin books fill only once it is older than that.
 
-Committed orders work on every market except MSTR, whose `swap_guards.enabled` is false, so `commit_swap` reverts there with `SwapDisabled`. The bin books ignore swap guards but fill only while a market's price is stale.
+Committed orders work on every live market. The bin books ignore swap guards but fill only while a market's price is stale.
 
 ## 2. Arb bot
 
@@ -153,7 +153,7 @@ A user who wants short QQQ exposure has two paths inside Continuum:
 1. Mint a pair and sell the L leg with a committed order.
 2. Buy QQQ S with a committed order while QQQ is open, or on the bin book with `pool_swap` while its price is stale.
 
-A router can quote both, along with any outside venue, and take the cheaper. On MSTR the committed-order path isn't available.
+A router can quote both, along with any outside venue, and take the cheaper.
 
 ## 9. Pre-trade quotes
 
@@ -193,7 +193,7 @@ A history of book depth, NAV and spreads is a useful dataset for trading and ana
 ## Patterns we like
 
 - Use the Market price as the price of record. Every mint, redeem and committed order uses it, and the keeper writes it.
-- Route by market state. While a market's price is live, send trades to `commit_swap` (every market except MSTR), which fills at NAV ± the committed spread within the CLP's inventory and the 100% collateral floor. While it is stale, `pool_swap` fills small trades instantly. Mint or redeem when you want the pair itself.
+- Route by market state. While a market's price is live, send trades to `commit_swap`, which fills at NAV ± the committed spread within the CLP's inventory and the 100% collateral floor. While it is stale, `pool_swap` fills small trades instantly. Mint or redeem when you want the pair itself.
 - Watch the risk state. Stress blocks mint and redeem by default, so show it to the user.
 - Plan for gaps in keeper pushes. After 300 s without a push, mint and redeem revert with `TwapNotAvailable` and committed orders can't settle. That happens whenever the underlying market is closed. The bin books open then.
 

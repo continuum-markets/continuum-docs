@@ -32,7 +32,7 @@ You can still lose part of it: to fees, to the short leg's volatility decay, to 
 Yes, in two ways:
 
 1. **Mint, then sell the short leg.** On QQQ at its 9 Oct 2026 price, 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS after the fee. The QQQS is worth about 49.9 cUSDC at NAV; selling it with a committed order, less the spread, leaves you long QQQ with a cash buffer.
-2. **Buy directly.** While the market is open, send a committed order (every market except MSTR), which fills at NAV ± the posted commit spread at a price pushed after you commit. While it is closed, `pool_swap` on the long leg's book fills instantly up to the book's capped size.
+2. **Buy directly.** While the market is open, send a committed order, which fills at NAV ± the posted commit spread at a price pushed after you commit. The app uses traders' orders on the [order book](/flows/order-book) instead when they fill all of it now for less. While the market is closed, the long leg's bin book and traders' orders form [one book](/flows/order-book#one-book-while-closed), and a buy takes the cheapest offers first from either.
 
 Buying directly is the usual path. Minting first is useful when you also want the short leg. → [Trade flow](/flows/trade).
 
@@ -95,7 +95,7 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × s_gamma_index / 1e9
 | `redeem_fee_bps` | On `redeem_paired` | Same value as the mint fee. |
 | Risk-state multiplier | On mint and redeem fees | 1.5× in ProxyMode, where every devnet market runs, so QQQ is charged 27 bps. |
 | Book spread | On `pool_swap` | The bin prices themselves; there is no swap fee. |
-| Committed spread | On committed-order fills | NAV ± `max(commit_spread_bps, 10)` bps: 18 on QQQ, 15 on SPY and 18 on XAU as of 10 Oct 2026. Every market except MSTR accepts committed orders since 11 Oct 2026. |
+| Committed spread | On committed-order fills | NAV ± `max(commit_spread_bps, 10)` bps: 18 on QQQ, 15 on SPY and 18 on XAU as of 10 Oct 2026. Every live market accepts committed orders since 11 Oct 2026. |
 | Solana network fee | On every transaction | About 0.000005 SOL. |
 
 10% of each mint and redeem fee is a dev tax. A mint and redeem round trip at an unchanged price costs about twice the charged fee: 54 bps on QQQ.

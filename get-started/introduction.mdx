@@ -38,7 +38,7 @@ A user calls `mint_paired(collateral_amount)` on the [`mint-redeem`](/programs/m
 
 The long leg is priced at the asset price P, adjusted for any corporate action. The short leg is priced at `K / P × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index. So `L × S = K × γ`, and as one leg rises the other falls. Mint and redeem also quote each leg against the user by the oracle confidence band. This worst-case quoting is on for every market except QQQ (as of 10 Oct 2026).
 
-To exit, the user calls `redeem_paired(l_amount, s_amount)` with both amounts above zero and receives collateral at NAV, less the redeem fee. In between, both tokens trade on Continuum's own venues: committed orders while the market is open (every market except MSTR), and a bin book per leg for instant trades while it is closed. A committed order fills at NAV ± the posted commit spread (at least 10 bps), at a price pushed after the order was placed.
+To exit, the user calls `redeem_paired(l_amount, s_amount)` with both amounts above zero and receives collateral at NAV, less the redeem fee. In between, both tokens trade on Continuum's own venues: committed orders while the market is open, and a bin book per leg for instant trades while it is closed. A committed order fills at NAV ± the posted commit spread (at least 10 bps), at a price pushed after the order was placed.
 
 A keeper run by the protocol pushes prices and re-centres the books. Mint and redeem need a price pushed in the last 300 s, so they pause while the underlying market is closed or the keeper is down. The books trade then.
 

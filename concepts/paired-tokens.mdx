@@ -76,7 +76,7 @@ The paired position has **near-zero net delta**. The small gain either way is th
 Each leg has its own bin book (`QQQL/cUSDC` and `QQQS/cUSDC`):
 
 - Sell QQQL (or buy QQQS) to express a bearish view; buy QQQL (or sell QQQS) for a bullish one.
-- While the market is open, trades go through a committed order (every market except MSTR), at any size. It fills at a keeper push after the commit, at NAV ± the committed spread (10 bps floor). While the price is stale, small amounts hit the book instantly.
+- While the market is open, trades go through a committed order, at any size. It fills at a keeper push after the commit, at NAV ± the committed spread (10 bps floor). While the price is stale, small amounts hit the book instantly.
 
 A common flow:
 
@@ -125,7 +125,7 @@ Yes. Both L and S are standard SPL tokens, so you transfer them like any other S
 Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` and `s_amount` must be above zero. The amounts don't have to match, because redemption is **value-weighted**: you receive the NAV value of whatever you burn.
 
 **Q: What happens if I lose access to half the pair?**
-The program won't redeem one leg alone. Sell it with a committed order while the market is open (every market except MSTR) or on its bin book while it is closed, or get some of the other leg and redeem the two together.
+The program won't redeem one leg alone. Sell it with a committed order while the market is open or on its bin book while it is closed, or get some of the other leg and redeem the two together.
 
 **Q: Are there fees on transfers?**
 No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`). The keeper posts the same value for both, 10 to 52 bps across markets as of 10 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.

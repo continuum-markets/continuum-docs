@@ -51,7 +51,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
     To seed the books, the operator sends cUSDC to each pool's cUSDC vault for the bids. It also mints L and S as a pair, sending the L to the long book's synth vault and the S to the short book's. The first `set_pool_shape(base_price_1e6, asks, bids)` posts the bins and sets `enabled = true`. From then on, nothing can disable or freeze the pool.
   </Step>
   <Step title="Set the operating state">
-    The market moves to ProxyMode, where every devnet market runs. Committed orders stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; since 11 Oct 2026 they are on for every market except MSTR. The books don't depend on this flag, but fill only while the market's price is stale. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint.
+    The market moves to ProxyMode, where every devnet market runs. Committed orders stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; since 11 Oct 2026 they are on for every live market. The books don't depend on this flag, but fill only while the market's price is stale. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint.
   </Step>
 </Steps>
 
@@ -63,7 +63,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
 |---|---|---|---|---|
 | Index ETF | QQQ, SPY | 15 to 20 bps × 3 | 250 to 300 bps | 12 |
 | Metal | XAU, XAG | 20 bps × 3 (XAU long book: 50 bps) | 300 bps | 12 (XAU long book: 6) |
-| Single stock | NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, MSTR | 25 to 50 bps × 3 | 400 to 700 bps | 12 |
+| Single stock | NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL | 25 to 50 bps × 3 | 400 to 700 bps | 12 |
 | FX | EUR, GBP, JPY | 10 bps × 3 | 200 bps | 12 |
 
 The books charge no swap fee, so the gap between the centre and the first funded bin is the price of an instant trade. A tight core step gives better prices but loses more to informed traders when the price gaps. That is why the volatile single stocks get wider steps than the index ETFs and FX.

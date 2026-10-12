@@ -10,7 +10,7 @@ Continuum trades L and S tokens on its own venues in the CLP program. Which one 
 | Committed order | `commit_swap`, then `settle_swap` | While the keeper pushes prices, at the first push after the commit | NAV ± `max(commit_spread_bps, 10)` bps | No cap; bounded by CLP inventory and the collateral floor |
 | Bin book | `pool_swap` | Only while the price is stale: the risk state isn't `Normal` and the last push is more than 300 s old | Walks the book's bins, with real slippage | The standing depth, small by design |
 
-Since 11 Oct 2026, open-hours trading is committed orders only. `pool_swap` fails with `PoolClosedWhileLive` whenever the market's price is live. The CLP's instant oracle swap, `clp_swap`, is [retired](#retired-instant-oracle-swap): the instruction keeps its accounts and arguments, but every call fails with `SwapDisabled`. Committed orders work on every market except MSTR, whose swap guards are off.
+Since 11 Oct 2026, open-hours trading is committed orders only. `pool_swap` fails with `PoolClosedWhileLive` whenever the market's price is live. The CLP's instant oracle swap, `clp_swap`, is [retired](#retired-instant-oracle-swap): the instruction keeps its accounts and arguments, but every call fails with `SwapDisabled`. Committed orders work on every live market.
 
 The app places every trade from your [trading account](/flows/trading-account). While the market is open it uses committed orders, at any size, so every in-hours fill is priced by a price push that happens after you commit. While the market is closed or its price updates are paused, no price push would arrive to settle a committed order, so the app shows the bin book's quotes, which fill instantly up to its capped size, and traders' orders on the [order book](/flows/order-book), where size is limited only by who is on the other side, as one book. A market order takes the cheapest offers first when you buy and the highest bids first when you sell, from either, in one transaction. When the keeper has pulled one side of the bin book because outside markets moved, the app warns anyone about to trade into the side that still prices the close.
 
@@ -168,7 +168,7 @@ NAV is the leg's NAV at the settling push: `P` for the long leg and `K / P * γ`
 
 The price is set after you commit, so nobody can trade against a stale quote. That is why committed orders have no size cap and skip the rolling window. They are bounded by the price checks at settle, the collateral floor and the CLP's inventory.
 
-Committed orders need the market's swap guards (`Clp.swap_guards`, set with `configure_swap`) to be enabled and not frozen. Since 11 Oct 2026 they are on for 13 markets, every market except MSTR, with the same settings:
+Committed orders need the market's swap guards (`Clp.swap_guards`, set with `configure_swap`) to be enabled and not frozen. Since 11 Oct 2026 they are on for all 13 live markets, with the same settings:
 
 | Guard | Setting | Effect at settle |
 |---|---|---|
@@ -247,7 +247,7 @@ pub struct Order {
 
 ### Commit and cancel
 
-This sample buys QQQ's long leg with 10,000 cUSDC, starting from the [setup](#setup) above. It works on every market except MSTR, while the market's price is live.
+This sample buys QQQ's long leg with 10,000 cUSDC, starting from the [setup](#setup) above. It works on any live market while the market's price is live.
 
 ```typescript
 const orderAmount = 10_000_000_000n; // 10,000 cUSDC
@@ -309,7 +309,7 @@ The order emits `OrderCommitted`, then one of `OrderSettled` (with `out`, `nav` 
 | Error | Code | Where | Cause |
 |---|---|---|---|
 | `SwapDisabled` | 6003 | `pool_swap` | The keeper hasn't posted the pool's first shape yet |
-| `SwapDisabled` | 6003 | `commit_swap` | The market's CLP swap guards aren't enabled (MSTR as of 11 Oct 2026) |
+| `SwapDisabled` | 6003 | `commit_swap` | The market's CLP swap guards aren't enabled |
 | `SwapDisabled` | 6003 | `clp_swap` | Always: the instant swap is retired |
 | `SwapFrozen` | 6004 | `commit_swap`, `settle_swap` | The CLP's swap guards are frozen |
 | `SwapAccountMismatch` | 6006 | all | An account has the wrong mint, owner or address |

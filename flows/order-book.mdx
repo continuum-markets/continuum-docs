@@ -3,7 +3,7 @@ title: Order book
 description: Trade long and short tokens with other traders on an on-chain order book, at any hour, with market, limit, fill-or-kill and immediate-or-cancel orders, and a trading key that signs without a wallet prompt.
 ---
 
-Every long and short token has an order book on [Manifest](https://github.com/Bonasa-Tech/manifest), a permissionless on-chain order book. That is 28 books, each quoting one token in cUSDC. You trade there with other traders. The protocol takes no side, charges no fee, and Manifest charges none either.
+Every long and short token has an order book on [Manifest](https://github.com/Bonasa-Tech/manifest), a permissionless on-chain order book. For the 13 live markets that is 26 books, each quoting one token in cUSDC. You trade there with other traders. The protocol takes no side, charges no fee, and Manifest charges none either.
 
 The books are open at any hour. They matter most while the underlying market is closed: the [bin books](/flows/trade#bin-books) keep trading then, but only up to a small capped size, and [committed orders](/flows/trade) can't settle because no price push arrives. On the order book, size is limited only by who is on the other side. While a market is closed the app shows the bin book's quotes and traders' orders as [one book](#one-book-while-closed).
 

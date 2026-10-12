@@ -17,7 +17,7 @@ The Continuum app itself uses `@solana/kit` 8.3, with program clients that Codam
 | `@solana/spl-token` | Associated token account (ATA) addresses and token instructions. |
 | Published IDLs | JSON descriptions of each program's instructions, accounts, events and errors. |
 
-Trading needs no AMM SDK. While a market is open, `commit_swap` and `settle_swap` handle committed orders, enabled on every market except MSTR since 11 Oct 2026. Each bin book is a `Pool` account in the CLP program, and `pool_swap` fills against it instantly, but only while the market's price is stale.
+Trading needs no AMM SDK. While a market is open, `commit_swap` and `settle_swap` handle committed orders, enabled on every live market since 11 Oct 2026. Each bin book is a `Pool` account in the CLP program, and `pool_swap` fills against it instantly, but only while the market's price is stale.
 
 ## Minimal project
 

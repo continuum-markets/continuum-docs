@@ -9,7 +9,7 @@ Users call the CLP every time they trade a leg. Inventory and treasury operation
 
 ## Venue 1: native bin books
 
-Each market has one `Pool` account **per side**, a long pool and a short pool (PDA seeds `[b"pool", market, side]`), so there are 28 native pools across the 14 live markets.
+Each market has one `Pool` account **per side**, a long pool and a short pool (PDA seeds `[b"pool", market, side]`), so there are 26 native pools across the 13 live markets.
 
 - Up to 16 price bins live inline in the `Pool` account itself (live books use 12, and XAU's long book uses 6). There are no separate bin-array accounts and no rent churn on a reposition.
 - The geometry has two zones: fine core steps near the centre and wide wings further out. QQQ uses three 20 bps core steps, then 300 bps wings. `configure_pool_geom(wing_step_bps, core_bins)` sets it.
@@ -59,7 +59,7 @@ cancel_swap()                   ── anyone, after the TTL
     → refund to the owner; checks nothing else
 ```
 
-Since 11 Oct 2026, committed orders are the only way to trade while a market is open, and they run on every market except MSTR. `commit_swap` needs the market's swap guards (`swap_guards`) enabled and not frozen; MSTR's are off, so `commit_swap` fails there with `SwapDisabled`.
+Since 11 Oct 2026, committed orders are the protocol's only venue while a market is open, and they run on every live market. `commit_swap` needs the market's swap guards (`swap_guards`) enabled and not frozen.
 
 How the venue behaves:
 

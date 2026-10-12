@@ -127,7 +127,7 @@ QQQ's c is 0 because its worst-case quoting is off. SPY's c is its confidence of
 
 Mint and redeem revert with `TwapNotAvailable` when P is 0 or `twap_updated_at` is more than 300 s old. There is no fallback price. The keeper withholds a push whenever its source price is stale. That happens every time the underlying market closes, so outside trading hours mint and redeem stop working 300 s after the last push.
 
-Committed orders (enabled on every market except MSTR since 11 Oct 2026) settle only at a push newer than the commit, and expire 180 s after it. The bin books are the reverse: they trade only once the price is more than 300 s old outside `Normal`, against a capped free-float book that the keeper posts.
+Committed orders (enabled on every live market since 11 Oct 2026) settle only at a push newer than the commit, and expire 180 s after it. The bin books are the reverse: they trade only once the price is more than 300 s old outside `Normal`, against a capped free-float book that the keeper posts.
 
 Apply the same rule in your UI: mark prices older than 300 s as stale and disable mint and redeem.
 

@@ -18,7 +18,7 @@ Anyone can call `pool_swap`, `commit_swap` and `settle_swap`, and anyone can sen
 | Committed order | `commit_swap`, then `settle_swap` | While the market's price is live | NAV ± `max(commit_spread_bps, 10)` bps at a price push after the commit | The spread |
 | Bin book (instant) | `pool_swap` | Only while the market's price is stale | Walks the keeper's posted bins out from the book centre, with real slippage | None; you pay the bin spread |
 
-A committed order fills at a price pushed after the commit, so the trader never trades against a quote seen before committing. Since 11 Oct 2026 committed orders are the only venue while a market's price is live, on every market except MSTR. `pool_swap` fills only while the market floats (its risk state isn't `Normal` and its last push is more than 300 s old) and fails with `PoolClosedWhileLive` otherwise. The keeper sizes the bin books to expected demand. The instant oracle swap, `clp_swap`, was retired the same day. See `SwapGuardsState` below.
+A committed order fills at a price pushed after the commit, so the trader never trades against a quote seen before committing. Since 11 Oct 2026 committed orders are on for every live market and are the protocol's only venue while its price is live. `pool_swap` fills only while the market floats (its risk state isn't `Normal` and its last push is more than 300 s old) and fails with `PoolClosedWhileLive` otherwise. The keeper sizes the bin books to expected demand. The instant oracle swap, `clp_swap`, was retired the same day. See `SwapGuardsState` below.
 
 ## Accounts
 
@@ -90,7 +90,7 @@ Stored in `Clp.swap_guards` and set with `configure_swap`. The all-zero default 
 | `window_secs` | i64 | Window length |
 | `collateral_floor_bps` | u16 | Minimum market collateral ratio, at the settle price, for a committed fill |
 
-As of 11 Oct 2026, 13 markets (all but MSTR) have guards enabled and not frozen, with the same limits: a 600 s staleness limit, a 5,000 bps confidence limit (off in practice), a 10,000 bps deviation limit (off; `update_risk_state_v2` already refuses a move of more than 25% per push) and a 10,000 bps (100%) collateral floor. Their spread and window cap were left as they were: QQQ, SPY and XAU keep a 30 bps spread and a cap of 1,000,000 cUSDC per hour, and the other markets have no cap. MSTR's guards are off, so `commit_swap` reverts there with `SwapDisabled`.
+Since 11 Oct 2026, all 13 live markets have guards enabled and not frozen, with the same limits: a 600 s staleness limit, a 5,000 bps confidence limit (off in practice), a 10,000 bps deviation limit (off; `update_risk_state_v2` already refuses a move of more than 25% per push) and a 10,000 bps (100%) collateral floor. Their spread and window cap were left as they were: QQQ, SPY and XAU keep a 30 bps spread and a cap of 1,000,000 cUSDC per hour, and the other markets have no cap.
 
 ### `Pool` PDA
 
@@ -98,7 +98,7 @@ As of 11 Oct 2026, 13 markets (all but MSTR) have guards enabled and not frozen,
 seeds = [b"pool", market, [side]]    // side: 0 = long, 1 = short
 ```
 
-Two per market, so 28 for the 14 live markets. Each is a native bin book for one synth leg against cUSDC. The whole book lives in the account (up to 16 bins a side, `POOL_MAX_BINS`), so bins cost no extra rent. The pool PDA's two associated token accounts hold the reserves: synth for the asks and cUSDC for the bids.
+Two per market, so 26 for the 13 live markets. Each is a native bin book for one synth leg against cUSDC. The whole book lives in the account (up to 16 bins a side, `POOL_MAX_BINS`), so bins cost no extra rent. The pool PDA's two associated token accounts hold the reserves: synth for the asks and cUSDC for the bids.
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -374,7 +374,7 @@ Hands the guardian role to a new key at once. If a pending change kept the old g
 
 Moves treasury cUSDC straight into a market's collateral vault and credits `total_collateral`. It calls mint-redeem's `fund_collateral_from` by CPI, with the `GlobalClp` PDA as funder. The signer is the global authority, which must also be the market's authority. It is not rate limited, because the funds stay inside the protocol, and it works while frozen.
 
-The keeper's liquidity reallocator calls it: at once for a market below 100% collateral at its stored price, and after 5 minutes for one short of its posted target by more than one confidence band. It fills to the posted target, at most 112% (102% for MSTR), and never takes a fill back. See [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
+The keeper's liquidity reallocator calls it: at once for a market below 100% collateral at its stored price, and after 5 minutes for one short of its posted target by more than one confidence band. It fills to the posted target, at most 112%, and never takes a fill back. See [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
 
 Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's), `global_vault`, `mint_redeem_program`, `token_program`. Emits `MarketBackstopped`, and mint-redeem emits `CollateralFunded`.
 

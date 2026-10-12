@@ -220,7 +220,7 @@ The estimates match the program exactly while the market is over-collateralized.
 
 ## Redeeming one leg
 
-There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. To exit a single leg, sell it through a committed order while the market is open (every market except MSTR), or on the bin book with `pool_swap` while its price is stale. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
+There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. To exit a single leg, sell it through a committed order while the market is open, or on the bin book with `pool_swap` while its price is stale. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
 
 ## Common errors
 

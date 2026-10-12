@@ -25,7 +25,7 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
   <Step title="Mint a paired position">
     Open [/mint](https://continuum.markets/mint). Under **Select asset**, pick a market such as QQQ, and enter an amount of cUSDC: at least 10, so try 100. The preview shows how many long and short tokens you will receive and the mint fee.
 
-    For example, at QQQ's last price on 9 Oct 2026 ($751.27), 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS. The fee is 0.27%: QQQ's posted fee of 18 bps, times 1.5 because every devnet market runs in ProxyMode.
+    For example, at QQQ's last price on 9 Oct 2026 (\$751.27), 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS. The fee is 0.27%: QQQ's posted fee of 18 bps, times 1.5 because every devnet market runs in ProxyMode.
 
     Click **Mint paired tokens** and approve. Your wallet now holds both legs, paid for in full, with no margin and no liquidation. If the preview says **Minting needs a fresh price**, the market is closed; come back when it reopens.
   </Step>
@@ -39,7 +39,7 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
 
     In the trade panel, choose **Long (QQQL)** or **Short (QQQS)**, then **Buy** or **Sell**. **Sell** appears only when you hold that leg. Enter an amount and submit. Selling your QQQS leaves you long QQQ (QQQL plus cUSDC); selling your QQQL leaves you short.
 
-    While the market is open, every order is a committed order (every market except MSTR). It fills at NAV ± the posted commit spread, at the next price pushed after you submit. If it can't fill within 3 minutes, the keeper returns your input automatically, and a **Refund now** button appears if it hasn't come back a minute after the deadline. While the market is closed, the panel says **Market closed. You can still trade.** and offers the leg's bin book, which fills instantly at prices around the last close up to a capped size, or the [order book](/flows/order-book), where you trade with other traders.
+    While the market is open, a market order is a committed order. It fills at NAV ± the posted commit spread, at the next price pushed after you submit, unless traders' orders on the [order book](/flows/order-book) fill all of it now for less when you buy, or for more when you sell. If a committed order can't fill within 3 minutes, the keeper returns your input automatically, and a **Refund now** button appears if it hasn't come back a minute after the deadline. While the market is closed, the panel says **Market closed. You can still trade.** The leg's bin book, which quotes from the last price up to a small size, and traders' orders then form [one book](/flows/order-book#one-book-while-closed): a market order takes the cheapest offers first when you buy, and the highest bids first when you sell.
   </Step>
   <Step title="Redeem">
     To exit at NAV, go back to [/mint](https://continuum.markets/mint) and choose **Redeem**. Redeem burns both legs together, so you need some of each. Enter a cUSDC amount, and the app redeems the same fraction of each leg you hold. The value must be at least 10 cUSDC. If you sold one leg, buy some back first, or sell the remaining leg instead.
@@ -52,7 +52,7 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
 
 | Page | What it does |
 |---|---|
-| [/pools](https://continuum.markets/pools) | All 14 markets, with each leg's book price and spread. Click a market to open its page. |
+| [/pools](https://continuum.markets/pools) | All 13 markets, with each leg's book price and spread. Click a market to open its page. |
 | `/pools/<SYMBOL>` | Market page: price chart, book depth and trade panel. |
 | [/mint](https://continuum.markets/mint) | Mint and redeem. [/redeem](https://continuum.markets/redeem) redirects here. |
 | [/portfolio](https://continuum.markets/portfolio) | Balances and NAV value for every market you hold. |

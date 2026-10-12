@@ -174,7 +174,7 @@ NAV is what the protocol mints and redeems at. **Book price** is what each bin b
 
 In steady state, `book_price ≈ NAV ± half_spread`, offset by the inventory shift. When pushes stop for 300 s and mint and redeem freeze, the keeper swaps each live book for a free-float book anchored at the last price, then re-anchors on the first fresh push. The books fill only while the price is stale. Pick a venue by market state:
 
-- While the market is open, commit an order (every market except MSTR). It fills at a push after the commit, at NAV ± the committed spread, at any size.
+- While the market is open, commit an order. It fills at a push after the commit, at NAV ± the committed spread, at any size.
 - While its price is stale, hit the book (`pool_swap`). It's instant, up to the book's capped size, and you pay the bin ladder's spread.
 - If you want the pair itself, mint or redeem at NAV. You pay the fee and the worst-case markup, and no spread.
 
