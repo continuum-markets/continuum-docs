@@ -76,7 +76,7 @@ The keeper's source isn't published. Before the protocol's keeper will price and
 2. Map the symbol to its price sources: the public quote source's symbol, the Pyth feed IDs for mainnet, and a benchmark ticker that seeds the volatility state at boot.
 3. Map it to its Hyperliquid instrument for the price check. If Hyperliquid lists only the index, as for QQQ and SPY, flag it as an index proxy so the keeper learns the ratio.
 4. Add its entry to `vol_coefs.json`. A test in the keeper's suite fails until every candidate has one.
-5. For a single stock, add it to `JUMP_PRONE`, which caps its off-hours books at \$1,250 a side.
+5. For a single stock, add it to `JUMP_PRONE`, which keeps its off-hours books under a \$1,250-a-side ceiling.
 6. Add its buffer target to the keeper's per-market table, sized like the others from the jump-diffusion study. A market missing from the table posts the 2% floor.
 7. Redeploy. Discovery runs only at boot, so the keeper ignores a new market until it restarts.
 

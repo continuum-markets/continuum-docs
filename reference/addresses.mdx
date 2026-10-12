@@ -106,12 +106,12 @@ QQQ, SPY and XAU used to share a unified vault, a PDA with seeds `[b"unified_vau
 
 ## Fee recipient
 
-Mint and redeem take a `devTokenAccount`, which must be a cUSDC account owned by `Market.fee_recipient`. It receives the dev tax (10% of each fee). Read `fee_recipient` from the Market account rather than hard-coding it. As of 10 Oct 2026:
+Mint and redeem take a `devTokenAccount`, which must be a cUSDC account owned by `Market.fee_recipient`. It receives the dev tax (10% of each fee). Read `fee_recipient` from the Market account rather than hard-coding it. Since 12 Oct 2026 every live market pays the dev tax to the treasury:
 
 | Markets | `fee_recipient` | Its cUSDC ATA |
 |---|---|---|
-| QQQ | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` (GlobalClp PDA) | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
-| The other 13 | `8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni` | `GB5Jqotcc27fHYXQy3VdAsbQ4NxaquQti3kZShSC2vmh` |
+| All 13 live markets | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` (GlobalClp PDA) | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` (the treasury) |
+| MSTR (closed) | `8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni` | `GB5Jqotcc27fHYXQy3VdAsbQ4NxaquQti3kZShSC2vmh` |
 
 ## CLP accounts
 

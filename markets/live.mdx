@@ -272,7 +272,7 @@ Derive the PDAs from the market symbol rather than copying them by hand. [Addres
 
 ## Trading hours
 
-Mint and redeem aren't 24/7. They revert with `TwapNotAvailable` once the keeper's last price is more than 300 s old, and the keeper pushes no prices while the underlying is closed. The bin books are the reverse: they fill only while mint and redeem are frozen, and the keeper then caps each of the seven single-stock books at \$1,250 a side. While prices are pushing, trades go through committed orders.
+Mint and redeem aren't 24/7. They revert with `TwapNotAvailable` once the keeper's last price is more than 300 s old, and the keeper pushes no prices while the underlying is closed. The bin books are the reverse: they fill only while mint and redeem are frozen, and the keeper then posts each side in one bin within 1% of the last price, sized to measured demand: \$500 a side while there is no measured flow. While prices are pushing, trades go through committed orders.
 
 → [Concepts → Markets → Trading hours](/concepts/markets#trading-hours)
 
