@@ -53,10 +53,10 @@ If your trading account can't cover an order, the app moves the difference from 
 
 These run in your browser tab, not on-chain. They only work while a tab with the app is open and online.
 
-- A stop loss or take profit sends a market order when the best bid (for a sell) or the best ask (for a buy) reaches your price.
+- A stop loss or take profit sends a market order when the price you could get for it right now reaches your price: the better of the order book and the protocol's venue (the pool while the market is closed, a committed order while it's open).
 - A TWAP splits an order into equal parts over a period you choose.
 
-Each fill is a market order signed by your trading key, inside the same protection band as one you place by hand. They draw only on the trading account: a stop that would need a wallet approval fails instead of waiting for one.
+Each fill is a market order signed by your trading key and goes to whichever venue pays more, like one you place by hand. They draw only on the trading account: a stop that would need a wallet approval fails instead of waiting for one.
 
 ## Spam and overload
 
