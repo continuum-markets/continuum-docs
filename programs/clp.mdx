@@ -169,11 +169,12 @@ One per cluster (`58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` on devnet, 210 b
 
 The program refills `allowance` only when an instruction touches the policy. To read what can be withdrawn now, compute `min(burst, allowance + rate_per_sec × (now − last_accrual_at))`.
 
-The live policy on 11 Oct 2026, with nothing pending:
+The live policy on 12 Oct 2026:
 
-- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. The rate was set to empty the 5.53M funded treasury in about 24 h. At the 22.13M it held after the returns of 11 Oct 2026, a full exit takes about 96 h.
+- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. It was set to empty the 5.53M funded treasury in about 24 h. At the 23.11M the treasury held on 12 Oct 2026, a full exit takes about four days.
 - Burst: 230,617.53 cUSDC, one hour of refill.
 - Delay: 24 h.
+- Pending: 256.78 cUSDC per second with a 924,402.61 cUSDC burst, due at 01:25:50 UTC on 13 Oct 2026. The keeper proposed it so that the whole treasury can leave in 24 h; see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s). It keeps the limits in proportion to the balance from then on.
 
 ### `RevenueAttribution` PDA
 

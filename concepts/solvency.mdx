@@ -109,7 +109,7 @@ The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the p
 
 Moving treasury cUSDC into a market is fast. `backstop_market` puts it straight into a market's vault and credits `total_collateral`. It has no rate limit and works while withdrawals are frozen, because the cUSDC stays inside the protocol.
 
-Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at 64.06 cUSDC a second, about 230,617 cUSDC an hour, so emptying the 22.13M treasury takes about 96 h. Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
+Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at a rate the keeper keeps in proportion to the balance, so emptying the treasury takes 24 h however much it holds (see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s)). Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
 
 The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books and inventory restock can spend before the next top-up, \$40,000 per market, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
 

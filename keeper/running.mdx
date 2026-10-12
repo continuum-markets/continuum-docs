@@ -96,6 +96,14 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `TREASURY_BACKSTOP_SKIP` | `MSTR` | Comma-separated markets the backstop fills only to 101%. |
 | `WIND_DOWN_MARKETS` | `MSTR` | Comma-separated markets being wound down: no working cash or backstop, books emptied and swept back to the CLP, the 1% minimum buffer posted, and while the price is fresh the CLP's pairs redeemed (all but one) and the surplus collateral returned to the treasury. Empty disables it. |
 
+### Treasury withdrawal rate
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TREASURY_RATE_MODE` | `live` | `off`, `dryrun` (logs the plan) or `live`. Every 900 s it keeps the treasury's withdrawal limits where the whole balance can leave in `TREASURY_EXIT_SECS`, signing `set_treasury_limits` as the CLP authority. A raise waits out the policy's 24 h delay and is applied with `apply_treasury_limits` once due; a cut applies at once. It acts only when the limits are more than 10% off, never while the allowance is refilling, and never over a pending change it didn't make. |
+| `TREASURY_EXIT_SECS` | `86400` | How long a full exit takes, clamped to 1 h to 30 days. The burst leaves at once and the rest at the rate, so the rate is the balance ÷ (exit + burst seconds). |
+| `TREASURY_BURST_SECS` | `3600` | The burst, in seconds of the rate. |
+
 ### Health and alerts
 
 | Variable | Default | Meaning |
