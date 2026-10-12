@@ -54,6 +54,7 @@
               "flows/redeem",
               "flows/trade",
               "flows/order-book",
+              "flows/trading-account",
               "flows/read-state"
             ]
           },

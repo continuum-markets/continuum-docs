@@ -1,0 +1,82 @@
+---
+title: Trading account
+description: One account per wallet that trades every venue, committed orders, the bin books and the order book, with a browser trading key that needs no wallet prompt and can only ever send funds back to your wallet.
+---
+
+Every trade in the app goes through your trading account. You set it up once, fund it from your wallet, and then trade with a trading key that lives in your browser and signs without a wallet prompt. Hyperliquid works the same way: a deposit, then trading with a key that can trade but can't take funds anywhere else.
+
+The account trades every venue:
+
+| Venue | When | Price |
+|---|---|---|
+| [Committed orders](/flows/trade#committed-orders) | While the market is open | The next official price, plus a spread |
+| [Bin book](/flows/trade#bin-books) | While the market is closed | The pool's quote, from the last official price |
+| [Order book](/flows/order-book) | Any hour | What other traders set |
+
+Tokens you buy stay in the account until you withdraw them. They're the same SPL tokens as anywhere else, and moving them to your wallet takes one click.
+
+## Setting up
+
+One wallet approval does three things:
+
+1. Opens the account: a record of who may trade for you, and a trader address that holds your funds, book seats and orders.
+2. Puts a trading key in your browser, made by the browser's crypto API with a private key that can't be exported, and stored for this site only.
+3. Sends about 0.03 SOL: rent for book seats, orders and committed orders, and fees for the key's transactions. You can take what's left back.
+
+The key lasts 30 days, the program's maximum. **Turn off** revokes it at once and sends its unused fee SOL back.
+
+## What the key can do
+
+| | Your wallet | Trading key |
+|---|---|---|
+| Trade: market and limit orders, the pool, committed orders | Yes | Yes |
+| Cancel book orders | Yes | Yes |
+| Move funds between the account and a book | Yes | Yes |
+| Withdraw | Yes, only to your wallet | Yes, only to your wallet |
+| Move funds in from your wallet | Yes | No |
+| Grant or revoke the key | Yes | No |
+
+Nothing the key signs can send funds anywhere except your own wallet. The program checks that every withdrawal pays your wallet's own token account, whoever signs it.
+
+A stolen key could still trade badly with an accomplice on the other side of a book. So the program holds every key-signed book order, and every key-signed pool fill, to a backstop band around the posted price: `3 · σ · √(t / 30s) + 10%`, clamped to 10%–25%. A pool fill is judged on what actually moved, so a key can't force a fill deep into the book either. Committed orders fill at the official price, so there's no one to trade with. Orders your wallet signs are not checked.
+
+There's no per-order limit. The program supports one, but it would bound each order, not the total, so a thief would just place more orders. The band is what limits the damage.
+
+## Funding a trade
+
+A trade draws on the account first. A book order uses that book's seat first, then the account. If neither covers it, the app moves the difference in from your wallet in the same transaction, and your wallet signs that one instead of the key. When the account's rent SOL is low, a wallet-signed trade tops it back up in the same approval.
+
+After a fill, proceeds stay in the account, ready for the next trade. A committed order that can't fill is refunded to the account.
+
+## While a market is closed
+
+The app quotes the order book and the pool side by side and sends a market order to whichever pays more. One that fills the whole order beats one that only fills part. You can pick the other one.
+
+The pool quotes from the last official price. When outside markets move past its spread (Hyperliquid's stock perps, pre- and after-hours quotes, index futures, Coinbase's gold and euro tokens), the keeper pulls the side a trader could profit from. The side left behind still prices the close, so the app warns anyone trading into it: after a rise, a sale on the pool gets a bid from before the move, and the order book may pay more.
+
+## Your balances
+
+The trading panel shows the account's cash and tokens for the market you're on. The portfolio counts everything the account holds: its token accounts, its seats on every book, and what its open book orders have set aside. Mint, redeem and burn still spend from your wallet, so withdraw first if you need tokens there.
+
+## Program
+
+`trading`, `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA` (devnet). IDL: [`idl/trading.json`](https://github.com/nxfi777/continuum-docs/blob/main/idl/trading.json).
+
+| Account | Seeds |
+|---|---|
+| Rules (`TradingRules`) | `["account", owner]` |
+| Trader (holds funds, seats and orders, pays rent) | `["trader", owner]` |
+
+| Instruction | Signer | What it does |
+|---|---|---|
+| `open_account` | Owner | Creates the rules account |
+| `set_session`, `revoke_session` | Owner | Grants or revokes the trading key |
+| `deposit` | Owner | Wallet → account |
+| `withdraw` | Owner or key | Account → the owner's own token account |
+| `withdraw_sol` | Owner | Trader's rent SOL → owner |
+| `claim_seat`, `deposit_to_market`, `withdraw_from_market` | Owner or key | Manifest seats |
+| `place_orders` | Owner or key | Manifest orders and cancels |
+| `swap_pool` | Owner or key | The CLP's `pool_swap` from the account |
+| `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address |
+
+A committed order placed from the account is owned by the trader address, so settlement pays its token accounts and refunds return there, the same as for any other order.

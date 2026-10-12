@@ -81,6 +81,113 @@
       "args": []
     },
     {
+      "name": "commit_order",
+      "docs": [
+        "Commit an order from the trading account. It fills at the next official",
+        "price, or after its time to live anyone can refund it; either way the",
+        "tokens and the rent come back to the trader PDA, never anywhere else."
+      ],
+      "discriminator": [
+        106,
+        167,
+        189,
+        186,
+        74,
+        113,
+        139,
+        232
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "account.owner",
+                "account": "TradingRules"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "writable": true,
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp"
+        },
+        {
+          "name": "order",
+          "writable": true
+        },
+        {
+          "name": "in_mint"
+        },
+        {
+          "name": "out_mint"
+        },
+        {
+          "name": "escrow",
+          "writable": true
+        },
+        {
+          "name": "trader_in",
+          "writable": true
+        },
+        {
+          "name": "trader_out"
+        },
+        {
+          "name": "clp_vault"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "clp_program",
+          "address": "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "CommitArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "deposit",
       "docs": [
         "Move tokens from the owner's wallet into the trading account."
@@ -518,28 +625,27 @@
       ]
     },
     {
-      "name": "withdraw",
+      "name": "swap_pool",
       "docs": [
-        "Move tokens from the trading account back to the owner's wallet. Owner",
-        "only, and only to the owner's own associated token account."
+        "Swap on the CLP's bin book from the trading account. The book trades",
+        "only while the market floats; the CLP enforces that. A session-signed",
+        "swap must fill inside the band, judged on what actually moved, so a",
+        "stolen key cannot force a fill deep into the book."
       ],
       "discriminator": [
-        183,
-        18,
-        70,
-        156,
-        148,
+        217,
+        231,
         109,
-        161,
-        34
+        45,
+        255,
+        31,
+        195,
+        220
       ],
       "accounts": [
         {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "account"
-          ]
+          "name": "authority",
+          "signer": true
         },
         {
           "name": "account",
@@ -559,7 +665,117 @@
               },
               {
                 "kind": "account",
-                "path": "owner"
+                "path": "account.owner",
+                "account": "TradingRules"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "trader_usdc",
+          "writable": true
+        },
+        {
+          "name": "trader_synth",
+          "writable": true
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "clp",
+          "writable": true
+        },
+        {
+          "name": "synth_vault",
+          "writable": true
+        },
+        {
+          "name": "usdc_vault",
+          "writable": true
+        },
+        {
+          "name": "revenue_attribution",
+          "writable": true
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "synth_mint"
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "clp_program",
+          "address": "8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "PoolSwapArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdraw",
+      "docs": [
+        "Move tokens from the trading account back to the owner's wallet. The",
+        "owner or the session key may sign: the only destination is the owner's",
+        "own associated token account, so a stolen key cannot take anything."
+      ],
+      "discriminator": [
+        183,
+        18,
+        70,
+        156,
+        148,
+        109,
+        161,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "account.owner",
+                "account": "TradingRules"
               }
             ]
           }
@@ -779,6 +995,19 @@
       ]
     },
     {
+      "name": "Pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
+    },
+    {
       "name": "TradingRules",
       "discriminator": [
         242,
@@ -804,6 +1033,19 @@
         119,
         126,
         63
+      ]
+    },
+    {
+      "name": "CommitPlaced",
+      "discriminator": [
+        64,
+        246,
+        131,
+        20,
+        154,
+        99,
+        147,
+        190
       ]
     },
     {
@@ -843,6 +1085,19 @@
         241,
         20,
         254
+      ]
+    },
+    {
+      "name": "PoolTraded",
+      "discriminator": [
+        102,
+        252,
+        51,
+        243,
+        227,
+        8,
+        113,
+        78
       ]
     },
     {
@@ -970,6 +1225,11 @@
       "code": 6016,
       "name": "NoSeat",
       "msg": "The trader has no seat on this market"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidDirection",
+      "msg": "Direction must be 0 (buy) or 1 (sell)"
     }
   ],
   "types": [
@@ -1106,6 +1366,82 @@
               "Weight for collateral (100 = 1:1, 95 = 0.95:1 for riskier stables)"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CommitArgs",
+      "docs": [
+        "A committed order: it fills at the next official price or is refunded."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "side",
+            "docs": [
+              "0 long, 1 short."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "direction",
+            "docs": [
+              "0 buys the token with cUSDC, 1 sells it for cUSDC."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "min_out",
+            "type": "u64"
+          },
+          {
+            "name": "nonce",
+            "docs": [
+              "Any number the trader has not used on this market; it names the order."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CommitPlaced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "direction",
+            "type": "u8"
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "session",
+            "type": "bool"
           }
         ]
       }
@@ -1668,6 +2004,172 @@
           {
             "name": "order_type",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pool",
+      "docs": [
+        "v2 native DISCRETE-BIN quote book for ONE synth side (long or short) vs",
+        "cUSDC. `asks`/`bids` are per-bin reserves around `base_price_1e6` (≈ side",
+        "NAV), priced at `base·r^±k` with `r = 1 + step_bps/1e4`. Swaps walk the bins",
+        "(real slippage); the keeper repositions to NAV with a skewed shape via",
+        "`set_pool_shape`. See `clmm.rs`.",
+        "",
+        "NAMING: despite the `CLMM_*` env vars and the `clmm.rs` filename, this is",
+        "NOT a Uniswap-v3-style concentrated-liquidity AMM. There is no continuous",
+        "`x·y=k` curve and no permissionless LPs: each bin holds a fixed reserve at a",
+        "fixed price (constant-sum within a bin), and the ladder is POSTED by the",
+        "keeper rather than emerging from deposits. It is a discrete-bin liquidity",
+        "book (Trader Joe \"Liquidity Book\" / Meteora DLMM family — `clmm.rs` calls",
+        "its own math \"DLMM-style\"), with a single quoter. The old names are kept for",
+        "config compatibility; docs say \"bin book\"."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "synth_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_price_1e6",
+            "type": "u64"
+          },
+          {
+            "name": "step_bps",
+            "type": "u32"
+          },
+          {
+            "name": "num_bins",
+            "type": "u8"
+          },
+          {
+            "name": "asks",
+            "type": {
+              "array": [
+                "u64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "bids",
+            "type": {
+              "array": [
+                "u64",
+                16
+              ]
+            }
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "frozen",
+            "type": "bool"
+          },
+          {
+            "name": "shape_updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "wing_step_bps",
+            "type": "u32"
+          },
+          {
+            "name": "core_bins",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolSwapArgs",
+      "docs": [
+        "A swap on the CLP's bin book for one side of a market."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "direction",
+            "docs": [
+              "0 buys the token with cUSDC, 1 sells it for cUSDC."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "min_out",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolTraded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "direction",
+            "type": "u8"
+          },
+          {
+            "name": "quote",
+            "docs": [
+              "cUSDC atoms paid (buy) or received (sell)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "base",
+            "docs": [
+              "Token atoms received (buy) or paid (sell)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "session",
+            "type": "bool"
           }
         ]
       }
