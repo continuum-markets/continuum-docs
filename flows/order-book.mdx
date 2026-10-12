@@ -40,7 +40,7 @@ A buy is sized in cUSDC to spend and a sell in tokens. A resting buy sets aside 
 
 ## Protection band
 
-A market order fills no worse than the leg's last posted price, widened by how far the price could plausibly have moved since that post:
+A market order takes traders' orders no worse than the leg's last posted price, widened by how far the price could plausibly have moved since that post. The pool's own quotes aren't held to it: after a pull they can honestly sit outside it, and a market order on the pool is bounded by its slippage instead.
 
 ```
 band = 3 · σ · √(t / 30s) + jump        clamped to 1%–25%
