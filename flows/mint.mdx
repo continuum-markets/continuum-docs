@@ -36,7 +36,7 @@ The keeper posts one fee per market and writes it to both `mint_fee_bps` and `re
 
 The program multiplies the posted fee by the risk-state multiplier. In `ProxyMode`, which every devnet market is in, that is 1.5×, so QQQ's 18 bps is charged as 27 bps. The multiplier never lowers a fee.
 
-The dev tax, `fee × dev_tax_pct / 100`, goes to the fee recipient; `dev_tax_pct` is 10 on every market (10 Oct 2026). The other 90% of the fee stays in the collateral vault and counts toward `total_collateral`, where it backs the market. [Fee waivers](#fee-waivers) can remove the fee entirely.
+The dev tax, `fee × dev_tax_pct / 100`, goes to the fee recipient; `dev_tax_pct` is 10 on every market (10 Oct 2026). Since 12 Oct 2026 every live market's fee recipient is the treasury → [Addresses → Fee recipient](/reference/addresses#fee-recipient). The other 90% of the fee stays in the collateral vault and counts toward `total_collateral`, where it backs the market. [Fee waivers](#fee-waivers) can remove the fee entirely.
 
 ## Price freshness
 

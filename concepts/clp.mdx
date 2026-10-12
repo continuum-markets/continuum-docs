@@ -104,7 +104,7 @@ Each market keeps its collateral in its own vault, owned by its Market PDA, and 
 
 ## The treasury
 
-The `GlobalClp` vault at the top of the diagram is the protocol treasury. It held about 22.13M cUSDC after the keeper returned idle CLP cash to it on 11 Oct 2026. Besides `allocate_to_market`, three instructions draw on it:
+The `GlobalClp` vault at the top of the diagram is the protocol treasury. It held about 40.0M cUSDC late on 12 Oct 2026, after the keeper returned idle CLP cash on 11 Oct and the CLP's own holdings were cut to working size on 12 Oct. Besides `allocate_to_market`, three instructions draw on it:
 
 - `backstop_market` moves cUSDC straight into a market's collateral vault and credits its `total_collateral`. It has no rate limit, because the funds stay inside the protocol. The keeper calls it when a market falls below 100% or stays short of its posted target; see [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
 - `admin_withdraw` pays cUSDC out of the protocol, to one named account only. Its allowance refills at a rate the keeper keeps in proportion to the balance, so a full exit takes 24 h whatever the treasury holds. Loosening the limits waits 24 h. A guardian key can freeze withdrawals and veto a loosening, but it can't move funds.
@@ -115,7 +115,7 @@ The keeper's yield allocator counts the treasury as first-loss capital when it s
 ## Where protocol revenue accumulates
 
 - Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only when someone adds them. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. Profits deposited into the treasury reach a market through `backstop_market`, which the keeper calls when a market falls below 100% or stays short of its target. The keeper calls neither `donate_to_vault` nor `fund_collateral`.
-- Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient.
+- Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient, which has been the treasury on every live market since 12 Oct 2026.
 - Harvested yield goes into the market's own vault and is added to `total_collateral`, so it raises that market's collateral ratio. Collateral above the target can still move to the CLP with `withdraw_excess_to_clp`. Nothing is lent on devnet: the keeper's emulator harvests the yield its mainnet plan would earn, and every live market has `yield_enabled` set as of 11 Oct 2026.
 
 See [Solvency](/concepts/solvency) for how these channels affect the collateral ratio.

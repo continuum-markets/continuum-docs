@@ -125,6 +125,25 @@ The target the treasury fills to is the market's posted target, capped at 130%. 
 
 The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 
+## Lending venues and redemption timing
+
+On mainnet the keeper lends each market's collateral to USDC lending venues and keeps a liquid share in the vault for redemptions: 3% of collateral, sized to one 5-minute recall cycle of redemptions ([Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s)). Devnet has no lending venues, so nothing is lent there.
+
+A redemption larger than the vault's cash waits for a recall, and each venue limits how fast money comes back. The limits on 12 Oct 2026:
+
+| Venue | Free cash (utilisation) | Withdrawal limit, shared by every depositor |
+|---|---|---|
+| Kamino Main | \$7.0M (94%) | \$90M per 24 h window |
+| Jupiter Lend | \$44.4M (91%) | 50% of supply at once, refilling over 6 h |
+| Save | \$5.1M (77%) | \$10M per ~1.75 h across the pool |
+| MarginFi | \$0.37M (95%) | \$1.7M an hour and \$3.4M a day |
+
+Free cash runs out before any of these limits does. Each venue's admins can also pause withdrawals. MarginFi paused all of them for about 79 hours from 1 April 2026, then wrote lenders down 1%.
+
+The r58 study replayed these rules against 197 days of venue data, March to October 2026. With Jupiter Lend's free cash at its current utilisation, a redemption of up to 10% of a market's collateral was paid within one 5-minute keeper cycle on every day, even with every depositor withdrawing at once. Under a rougher path for Jupiter's free cash, 1–2% of days missed the 5 minutes. A single holder redeeming 25–50% of a market could wait hours to days in a venue-wide run, or until a frozen venue reopens. Redemption sizes and pause odds are assumptions, because Continuum has no redemption history yet.
+
+Redemptions don't queue today. One the vault can't pay fails, and the holder retries after the recall. Two changes are planned for mainnet: recalling inside the redeem transaction, and paying large redemptions in parts as money comes back.
+
 ## Supporting structural protections
 
 - Users can only mint in pairs. `keeper_mint_single` and `keeper_redeem_single` need `market.keeper_authority`, and `redeem_single_for_vault` accepts only the market's CLP PDA. The keeper's single-sided mint collects full NAV for the leg it mints.

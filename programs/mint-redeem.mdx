@@ -116,7 +116,7 @@ Mint and redeem quote each leg against the user. Let c be `oracle_confidence` ti
 
 The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31, MSTR 52 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
 
-The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account. The rest stays in the vault and counts in `total_collateral`.
+The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account, the treasury on every live market since 12 Oct 2026. The rest stays in the vault and counts in `total_collateral`.
 
 ### Limits
 

@@ -62,6 +62,12 @@ What keeps working:
 - A committed order that nobody settles can be refunded with `cancel_swap` once its 180 s TTL has passed. Anyone can send it, and the escrow goes back to the order's owner.
 - `settle_swap` is permissionless, so anyone can settle a committed order once a fresh price has been pushed.
 
+## Is my money lent out? What if a lending venue freezes?
+
+On devnet, no. There are no lending venues there, so collateral stays in each market's vault.
+
+On mainnet, mostly yes. The keeper lends a market's collateral to USDC lending venues (Kamino, Jupiter Lend, Save and MarginFi) and keeps 3% in the vault, about five minutes of redemptions. A redemption larger than that waits for the keeper's next recall, one 5-minute cycle. Each venue limits withdrawals, and a venue can pause them: MarginFi paused all withdrawals for about 79 hours in April 2026. A large redemption could then wait until the venue reopens. If a venue loss leaves a market below 100% collateral, the keeper's backstop refills it from the protocol treasury. → [Solvency → Lending venues](/concepts/solvency#lending-venues-and-redemption-timing).
+
 ## Can I run my own keeper?
 
 Not today. The keeper's source and binary are not published, and each market's `keeper_authority` is a single pubkey that the market admin sets with `update_keeper_authority`. You can still run bots that need no keeper key: settling committed orders and trading the books are open to anyone. → [Keeper configuration](/keeper/running) · [Arb bot](/build/composability#2-arb-bot).
