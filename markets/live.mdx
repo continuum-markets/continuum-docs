@@ -3,7 +3,7 @@ title: Live markets
 description: The 14 markets live on Solana devnet, with every address each one needs and the fees and collateral read from chain on 11 Oct 2026.
 ---
 
-Fourteen markets are live on Solana devnet, with 28 bin books between them. Together they hold about \$19.2M of collateral, the sum of `Market.total_collateral` on 11 Oct 2026. Mainnet markets will be added when mainnet launches. OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
+Thirteen markets are live on Solana devnet, with 26 bin books between them. Together they hold about \$18.3M of collateral, the sum of `Market.total_collateral` on 12 Oct 2026. Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
 
 <Note>
   The cUSDC mint for all devnet markets is `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. On mainnet the collateral will be USDC.
@@ -28,13 +28,12 @@ As of 11 Oct 2026:
 | GOOGL | Alphabet (Class A) | 344.72516 | 32 | On | 1,268,326 |
 | GBP | GBP/USD | 1.36438 | 10 | On | 1,273,554 |
 | JPY | USD/JPY (yen per dollar) | 158.986 | 10 | On | 1,272,703 |
-| MSTR | MicroStrategy | 122.65 | 52 | Off | 1,278,382 |
 
 Every market set `initial_l_price` and `initial_s_price` to the same value, so its constant K is that price squared. No market has been re-anchored yet.
 
 The keeper posts one fee as both the mint fee and the redeem fee. All devnet markets run in ProxyMode, which charges 1.5× the posted fee, so QQQ's 18 bps costs 27 bps.
 
-Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every market except MSTR, and they are the only way to trade while a market's price is live. On MSTR, marked Off, `commit_swap` reverts with `SwapDisabled`. MSTR is being wound down: since 12 Oct 2026 its books are empty and its protocol liquidity is returning to the treasury (see [MSTR](#mstr-microstrategy)). The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
+Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every market except MSTR, and they are the only way to trade while a market's price is live. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
 
 Each market's `Clp` stores an OI cap of 250,000 cUSDC, which nothing enforces yet. The bin books charge no swap fee.
 
@@ -249,7 +248,7 @@ Each market keeps its collateral in its own vault, the cUSDC ATA of its Market P
 ## MSTR: MicroStrategy
 
 <Note>
-MSTR is being wound down. On 12 Oct 2026 the keeper emptied both books, returned their inventory and the CLP's working cash, and set the buffer target to 2%. Every MSTR token is held by the protocol. While MSTR's price is fresh, the keeper redeems the CLP's pairs except one, then releases the collateral above 102% to the CLP vault, and the reallocator returns it to the treasury.
+MSTR was wound down on 12 Oct 2026 and is paused (`is_active = false`), so mint and redeem revert with `MarketNotActive`. Every MSTR token was held by the protocol. The keeper emptied both books and returned their inventory and the CLP's working cash. One transaction then redeemed the CLP's pairs except one, released the collateral above 101% and paused the market. About \$1.36M went back to the treasury. One protocol-held pair and about \$249 of collateral remain.
 </Note>
 
 | | Address |
