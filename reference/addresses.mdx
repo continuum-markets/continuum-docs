@@ -120,6 +120,7 @@ Mint and redeem take a `devTokenAccount`, which must be a cUSDC account owned by
 | GlobalClp PDA | `[b"global_clp"]` | `BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` |
 | GlobalClp vault (the treasury) | cUSDC ATA of the GlobalClp PDA | `5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` |
 | `TreasuryPolicy` PDA | `[b"treasury_policy"]` | `58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` |
+| `TreasuryYield` PDA (the treasury's lending ledger) | `[b"treasury_yield"]` | `6YrCADSTyTJPNrVhrZz5S2wTzBQSPM5fGUrGSpLTBJgY` |
 | `RevenueAttribution` PDA | `[b"revenue_attribution"]` | `A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` |
 
 `pool_swap` takes the `RevenueAttribution` PDA after `token_program`, followed by the market's mint-redeem `Market` account, which comes last.

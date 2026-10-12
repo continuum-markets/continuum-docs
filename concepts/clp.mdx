@@ -104,10 +104,11 @@ Each market keeps its collateral in its own vault, owned by its Market PDA, and 
 
 ## The treasury
 
-The `GlobalClp` vault at the top of the diagram is the protocol treasury. It held about 22.13M cUSDC after the keeper returned idle CLP cash to it on 11 Oct 2026. Besides `allocate_to_market`, two instructions draw on it:
+The `GlobalClp` vault at the top of the diagram is the protocol treasury. It held about 22.13M cUSDC after the keeper returned idle CLP cash to it on 11 Oct 2026. Besides `allocate_to_market`, three instructions draw on it:
 
 - `backstop_market` moves cUSDC straight into a market's collateral vault and credits its `total_collateral`. It has no rate limit, because the funds stay inside the protocol. The keeper calls it when a market falls below 100% or stays short of its posted target; see [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
 - `admin_withdraw` pays cUSDC out of the protocol, to one named account only. Its allowance refills at a rate the keeper keeps in proportion to the balance, so a full exit takes 24 h whatever the treasury holds. Loosening the limits waits 24 h. A guardian key can freeze withdrawals and veto a loosening, but it can't move funds.
+- `treasury_lend` sends idle cUSDC to a lending venue and `treasury_recall` brings it back. A lend spends the same allowance as `admin_withdraw` and stops while the treasury is frozen; a recall restores the allowance and always works. Nothing lends the treasury on a schedule yet, and devnet has no venues.
 
 The keeper's yield allocator counts the treasury as first-loss capital when it sizes lending positions. See [clp → Treasury](/programs/clp#treasury) for the instructions.
 

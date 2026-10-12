@@ -151,7 +151,7 @@ A client can find a wallet's orders with `getProgramAccounts` memcmp filters on 
 seeds = [b"treasury_policy"]
 ```
 
-One per cluster (`58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` on devnet, 210 bytes). It holds the limits on `admin_withdraw` and is created by `init_treasury_policy`. It replaced the `AdminWithdrawWindow` account, which the upgrade of 11 Oct 2026 removed.
+One per cluster (`58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` on devnet, 210 bytes). It holds the limits on `admin_withdraw` and `treasury_lend` and is created by `init_treasury_policy`. It replaced the `AdminWithdrawWindow` account, which the upgrade of 11 Oct 2026 removed.
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -162,7 +162,7 @@ One per cluster (`58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` on devnet, 210 b
 | `delay_secs` | i64 | Wait before a loosening can apply; at most 30 days |
 | `allowance` | u64 | Withdrawable amount as of `last_accrual_at` |
 | `last_accrual_at` | i64 | When `allowance` was last refilled |
-| `frozen` | bool | Blocks `admin_withdraw` |
+| `frozen` | bool | Blocks `admin_withdraw` and `treasury_lend`. `treasury_recall` still works |
 | `pending_rate_per_sec`, `pending_burst`, `pending_delay_secs`, `pending_destination`, `pending_guardian` | u64, u64, i64, Pubkey, Pubkey | A proposed loosening that is waiting out its delay |
 | `pending_at` | i64 | When the pending change can apply; 0 if none |
 | `bump` | u8 | PDA bump |
@@ -175,6 +175,24 @@ The live policy on 12 Oct 2026:
 - Burst: 230,617.53 cUSDC, one hour of refill.
 - Delay: 24 h.
 - Pending: 256.78 cUSDC per second with a 924,402.61 cUSDC burst, due at 01:25:50 UTC on 13 Oct 2026. The keeper proposed it so that the whole treasury can leave in 24 h; see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s). It keeps the limits in proportion to the balance from then on.
+
+### `TreasuryYield` PDA
+
+```
+seeds = [b"treasury_yield"]
+```
+
+One per cluster (`6YrCADSTyTJPNrVhrZz5S2wTzBQSPM5fGUrGSpLTBJgY` on devnet, 73 bytes), created by `init_treasury_yield` on 12 Oct 2026. It records the treasury cUSDC that is out at lending venues.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `by_venue` | [u64; 5] | Principal out at each venue, by `YieldProtocol` index: 0 Kamino, 1 MarginFi, 2 Other, 3 Solend, 4 JupiterLend |
+| `principal` | u64 | Sum of `by_venue` |
+| `interest` | u64 | Interest returned to the treasury, all time |
+| `updated_at` | i64 | Time of the last lend or recall |
+| `bump` | u8 | PDA bump |
+
+Devnet has no lending venues, so its ledger stays at zero. A 1 cUSDC lend and recall on 12 Oct 2026 tested the instructions and left it there.
 
 ### `RevenueAttribution` PDA
 
@@ -331,7 +349,7 @@ Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidi
 
 ### Treasury
 
-The global vault is the protocol treasury. `admin_withdraw` pays cUSDC out of the protocol, within the limits in `TreasuryPolicy`. `backstop_market` moves cUSDC into a market's collateral and has no limit, because the funds stay inside the protocol. The policy and every instruction below except `admin_withdraw` were added on 11 Oct 2026.
+The global vault is the protocol treasury. `admin_withdraw` pays cUSDC out of the protocol, within the limits in `TreasuryPolicy`. `treasury_lend` sends idle cUSDC to a lending venue within the same limits, and `treasury_recall` brings it back. `backstop_market` moves cUSDC into a market's collateral and has no limit, because the funds stay inside the protocol. The policy, `backstop_market` and the instructions that manage the policy were added on 11 Oct 2026, and the three lending instructions on 12 Oct 2026.
 
 #### `admin_withdraw(amount: u64)` (`global_clp.authority`)
 
@@ -340,6 +358,22 @@ Pays idle cUSDC from the global vault to the policy's `destination`. It works as
 Accounts: `global_clp`, `authority`, `treasury_policy`, `global_vault` (owned by the `GlobalClp` PDA, else `InvalidVault`), `destination`, `token_program`. Emits `TreasuryWithdrawn`.
 
 On 11 Oct 2026 the bucket replaced the old 24 h cap and the 1 h hold after `admin_fund`, so `AdminWithdrawCapExceeded` (6033) is no longer returned.
+
+#### `init_treasury_yield()` (`global_clp.authority`)
+
+Creates `TreasuryYield` once, paid for by the signer. Accounts: `global_clp`, `authority`, `treasury_yield`, `system_program`.
+
+#### `treasury_lend(params: TreasuryLendParams)` (`global_clp.authority`)
+
+`TreasuryLendParams { amount, venue }`, where `venue` is the `YieldProtocol` index, 0 to 4 (else `InvalidAmount`). Moves `amount` cUSDC from the global vault to `lend_account`, the authority's own cUSDC account, which deposits it at the venue in the same transaction, as `deploy_collateral_to_yield` does for market collateral. It spends the `TreasuryPolicy` allowance exactly as `admin_withdraw` does, so lending can't move money out of the treasury faster than the policy allows. A lend must fit in the allowance (`TreasuryAllowanceExceeded`) and in the vault balance (`InsufficientLiquidFunds`), and is refused while the treasury is frozen (`TreasuryFrozen`). It adds `amount` to `by_venue[venue]` and `principal`.
+
+Accounts: `global_clp`, `authority`, `treasury_policy`, `global_vault` (owned by the `GlobalClp` PDA, else `InvalidVault`), `lend_account` (owned by the authority, else `Unauthorized`, and holding the vault's mint, else `InvalidVault`), `treasury_yield`, `token_program`. It emits no event; the program log carries the amount, the venue and the principal out.
+
+#### `treasury_recall(params: TreasuryRecallParams)` (`global_clp.authority`)
+
+`TreasuryRecallParams { amount, principal, venue }`. Moves `amount` cUSDC from `lend_account` back to the global vault. `principal` of it repays what was lent at `venue` and the rest is booked as `interest`. `principal` can't exceed `amount` (`InvalidAmount`) or what is out at that venue (`InsufficientDeployment`). The returned principal restores the allowance its lend spent, up to `burst`. A recall works while the treasury is frozen, so money coming home is never blocked. Same accounts as `treasury_lend`.
+
+Nothing calls these on a schedule yet. The keeper's yield allocator lends market collateral only, and devnet has no venues.
 
 #### `init_treasury_policy(params: TreasuryPolicyParams)` (`global_clp.authority`)
 
@@ -392,11 +426,11 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 
 - `update_inventory(volatile_value: u64, stable_value: u64)` (`clp.authority`) recomputes q, drawdown and the breach flags.
 - `update_oi(new_oi: u64)` (`clp.authority`) sets `current_oi` and fails with `OICapExceeded` above `oi_cap`. Nothing calls it today.
-- `check_inventory_restrictions()` returns `hard_breach && enforce_hard_bounds`, and `get_yield_status()` returns `(total_deployed, max_deployable, can_deploy_more)`. Both are read-only and CPI-callable.
+- `check_inventory_restrictions()` returns `hard_breach && enforce_hard_bounds`, and `get_yield_status()` returns `(total_deployed, max_deployable, can_deploy_more)`. Both are read-only and CPI-callable. `max_deployable` is still the old limit sized by the CLP's own capital, which `record_deployment` stopped applying on 12 Oct 2026.
 
 ### Yield (off)
 
-`record_deployment` and `record_withdrawal` (`clp.authority`) and `record_harvest` (`global_clp.authority`) track deployments to lending venues. `add_yield_to_buffer` and `absorb_loss` (`global_clp.authority`) maintain the global protocol buffer. Yield is off by default (`yield_strategy.enabled = false`).
+`record_deployment` and `record_withdrawal` (`clp.authority`) and `record_harvest` (`global_clp.authority`) track deployments to lending venues. Since 12 Oct 2026 `record_deployment` refuses only when yield is off (`YieldStrategyDisabled`) or the market isn't Active (`ExceedsMaxDeployment`). It used to also cap a market's lending at a share of its CLP's own capital, a few hundred dollars per market after the stock cuts. A market's lending is now bounded by its `yield_ceiling_bps` in mint-redeem and by the keeper's venue caps. `add_yield_to_buffer` and `absorb_loss` (`global_clp.authority`) maintain the global protocol buffer. Yield is off by default (`yield_strategy.enabled = false`).
 
 ### Legacy Meteora instructions
 
@@ -443,13 +477,13 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6016 | `CollateralFloorBreach` | Market collateral ratio below `collateral_floor_bps` at the settle price; the order stays pending |
 | 6017 | `InsufficientShares` | Unused (legacy LP shares) |
 | 6018 | `InsufficientFunds` | A vault, book or inventory can't cover the request |
-| 6019 | `InsufficientLiquidFunds` | `admin_withdraw` or `backstop_market` is larger than the global vault balance |
+| 6019 | `InsufficientLiquidFunds` | `admin_withdraw`, `treasury_lend` or `backstop_market` is larger than the global vault balance |
 | 6020 | `OICapExceeded` | `update_oi` above `oi_cap` |
 | 6021 | `MathOverflow` | Arithmetic overflow |
 | 6022 | `InsufficientBuffer` | `absorb_loss` is larger than the buffer balance |
 | 6023 | `HardBoundBreach` | Unused |
 | 6024 | `YieldStrategyDisabled` | `record_deployment` while yield is off |
-| 6025 | `ExceedsMaxDeployment` | Deployment above the current state's limit |
+| 6025 | `ExceedsMaxDeployment` | `record_deployment` while the market isn't Active |
 | 6026 | `MaxDeploymentsExceeded` | A fourth yield deployment. `allocate_to_market` no longer raises it as of 11 Oct 2026 |
 | 6027 | `DeploymentNotFound` | Unknown yield protocol |
 | 6028 | `InsufficientDeployment` | Withdrawal or recall larger than what is deployed |
@@ -461,8 +495,8 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6034 | `InvalidPosition` | Legacy Meteora position mismatch, or a wrong account in `clp_burn_excess` |
 | 6035 | `InvalidAccountData` | Unused |
 | 6036 | `InvalidVault` | A token account isn't the protocol-owned account expected: the wrong owner or mint for the global vault, a CLP vault or the CLP's L and S accounts |
-| 6037 | `TreasuryFrozen` | `admin_withdraw` while the treasury is frozen |
-| 6038 | `TreasuryAllowanceExceeded` | `admin_withdraw` above the refilled allowance |
+| 6037 | `TreasuryFrozen` | `admin_withdraw` or `treasury_lend` while the treasury is frozen |
+| 6038 | `TreasuryAllowanceExceeded` | `admin_withdraw` or `treasury_lend` above the refilled allowance |
 | 6039 | `InvalidTreasuryParams` | Rate or burst of 0, a delay outside 0 to 30 days, or no guardian |
 | 6040 | `InvalidTreasuryDestination` | `admin_withdraw` to an account other than the policy destination, or a new destination that isn't the account passed or holds another mint |
 | 6041 | `NoPendingTreasuryChange` | `apply_treasury_limits` with nothing pending |
