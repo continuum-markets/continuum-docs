@@ -72,6 +72,14 @@ The target the treasury fills to is the market's posted target, capped at 130%. 
 
 The program decides how a change lands. A cut applies at once. A raise waits out the policy's 24 h delay, during which the guardian can cancel it, and the task applies it once due, so a deposit can't speed up withdrawals any sooner. The task changes nothing while the allowance is refilling, after a withdrawal in the last hour or a raise just applied, so the rate in force when an exit starts holds until it ends. It moves the limits only when they are more than 10% off, and it leaves alone any pending change that alters the destination, guardian or delay.
 
+### Imbalance control (900 s)
+
+After the keeper's γ charge, a price move changes a market's claims by exactly (L − S) times the return, where L and S are the values of all its long and all its short tokens. Nothing moves the anchor, so the imbalance β = (L − S)/(L + S) drifts with the price, and the posted buffer has to cover a year of that drift. This task keeps β near zero with the protocol's own tokens. When β leaves its band (0.05), it redeems the CLP's surplus of the heavier leg at NAV through `vault_redeem_single`. Collateral and claims fall by the same amount and no fee is charged, so no holder's tokens change value. The cash lands in the CLP vault, and the reallocator returns it to the treasury.
+
+It acts only on a price under 240 s old, so not while a market is closed. It leaves \$20,000 of the heavier leg in the CLP for the books and redeems at most \$50,000 per market per tick. When the CLP holds no surplus of the heavier leg it waits rather than minting the lighter one.
+
+Since 12 Oct 2026 it runs in dry-run, logging what it would redeem. The study behind it found that while it runs, every live market needs well under 1% of claims to stay above 100% in 99 years out of 100, against posted targets of 1% to 12.4%. The daily targets move onto that model once the task has run live.
+
 ### Yield allocator (300 s)
 
 The allocator is the only part of the keeper that lends collateral. Each tick it reads the USDC reserves of four mainnet venues straight from chain: Kamino's main market, MarginFi, Save's main pool and Jupiter Lend Earn. From each reserve it rebuilds the venue's interest-rate curve, so it knows how far the supply rate falls as the protocol's own deposit pushes utilization down. It plans on a blended rate, 25% today's rate and 75% the venue's 30-day mean, so a one-day spike doesn't pull collateral.

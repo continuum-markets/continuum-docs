@@ -104,6 +104,17 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `TREASURY_EXIT_SECS` | `86400` | How long a full exit takes, clamped to 1 h to 30 days. The burst leaves at once and the rest at the rate, so the rate is the balance ÷ (exit + burst seconds). |
 | `TREASURY_BURST_SECS` | `3600` | The burst, in seconds of the rate. |
 
+### Imbalance control
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `IMBALANCE_CONTROL_MODE` | `dryrun` | `off`, `dryrun` (logs the plan) or `live`. Every 900 s, for each active market with a price under 240 s old, it redeems the CLP's surplus of the heavier leg with `vault_redeem_single` until the book's long and short values are back in balance. |
+| `IMBALANCE_BAND` | `0.05` | How far the imbalance β = (L − S)/(L + S) may drift from its target before it acts. |
+| `IMBALANCE_TARGETS` | empty | Per-market targets for β, as `SYM=β,…`. Unlisted markets target 0. |
+| `IMBALANCE_MAX_USD` | `50000` | Most it redeems in one market in one tick. |
+| `IMBALANCE_KEEP_USD` | `20000` | Value of the heavier leg it always leaves in the CLP for the books. |
+| `IMBALANCE_MIN_USD` | `1000` | Smallest redemption it sends. |
+
 ### Health and alerts
 
 | Variable | Default | Meaning |
