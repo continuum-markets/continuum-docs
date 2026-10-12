@@ -23,7 +23,7 @@ description: Continuum-specific terms in one place.
 
 **bps** (basis points) - 1 bps = 0.01%. Fees are quoted in bps: `mint_fee_bps = 18` means 0.18%.
 
-**Buffer target** - A market's overcollateralization target over parity, `Market.buffer_target_bps`, which the keeper posts with `set_buffer_target`. The target collateral ratio is 100% plus the buffer. Since 11 Oct 2026 each market has a fixed buffer from a jump-diffusion Monte Carlo, from 2% (QQQ, SPY, XAU and FX) to 24% (MSTR). On chain it gates only the donor fee waiver, how much excess a market can shed, and the donation gap-to-target credit; mints and redeems don't depend on it. The program clamps any target to 101% to 150%. → [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer).
+**Buffer target** - A market's overcollateralization target over parity, `Market.buffer_target_bps`, which the keeper posts with `set_buffer_target`. The target collateral ratio is 100% plus the buffer. Since 12 Oct 2026 a job recomputes each market's buffer daily with a jump-diffusion Monte Carlo from its live leg imbalance, γ and volatility regime: at most a 1% chance a year of falling below 100%, never below 1%. On 12 Oct it ranged from 1% (FX) to 12.4% (TSLA). On chain it gates only the donor fee waiver, how much excess a market can shed, and the donation gap-to-target credit; mints and redeems don't depend on it. The program clamps any target to 101% to 150%. → [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer).
 
 **CLP** (Continuous Liquidity Provider) - Continuum's on-chain treasury and trading program. It holds protocol capital and hosts committed orders and the bin books. The instant oracle swap it also hosted was retired on 11 Oct 2026. → [CLP concept](/concepts/clp).
 
@@ -45,7 +45,7 @@ description: Continuum-specific terms in one place.
 
 **Drift gate (reposition gate)** - The move in a book's target centre that triggers a re-centre: 20 bps by default (`CLMM_REPOSITION_BPS`), cut further so the book moves before NAV reaches the floor of its first funded bin.
 
-**Dynamic buffer** - The formula the keeper used to compute each market's buffer target live from realized volatility, `B = δ²/2 + |q|·δ + margin`. Fixed per-market targets replaced it on 11 Oct 2026. See Buffer target.
+**Dynamic buffer** - The formula the keeper used to compute each market's buffer target live from realized volatility, `B = δ²/2 + |q|·δ + margin`. Per-market Monte Carlo targets replaced it on 11 Oct 2026, recomputed daily since 12 Oct. See Buffer target.
 
 **Fee waiver** - A grant created by `donate_to_vault` that lets the donor mint and redeem fee-free for a period, through `mint_paired_with_waiver` and `redeem_paired_with_waiver`. It applies only while the market's vault is above its target ratio. The app no longer offers it.
 

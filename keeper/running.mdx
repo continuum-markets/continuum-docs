@@ -64,7 +64,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `CLMM_FEE_SCALE_ENABLED` | `true` | Posts `clamp(fee_mult × half-spread, 10, 100)` bps as the mint and redeem fee when it moves by 5 bps or more. `fee_mult` is 1.0. |
 | `CLMM_COMMIT_SPREAD_ENABLED` | `true` | Posts `clamp(half-spread, 10, 500)` bps as the committed-order spread when it moves by 2 bps or more. |
 | `CLMM_BUFFER_POST_ENABLED` | `true` | Posts each market's fixed overcollateralization target (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)) when it differs from the value on chain. |
-| `CLMM_BUFFER_TARGETS_BPS` | unset | Overrides the posted buffer for listed markets, as `SYM:bps` pairs (`NVDA:1000,TSLA:1200`), clamped to 200 to 5,000 bps. A market missing from the keeper's table posts 200 bps. |
+| `CLMM_BUFFER_TARGETS_BPS` | unset | Overrides the posted buffer for listed markets, as `SYM:bps` pairs (`NVDA:1000,TSLA:1200`), clamped to 100 to 5,000 bps. It wins over the daily target the keeper reads from R2 (`cr-targets/latest.json`, written by the daily Monte Carlo job), which wins over the fixed fallback table; a market missing from that table posts 100 bps. |
 | `CLMM_REBALANCE_ENABLED` | `true` | Cross-market collateral rebalance. |
 | `GAMMA_DECAY_COEF` | `1.0` | γ calibration. Must be in (0, 1]; any other value aborts boot. |
 | `CLMM_GAMMA_DECAY_ENABLED` | removed | Setting it to any value aborts boot. γ decay has no switch. |
@@ -92,8 +92,9 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 |---|---|---|
 | `LIQUIDITY_REALLOCATOR_MODE` | `live` | `off`, `dryrun` (logs the moves) or `live`. Keeps each market's CLP vault between its working need and twice that need, topping up from the treasury and returning the rest, and runs the treasury backstop (`backstop_market`). |
 | `LIQUIDITY_REALLOCATOR_INTERVAL_SECS` | `30` | Cadence, minimum 30. The working need counts every consumer run that fits in one tick, so a longer tick widens the band. |
-| `TREASURY_BACKSTOP_MAX_TARGET_BPS` | `11200` | Highest collateral ratio the treasury backstop fills a market to, in bps of claims, clamped to 10,000 to 15,000. Below it, a market is filled to its posted target. |
-| `TREASURY_BACKSTOP_SKIP` | `MSTR` | Comma-separated markets the backstop fills only to 102%. |
+| `TREASURY_BACKSTOP_MAX_TARGET_BPS` | `13000` | Highest collateral ratio the treasury backstop fills a market to, in bps of claims, clamped to 10,000 to 15,000. Below it, a market is filled to its posted target. |
+| `TREASURY_BACKSTOP_SKIP` | `MSTR` | Comma-separated markets the backstop fills only to 101%. |
+| `WIND_DOWN_MARKETS` | `MSTR` | Comma-separated markets being wound down: no working cash or backstop, books emptied and swept back to the CLP, the 1% minimum buffer posted, and while the price is fresh the CLP's pairs redeemed (all but one) and the surplus collateral returned to the treasury. Empty disables it. |
 
 ### Health and alerts
 

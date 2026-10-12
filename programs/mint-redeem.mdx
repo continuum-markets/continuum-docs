@@ -166,7 +166,7 @@ The keeper's price write. It maps the price and the confidence through the corpo
 
 #### `set_buffer_target(buffer_target_bps: u16)`
 
-Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The keeper posts a fixed value per market, and only when it differs from the stored one; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). The target gates only three things: the fee waiver, the waiver credit a donation earns for closing the gap to target, and how much excess a market can shed (`withdraw_excess_to_clp`, `rebalance_collateral`). Mints and redeems don't read it.
+Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The keeper posts each market's daily Monte Carlo target, and only when it differs from the stored one; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). The target gates only three things: the fee waiver, the waiver credit a donation earns for closing the gap to target, and how much excess a market can shed (`withdraw_excess_to_clp`, `rebalance_collateral`). Mints and redeems don't read it.
 
 #### `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`
 
