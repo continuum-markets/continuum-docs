@@ -151,7 +151,9 @@ The allocator's limits come from the stress assumptions below and the treasury b
 | `YIELD_RECALL_HORIZON_HOURS` | `12` | Time to get lent collateral back. With the line above it sets the liquid share, 29.3% by default. |
 | `YIELD_MIN_LIQUID_USD` | `10000` | Liquid floor per market, in dollars. |
 | `YIELD_VENUE_LOSS_BUDGET` | `0.5` | Share of all markets' collateral above 100% that counts as first-loss capital, on top of the treasury. |
-| `YIELD_VENUE_FAILURES_COVERED` | `1` | Venue failures to cover, 1 to 4. Each venue's total position across all markets is capped at first-loss capital divided by this number. |
+| `YIELD_VENUE_FAILURES_COVERED` | `1` | Venue failures to cover, 1 to 4. Each venue's total position across all markets is capped at first-loss capital divided by this number, on top of its share below. |
+| `YIELD_VENUE_LOSS_SHARE_TIER1` | `0.5` | Largest share of first-loss capital one venue may hold if it has no lender losses on record: Kamino and Jupiter Lend. |
+| `YIELD_VENUE_LOSS_SHARE_TIER2` | `0.25` | The same for every other venue: Save and MarginFi. |
 | `YIELD_EXIT_LIQUIDITY_SHARE` | `0.5` | Largest share of a venue's withdrawable liquidity the protocol may hold. |
 | `YIELD_SPOT_WEIGHT` | `0.25` | Weight of today's rate against the 30-day mean. |
 | `YIELD_MIN_MARGINAL_APR` | `0.01` | Hurdle: no more is lent once the marginal rate falls below it. |
