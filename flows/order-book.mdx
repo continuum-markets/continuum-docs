@@ -66,7 +66,7 @@ Anyone can place orders on a Manifest book, so spam is the main risk to plan for
 - Expired orders are cleared by the next trade. An order past its last slot stays in the account until a trade walks into it, and that trade pays the compute to remove it. Measured against both builds of Manifest, removal costs 382–722 compute units per order. One transaction clears about 1,900–3,600 of them.
 - A side can be blocked, at a price. Someone who parks more expired orders at the top of a side than one transaction can clear would block new trades on that side. Doing it costs them roughly 1–2 SOL of rent per side, which they never get back.
 - Recovery is cheap. Funds in a blocked book are never stuck: withdrawals and cancels don't walk the book. The recovery is to list a fresh book for that token, about 0.007 SOL.
-- Global orders can stop a trade. A Manifest global order at the top of a book stops an immediate-or-cancel order at that point, and a resting order that would cross it fails. Passing global accounts is planned.
+- Global orders fill like any other. A Manifest global order is backed by one deposit per token, shared across books, and its funds move only when it is matched, so a taker must pass that token's global accounts. Without them Manifest stops an immediate-or-cancel order at the first global order and fails a resting order that would cross one. The app passes them whenever the side an order takes holds a global order, and the trading program checks every address against the market.
 
 ## Addresses
 

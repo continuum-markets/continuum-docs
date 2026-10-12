@@ -81,6 +81,77 @@
       "args": []
     },
     {
+      "name": "close_account",
+      "docs": [
+        "Close the trading account and return all its rent to the owner. Owner",
+        "only. Remaining accounts are the trader's token accounts to close: each",
+        "must be its associated token account and empty. The trader's SOL and the",
+        "rules account's rent go to the owner too. Book seats stay with Manifest,",
+        "which cannot release them; they work again if the account is reopened,",
+        "as does anything still in them."
+      ],
+      "discriminator": [
+        125,
+        255,
+        149,
+        14,
+        110,
+        34,
+        72,
+        24
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "writable": true,
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "commit_order",
       "docs": [
         "Commit an order from the trading account. It fills at the next official",
@@ -440,7 +511,9 @@
       "name": "place_orders",
       "docs": [
         "Cancel and place resting orders from the seat's balance. Session-signed",
-        "orders must be priced inside the band and under the per-order limit."
+        "orders must be priced inside the band and under the per-order limit.",
+        "Remaining accounts may carry up to two global groups (see",
+        "manifest::GlobalGroup), so orders can fill makers' global orders."
       ],
       "discriminator": [
         60,
@@ -1023,6 +1096,19 @@
   ],
   "events": [
     {
+      "name": "AccountClosed",
+      "discriminator": [
+        19,
+        250,
+        79,
+        236,
+        91,
+        80,
+        148,
+        48
+      ]
+    },
+    {
       "name": "AccountOpened",
       "discriminator": [
         250,
@@ -1230,9 +1316,40 @@
       "code": 6017,
       "name": "InvalidDirection",
       "msg": "Direction must be 0 (buy) or 1 (sell)"
+    },
+    {
+      "code": 6018,
+      "name": "BadGlobalAccounts",
+      "msg": "Global accounts must come in groups of mint, global, global vault, market vault and token program, for this market's mints"
     }
   ],
   "types": [
+    {
+      "name": "AccountClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "token_accounts",
+            "docs": [
+              "Token accounts closed, their rent paid to the owner."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "sol",
+            "docs": [
+              "The trader's SOL paid to the owner."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
     {
       "name": "AccountOpened",
       "type": {

@@ -48,15 +48,27 @@ A trade draws on the account first. A book order uses that book's seat first, th
 
 After a fill, proceeds stay in the account, ready for the next trade. A committed order that can't fill is refunded to the account.
 
-## While a market is closed
+## Where a market order goes
 
-The app quotes the order book and the pool side by side and sends a market order to whichever pays more. One that fills the whole order beats one that only fills part. You can pick the other one.
+The app quotes the protocol's venue and the order book side by side and sends a market order to whichever pays more. One that fills the whole order beats one that only fills part, and you can pick the other one.
+
+- While a market is open, the protocol's venue is a committed order, estimated at the current price; it fills at the next one. While committed orders pause for a top-up, or one of yours is pending, the book still trades.
+- While a market is closed, it's the pool.
+- Limit orders always rest on the book.
+
+## While a market is closed
 
 The pool quotes from the last official price. When outside markets move past its spread (Hyperliquid's stock perps, pre- and after-hours quotes, index futures, Coinbase's gold and euro tokens), the keeper pulls the side a trader could profit from. The side left behind still prices the close, so the app warns anyone trading into it: after a rise, a sale on the pool gets a bid from before the move, and the order book may pay more.
 
 ## Your balances
 
 The trading panel shows the account's cash and tokens for the market you're on. The portfolio counts everything the account holds: its token accounts, its seats on every book, and what its open book orders have set aside. Mint, redeem and burn still spend from your wallet, so withdraw first if you need tokens there.
+
+## Closing the account
+
+**Close account** returns everything to your wallet. It first sends every balance, in the account's token accounts and in its book seats, back to your wallet with the key. Then one wallet approval sends the key's unused fee SOL back and closes the account, its token accounts and its rent. It waits while you have open book orders or a committed order in flight.
+
+One cost never comes back: each book seat, and each book slot an order once needed, is an 80-byte block of rent that Manifest keeps. The seats stay yours, and work again if you open the account later.
 
 ## Program
 
@@ -74,8 +86,9 @@ The trading panel shows the account's cash and tokens for the market you're on. 
 | `deposit` | Owner | Wallet → account |
 | `withdraw` | Owner or key | Account → the owner's own token account |
 | `withdraw_sol` | Owner | Trader's rent SOL → owner |
+| `close_account` | Owner | Closes the empty token accounts and the rules account, and sends their rent and the trader's SOL to the owner |
 | `claim_seat`, `deposit_to_market`, `withdraw_from_market` | Owner or key | Manifest seats |
-| `place_orders` | Owner or key | Manifest orders and cancels |
+| `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market |
 | `swap_pool` | Owner or key | The CLP's `pool_swap` from the account |
 | `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address |
 
