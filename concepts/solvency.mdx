@@ -54,22 +54,24 @@ A job reruns that calculation once a day, after the US close: a jump-diffusion M
 - **γ**, the short leg's volatility decay.
 - **The volatility regime**: recent daily volatility against the long-run calibration. It can only raise a target, by up to 2×; a calm month never lowers one.
 
-A daily target moves at most 50 bps or 25% a day, whichever is larger. The keeper reads the job's output every 30 minutes and posts a target only when it differs from the value on chain. If the output is missing or older than 48 hours, the keeper posts a fixed fallback table computed for a book at its anchor.
+Every path runs twice: once with the book left alone, and once with the keeper's [imbalance control](/concepts/keeper#imbalance-control-900s) redeeming the CLP's heavier leg whenever |β| leaves 0.05. A market whose live |β| is within 0.10 gets the second need, because the band is visibly holding. Past 0.10 it gets the first. With the band held, no market needs more than 0.63% (TSLA), so every buffer heads for the 1% minimum.
 
-| Market | Daily target, 12 Oct 2026 | Fixed fallback |
-|---|---|---|
-| QQQ | 101.84% | 101.7% |
-| SPY | 101.05% | 101% |
-| XAU | 101.54% | 101.4% |
-| XAG | 105.97% | 105.9% |
-| AAPL | 103.33% | 102.9% |
-| MSFT | 103.69% | 103.3% |
-| GOOGL | 104.83% | 104.8% |
-| AMZN | 106.06% | 106.1% |
-| NVDA | 110.69% | 110% |
-| TSLA | 112.40% | 112% |
-| EUR, GBP, JPY | 101% | 101% |
-| MSTR | 101% while it is wound down | 124% |
+A target rises at once and falls at most 50 bps or 25% a day, whichever is larger. From 12 Oct 2026 the targets step down to 101% at that pace, which takes NVDA and TSLA about nine days. The keeper reads the job's output every 30 minutes and posts a target only when it differs from the value on chain. If the output is missing or older than 48 hours, the keeper posts a fixed fallback table computed for a book at its anchor.
+
+| Market | Daily target, 12 Oct 2026 | Need with the band held | Fixed fallback |
+|---|---|---|---|
+| QQQ | 101.84% | 100.17% | 101.7% |
+| SPY | 101.05% | 100.13% | 101% |
+| XAU | 101.54% | 100.14% | 101.4% |
+| XAG | 105.97% | 100.33% | 105.9% |
+| AAPL | 103.33% | 100.27% | 102.9% |
+| MSFT | 103.69% | 100.34% | 103.3% |
+| GOOGL | 104.83% | 100.43% | 104.8% |
+| AMZN | 106.06% | 100.48% | 106.1% |
+| NVDA | 110.69% | 100.49% | 110% |
+| TSLA | 112.40% | 100.63% | 112% |
+| EUR, GBP, JPY | 101% | 100.06% to 100.09% | 101% |
+| MSTR | 101% while it is wound down | Not used: \|β\| is 0.25 | 124% |
 
 The program clamps any target to [100, 5000] bps over parity (101% to 150%).
 

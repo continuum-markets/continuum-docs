@@ -108,7 +108,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `IMBALANCE_CONTROL_MODE` | `dryrun` | `off`, `dryrun` (logs the plan) or `live`. Every 900 s, for each active market with a price under 240 s old, it redeems the CLP's surplus of the heavier leg with `vault_redeem_single` until the book's long and short values are back in balance. |
+| `IMBALANCE_CONTROL_MODE` | `live` | `off`, `dryrun` (logs the plan) or `live`. The daily collateral targets assume it runs live, and plan without it for any market whose imbalance leaves twice the band. Every 900 s, for each active market with a price under 240 s old, it redeems the CLP's surplus of the heavier leg with `vault_redeem_single` until the book's long and short values are back in balance. |
 | `IMBALANCE_BAND` | `0.05` | How far the imbalance β = (L − S)/(L + S) may drift from its target before it acts. |
 | `IMBALANCE_TARGETS` | empty | Per-market targets for β, as `SYM=β,…`. Unlisted markets target 0. |
 | `IMBALANCE_MAX_USD` | `50000` | Most it redeems in one market in one tick. |
