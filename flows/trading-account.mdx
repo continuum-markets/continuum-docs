@@ -50,15 +50,15 @@ After a fill, proceeds stay in the account, ready for the next trade. A committe
 
 ## Where a market order goes
 
-The app quotes the protocol's venue and the order book side by side and sends a market order to whichever is cheaper when you buy, or pays you more when you sell. One that fills the whole order beats one that only fills part, and you can pick the other one.
+- While a market is closed, the pool's quotes and traders' orders are [one book](/flows/order-book#one-book-while-closed). A market order takes the cheapest offers first when you buy and the highest bids first when you sell, from either, in one transaction. At the same price, traders' orders fill first.
+- While a market is open, a market order is a committed order, estimated at the current price; it fills at the next one. Traders' orders take it instead only when they fill all of it now for less when you buy, or for more when you sell. While committed orders pause for a top-up, or one of yours is pending, the book still trades.
+- A limit order rests on the order book. One priced through the pool's quote takes from the pool first, then rests the rest.
 
-- While a market is open, the protocol's venue is a committed order, estimated at the current price; it fills at the next one. While committed orders pause for a top-up, or one of yours is pending, the book still trades.
-- While a market is closed, it's the pool.
-- Limit orders always rest on the book.
+The ticket shows what the order gets and where it fills from; there is no venue to pick.
 
 ## While a market is closed
 
-The pool quotes from the last official price. When outside markets move past its spread (Hyperliquid's stock perps, pre- and after-hours quotes, index futures, Coinbase's gold and euro tokens), the keeper pulls the side a trader could profit from. The side left behind still prices the close, so the app warns anyone trading into it: after a rise, a sale on the pool gets a bid from before the move, and the order book may pay more.
+The pool quotes from the last official price. When outside markets move past its spread (Hyperliquid's stock perps, pre- and after-hours quotes, index futures, Coinbase's gold and euro tokens), the keeper pulls the side a trader could profit from, and those quotes leave the book. The side left behind still prices the close, so the app warns anyone trading into it: after a rise, a sale gets the pool's bid from before the move, and a limit order can wait for a higher one.
 
 ## Your balances
 
