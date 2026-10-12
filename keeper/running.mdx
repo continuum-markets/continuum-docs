@@ -112,8 +112,9 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `IMBALANCE_BAND` | `0.05` | How far the imbalance β = (L − S)/(L + S) may drift from its target before it acts. |
 | `IMBALANCE_TARGETS` | empty | Per-market targets for β, as `SYM=β,…`. Unlisted markets target 0. |
 | `IMBALANCE_MAX_USD` | `50000` | Most it redeems in one market in one tick. |
-| `IMBALANCE_KEEP_USD` | `20000` | Value of the heavier leg it always leaves in the CLP for the books. |
-| `IMBALANCE_MIN_USD` | `1000` | Smallest redemption it sends. |
+| `IMBALANCE_KEEP_BPS` | unset | Overrides the CLP's stock share per leg (bps of the market's claims, at most 500). Unset, it follows the daily job's value, or 50 if the file is missing or over 48 hours old. |
+| `IMBALANCE_MIN_USD` | `100` | Smallest redemption or trim it sends. |
+| `SWAP_INVENTORY_ENABLED` | `false` | The old inventory restocker, which kept about \$10,000 a side for the retired instant swap. Off since 12 Oct 2026: pools refill from their own bid cash and committed orders mint on demand. |
 | `IMBALANCE_CASH_RESERVE_USD` | `10000` | cUSDC it always leaves in a market's CLP vault when it mints pairs because the CLP lacks the heavier leg. |
 
 ### Health and alerts

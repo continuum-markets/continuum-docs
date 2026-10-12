@@ -3,7 +3,7 @@ title: Live markets
 description: The 13 markets live on Solana devnet, with every address each one needs and the fees and collateral read from chain on 12 Oct 2026.
 ---
 
-Thirteen markets are live on Solana devnet, with 26 bin books between them. Together they hold about \$2.52M of collateral, the sum of `Market.total_collateral` on 12 Oct 2026 after the protocol's own holdings were cut to working size (see below). Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
+Thirteen markets are live on Solana devnet, with 26 bin books between them. Together they hold about \$1.37M of collateral, the sum of `Market.total_collateral` on 12 Oct 2026 after the protocol's own holdings were cut to working size (see below). Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
 
 <Note>
   The cUSDC mint for all devnet markets is `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. On mainnet the collateral will be USDC.
@@ -15,21 +15,21 @@ As of 12 Oct 2026:
 
 | Market | Tracks | Initial price | Fee (bps) | Committed orders | Total collateral (cUSDC) |
 |---|---|---|---|---|---|
-| QQQ | Invesco QQQ (Nasdaq-100 ETF) | 480 | 18 | NAV ± 18 bps | 615,718 |
-| SPY | SPDR S&P 500 ETF | 715 | 16 | NAV ± 15 bps | 420,488 |
-| XAU | Gold spot, USD per troy ounce | 4,683 | 18 | NAV ± 18 bps | 272,461 |
-| XAG | Silver spot, USD per troy ounce | 64.84 | 25 | On | 120,735 |
-| NVDA | NVIDIA | 210.71 | 31 | On | 125,965 |
-| AAPL | Apple | 298.17 | 22 | On | 118,496 |
-| EUR | EUR/USD | 1.14746 | 10 | On | 116,740 |
-| MSFT | Microsoft | 483.31864 | 29 | On | 119,312 |
-| TSLA | Tesla | 362.79505 | 38 | On | 129,151 |
-| AMZN | Amazon | 258.62 | 32 | On | 122,524 |
-| GOOGL | Alphabet (Class A) | 344.72516 | 32 | On | 121,072 |
-| GBP | GBP/USD | 1.36438 | 10 | On | 116,732 |
-| JPY | USD/JPY (yen per dollar) | 158.986 | 10 | On | 116,722 |
+| QQQ | Invesco QQQ (Nasdaq-100 ETF) | 480 | 18 | NAV ± 18 bps | 579,303 |
+| SPY | SPDR S&P 500 ETF | 715 | 16 | NAV ± 15 bps | 383,628 |
+| XAU | Gold spot, USD per troy ounce | 4,683 | 18 | NAV ± 18 bps | 233,941 |
+| XAG | Silver spot, USD per troy ounce | 64.84 | 25 | On | 15,947 |
+| NVDA | NVIDIA | 210.71 | 31 | On | 16,761 |
+| AAPL | Apple | 298.17 | 22 | On | 16,806 |
+| EUR | EUR/USD | 1.14746 | 10 | On | 16,684 |
+| MSFT | Microsoft | 483.31864 | 29 | On | 17,562 |
+| TSLA | Tesla | 362.79505 | 38 | On | 17,895 |
+| AMZN | Amazon | 258.62 | 32 | On | 17,346 |
+| GOOGL | Alphabet (Class A) | 344.72516 | 32 | On | 17,451 |
+| GBP | GBP/USD | 1.36438 | 10 | On | 16,880 |
+| JPY | USD/JPY (yen per dollar) | 158.986 | 10 | On | 16,414 |
 
-On 12 Oct 2026 the CLP's own holdings, which had been about \$16.6M across these markets, were cut to about \$50,000 a leg per market. The books use \$5,000 to \$10,000 a side, and committed orders mint what they need when they settle. The CLP redeemed the rest at NAV with `vault_redeem_single`, so no holder's tokens changed value, and \$15.7M of collateral went back to the treasury. Each book was left balanced between its long and short values. QQQ, SPY and XAU hold more because some of their long tokens sit outside the CLP, and the CLP keeps short tokens to offset them.
+On 12 Oct 2026 the CLP's own holdings, which had been about \$16.6M across these markets, were cut first to about \$50,000 a leg per market and then, the same day, to 0.5% of each market's claims per leg, the share the keeper's nightly job now re-derives. The books use \$5,000 to \$10,000 a side, and committed orders mint what they need when they settle. The CLP redeemed the rest at NAV with `vault_redeem_single`, so no holder's tokens changed value, and \$16.9M of collateral went back to the treasury. Most of what remains sits in the bin books. Each book was left balanced between its long and short values. QQQ, SPY and XAU hold more because some of their long tokens sit outside the CLP, and the CLP keeps short tokens to offset them.
 
 Every market set `initial_l_price` and `initial_s_price` to the same value, so its constant K is that price squared. No market has been re-anchored yet.
 
