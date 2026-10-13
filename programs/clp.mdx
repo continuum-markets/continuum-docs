@@ -143,7 +143,7 @@ Each order records what the user escrowed and when, and the fill uses a price pu
 | `expires_at` | 101 | i64 | `created_at + 180`; settle owns ≤, cancel owns > |
 | `nonce` | 109 | u64 | Client-chosen seed |
 
-A client can find a wallet's orders with `getProgramAccounts` memcmp filters on `user` (offset 8) or `market` (offset 40). The keeper finds every pending order in one call, filtered on the 117-byte size, the `Order` discriminator and `status = 0` at offset 74. Every terminal path (fill, refund, cancel) closes both the order and the escrow and returns all rent to the user, so a second settle attempt fails at account load.
+A client can find a wallet's orders with `getProgramAccounts` memcmp filters on `user` (offset 8) or `market` (offset 40). The keeper finds every pending order in one call, filtered on the 117-byte size, the `Order` discriminator and `status = 0` at offset 74. Every terminal path (fill, refund, cancel) empties the escrow, closes both the order and the escrow, and returns all rent to the user, so a second settle attempt fails at account load. Since 13 Oct 2026, tokens anyone sends to an escrow after the commit go back to the owner with the rest, so they can't stop it closing.
 
 ### `TreasuryPolicy` PDA
 
@@ -258,12 +258,13 @@ Fills a pending order at NAV ± `max(clp.commit_spread_bps, 10)` bps, with NAV f
 - `market.twap_updated_at > order.created_at`, else `NoFreshOraclePush`. Any push after the commit qualifies, not only the first.
 - The oracle guards: not frozen, a price no older than `max_staleness_secs`, and confidence and deviation within limits.
 
-It doesn't recheck `market.is_active` or `swap_guards.enabled`.
+It doesn't recheck `swap_guards.enabled`. Since 13 Oct 2026 a paused market (`market.is_active` false) refunds the order before any price check, so a pause stops fills at once.
 
 | Condition | Result |
 |---|---|
+| Market paused (`market.is_active` false) | Full refund. The accounts close and `OrderRefunded` is emitted |
 | An oracle guard fails | Revert (`SwapFrozen`, `OracleStale`, `OracleConfidenceTooWide` or `OracleDeviationTooLarge`). The order stays pending and can fill at a later push |
-| Quote at or above `min_out` | Fill: escrow to the CLP, payout to the user, accounts close. Emits `OrderSettled` and `SwapExecuted` (route 2) |
+| Quote at or above `min_out` | Fill: `amount_in` to the CLP, payout to the user, anything else in the escrow back to the user, accounts close. Emits `OrderSettled` and `SwapExecuted` (route 2) |
 | Quote below `min_out` | Full refund instead of a revert, so a runaway price can't leave the order retrying until expiry. The accounts close and `OrderRefunded` is emitted |
 | Market below `collateral_floor_bps` at the settle price | Revert (`CollateralFloorBreach`). The order stays pending and can fill at a later push once the market is topped up |
 | CLP inventory short | Revert. The order stays pending while the keeper adds inventory and retries |
@@ -274,7 +275,7 @@ The keeper posts `commit_spread_bps` with `set_commit_spread`, as `clamp(half-sp
 
 #### `cancel_swap()` (anyone, after expiry)
 
-Refunds an expired order once `now > expires_at` (else `OrderNotExpired`). Settle owns `now ≤ expires_at`, so there is no gap or overlap, and before expiry nobody can cancel. Since 11 Oct 2026 anyone may send it: `user` must be the order's owner but doesn't sign, and the escrow can go only to `user_in`, a token account the owner holds for the escrowed mint (`SwapAccountMismatch`). Nothing else is checked (no frozen, enabled, oracle or market-active gate), so escrowed funds can always be recovered after the 180 s TTL. Returns the escrow and all rent to the owner and emits `OrderCancelled`. The keeper sends it for every expired order about 5 s after expiry. Accounts: `user`, `order`, `escrow`, `user_in`, `token_program`.
+Refunds an expired order once `now > expires_at` (else `OrderNotExpired`). Settle owns `now ≤ expires_at`, so there is no gap or overlap, and before expiry nobody can cancel. Since 11 Oct 2026 anyone may send it: `user` must be the order's owner but doesn't sign, and the escrow can go only to `user_in`, a token account the owner holds for the escrowed mint (`SwapAccountMismatch`). Nothing else is checked (no frozen, enabled, oracle or market-active gate), so escrowed funds can always be recovered after the 180 s TTL. Returns the escrow's whole balance and all rent to the owner and emits `OrderCancelled`. The keeper sends it for every expired order about 5 s after expiry. Accounts: `user`, `order`, `escrow`, `user_in`, `token_program`.
 
 ### Bin book management
 
@@ -335,9 +336,9 @@ Moves cUSDC from the admin into the global vault, adds it to `total_deposits` an
 
 Move cUSDC between the global vault and a market's CLP vault, updating `allocated_from_global` and `market_allocations`. They move only between those two accounts. The global vault must be owned by the `GlobalClp` PDA, and the CLP vault must be owned by this market's `Clp` PDA and hold the same mint (`InvalidVault`).
 
-#### `deposit_profit(params: DepositProfitParams)`
+#### `deposit_profit(params: DepositProfitParams)` (`global_clp.authority` or a registered keeper)
 
-`DepositProfitParams { amount: u64, source: u8 }`. Moves `amount` of cUSDC out of `keeper_source`, a token account the `keeper` signer controls. A tiered tax goes to `admin_token_account`, which must be owned by `admin_wallet`. The rest goes to the global vault and `total_fees_accumulated`. The tier follows `total_deposits`: 15% below \$5M, 10% up to \$25M and 5% above. The net amount counts as keeper flow in `RevenueAttribution`, under `deposit_by_source[source]` (0 arb, 1 recycled LP fees, 2 yield harvest, 3 other; unknown tags count as 3). Accounts: `global_clp`, `keeper`, `keeper_source`, `global_vault`, `admin_token_account`, `token_program`, `revenue_attribution` (last).
+`DepositProfitParams { amount: u64, source: u8 }`. Since 13 Oct 2026 the `keeper` signer must be `global_clp.authority` or a wallet in `RevenueAttribution.keeper_authorities` (else `Unauthorized`). Moves `amount` of cUSDC out of `keeper_source`, a token account the `keeper` signer controls. A tiered tax goes to `admin_token_account`, which must be owned by `admin_wallet`. The rest goes to the global vault and `total_fees_accumulated`. The tier follows `total_deposits`: 15% below \$5M, 10% up to \$25M and 5% above. The net amount counts as keeper flow in `RevenueAttribution`, under `deposit_by_source[source]` (0 arb, 1 recycled LP fees, 2 yield harvest, 3 other; unknown tags count as 3). Accounts: `global_clp`, `keeper`, `keeper_source`, `global_vault`, `admin_token_account`, `token_program`, `revenue_attribution` (last).
 
 #### `collect_fees(amount: u64)` (`clp.authority`)
 
@@ -422,7 +423,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 
 - `initialize_clp(oi_cap: u64, oracle_config: Pubkey)` creates a market's `Clp` with the default inventory budget, yield off and zeroed swap guards. The signer must be the Market's `authority` and becomes `clp.authority`.
 - `configure_swap(params: ConfigureSwapParams)` (`clp.authority`) sets `SwapGuardsState`. `ConfigureSwapParams { enabled, frozen, spread_bps, max_staleness_secs, max_confidence_bps, max_deviation_bps, window_cap_usd, window_secs, collateral_floor_bps }` holds the separate arguments the instruction took until 11 Oct 2026, with the same fields in the same order, so the bytes on the wire are unchanged. Every field is optional, and `None` leaves it unchanged. `frozen = true` stops `commit_swap` and `settle_swap`, but not `pool_swap` or `cancel_swap`.
-- `set_commit_spread(commit_spread_bps: u16)` (`clp.authority`) sets the committed-order half-spread. `settle_swap` floors it at 10 bps.
+- `set_commit_spread(commit_spread_bps: u16)` (`clp.authority`) sets the committed-order half-spread, at most 1,000 bps (else `InvalidAmount`). `settle_swap` floors it at 10 bps.
 - `update_oi_cap(new_cap: u64)` (`clp.authority`) sets the stored OI cap, which nothing enforces.
 - `configure_inventory_budget(params: ConfigureInventoryBudgetParams)` and `configure_yield_strategy(params: ConfigureYieldStrategyParams)` (`clp.authority`) set the inventory bounds and the yield shares. Each struct holds the instruction's former arguments as optional fields, in the same order, so the bytes on the wire are unchanged: `ConfigureInventoryBudgetParams { soft_lower_bps, soft_upper_bps, hard_lower_bps, hard_upper_bps, max_drawdown_bps, target_drawdown_bps, enforce_hard_bounds }` and `ConfigureYieldStrategyParams { normal_deployment_bps, proxy_deployment_bps, stress_deployment_bps, recovery_deployment_bps, min_liquid_reserve, min_liquid_reserve_bps, oi_liquidity_buffer_bps, enabled }`.
 - `configure_liquidity_seeder(threshold: Option<u64>)` and `realloc_clp()` (`global_clp.authority`) set the seed threshold and grow an older `Clp` to the current layout.
