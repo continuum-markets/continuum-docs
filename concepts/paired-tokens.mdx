@@ -128,4 +128,4 @@ Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` a
 The program won't redeem one leg alone. Sell it with a committed order while the market is open or on its bin book while it is closed, or get some of the other leg and redeem the two together.
 
 **Q: Are there fees on transfers?**
-No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`). The keeper posts the same value for both, 10 to 52 bps across markets as of 10 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.
+No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`). The keeper posts the same value for both, 10 to 39 bps across the 13 live markets as of 13 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.

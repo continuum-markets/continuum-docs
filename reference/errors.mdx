@@ -1,6 +1,6 @@
 ---
 title: Error catalog
-description: Every custom error code of the five programs, generated from the published IDLs, with causes checked against the program source.
+description: Every custom error code of the six programs, generated from the published IDLs, with causes checked against the program source.
 ---
 
 Anchor numbers each program's custom errors from 6000, so one code means different things in different programs. Always read a code together with the program ID that raised it. Wallets and RPC errors often show the code in hex: `custom program error: 0x177c` is 6012.
@@ -37,7 +37,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6019 | `0x1783` | `BelowMinimum` | `Amount below minimum ($10)` | A mint deposit under 10 cUSDC (`10_000_000` base units), or a redeem worth under 10 cUSDC at the quoted NAV. |
 | 6020 | `0x1784` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `market.keeper_authority`, `redeem_single_for_vault` wasn't signed by the market's CLP PDA, or `realloc_market` wasn't signed by `market.authority`. |
 | 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, the fee waiver belongs to another wallet, or `permissionless_burn` isn't signed by the account owner. `fund_collateral` and `fund_collateral_from` raise it for a signer other than `market.authority`, and `fund_collateral_from` also when `funder` doesn't own `funder_collateral`. Other admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
-| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral. |
+| 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral. For a redeem, queue it with `request_redemption` (see [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet)) or retry after the keeper recalls from lending. |
 | 6023 | `0x1787` | `ExceedsYieldCeiling` | `Deployment would exceed yield ceiling` | A yield deployment above `yield_ceiling_bps` of `total_collateral`, or a ceiling above 10,000 bps. |
 | 6024 | `0x1788` | `YieldManagementDisabled` | `Collateral yield management is disabled for this market` | Yield deployment or harvest while `yield_enabled` is false. It is true on every live market as of 11 Oct 2026, and `initialize_market` sets it to true on new markets. |
 | 6025 | `0x1789` | `RecallExceedsDeployed` | `Recall amount exceeds deployed_to_yield balance` | A recall or impairment larger than `deployed_to_yield`. |
@@ -68,6 +68,13 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6050 | `0x17a2` | `MixedVaultRebalance` | `Cannot rebalance between the unified vault and a per-market vault; exit the unified vault first` | No longer returned. A `rebalance_collateral` between two markets that share a vault now fails with `InvalidAmount` (6001). |
 | 6051 | `0x17a3` | `UnauthorizedSweep` | `Sweeping the unified vault requires the program upgrade authority` | No longer returned. `sweep_unified_surplus` was removed on 11 Oct 2026. |
 | 6052 | `0x17a4` | `SweepExceedsSurplus` | `Sweep would take collateral still attributed to a market on the unified vault` | No longer returned. `sweep_unified_surplus` was removed on 11 Oct 2026. |
+| 6053 | `0x17a5` | `NothingToSettle` | `No part of this redemption request fits in the vault's cash now` | `settle_redemption` on a request with nothing left, or when the vault's cash pays out nothing for any part of it. The request stays open; the keeper retries as cash arrives, and the owner can `cancel_redemption`. |
+| 6054 | `0x17a6` | `AdvanceCapExceeded` | `Advance would exceed this market's advance cap` | `receive_advance` (or the CLP's `advance_to_market`) would push the outstanding advance above `max_advance_bps` of `total_collateral`. |
+| 6055 | `0x17a7` | `AdvanceRepayExceedsOutstanding` | `Repayment exceeds the outstanding advance` | `repay_advance` or `write_off_advance` for more than is outstanding. |
+| 6056 | `0x17a8` | `AdvanceWouldTakeOwnLiquidity` | `Repayment would take the market's own liquid collateral` | `repay_advance` would leave the vault with less than the market's own liquid collateral. Only the advance's own cash can be repaid. |
+| 6057 | `0x17a9` | `AdvanceLenderLocked` | `The advance lender can change only while nothing is outstanding` | `configure_market_advance` with a new lender while an advance is outstanding. |
+| 6058 | `0x17aa` | `AdvanceOutstanding` | `A treasury advance is outstanding: write it off or repay it first` | `mark_yield_impairment` or `close_market_admin` while an advance is outstanding. |
+| 6059 | `0x17ab` | `InvalidAdvanceLender` | `The advance lender must be the CLP treasury vault (GlobalClp's cUSDC account)` | `configure_market_advance` with a lender that isn't the `GlobalClp` PDA's cUSDC account. |
 
 ## clp
 
@@ -164,6 +171,34 @@ Program ID (devnet): `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY`
 |---|---|---|---|---|
 | 6000 | `0x1770` | `CooldownNotElapsed` | `Cooldown period has not elapsed yet` | Less than `cooldown_seconds` (86,400 s on devnet) since this wallet's last drip. |
 
+## trading
+
+Program ID (devnet): `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA`
+
+These come from the [order book](/flows/order-book) and the [trading account](/flows/trading-account). Errors raised inside Manifest itself are Manifest's, not these.
+
+| Code | Hex | Name | Message | Cause and fix |
+|---|---|---|---|---|
+| 6000 | `0x1770` | `NotAuthorized` | `Signer is neither the owner nor the account's active session key` | The signer of a trading call is not the account owner and not its current session key. |
+| 6001 | `0x1771` | `OwnerOnly` | `Only the owner can do this` | An owner-only call (deposit, withdraw, set or revoke a session, close) signed by anyone but the account's owner, a session key included. |
+| 6002 | `0x1772` | `SessionExpired` | `The session key has expired or was revoked` | A session-key call after the session's expiry, or after the owner revoked it. |
+| 6003 | `0x1773` | `InvalidExpiry` | `Session expiry must be in the future and at most 30 days away` | `set_session` with an expiry in the past or more than 30 days ahead. |
+| 6004 | `0x1774` | `OrderTooLarge` | `Order is larger than the session's per-order limit` | A session-signed order above the per-order limit the owner set. |
+| 6005 | `0x1775` | `WrongTokenAccount` | `Token account is not the trading account's own` | A token account that isn't the associated account of the owner or the trading account's trader for that mint, or a mint that doesn't match the market. |
+| 6006 | `0x1776` | `NotAManifestMarket` | `Account is not a Manifest market` | The market account passed isn't owned by the Manifest program. |
+| 6007 | `0x1777` | `ZeroAmount` | `Amount must be greater than zero` | A deposit or withdraw of 0. |
+| 6008 | `0x1778` | `MathOverflow` | `Arithmetic overflow` | Arithmetic overflow. Not expected in normal use. |
+| 6009 | `0x1779` | `NotOurMarket` | `That Manifest market does not trade this Continuum market's token for its collateral` | The Manifest market's mints are not this Continuum market's token and its collateral. |
+| 6010 | `0x177a` | `NoReferencePrice` | `The market has no posted price yet` | A session-signed order on a market with no posted price, so there is no band to check. |
+| 6011 | `0x177b` | `OutsideBand` | `Session-signed orders must be priced inside the band around the posted price` | A session-signed order priced outside the protection band around the posted price. The owner can sign wider. |
+| 6012 | `0x177c` | `UnsupportedOrderType` | `Only limit, immediate-or-cancel and post-only orders are supported` | An order type other than limit, immediate-or-cancel or post-only. |
+| 6013 | `0x177d` | `TooManyOrders` | `Too many orders or cancels in one call` | More orders or cancels in one call than the program allows. |
+| 6014 | `0x177e` | `NotFilled` | `Fill-or-kill order did not fill in full` | A fill-or-kill order that could not fill completely. The call reverts. |
+| 6015 | `0x177f` | `InvalidFillOrKill` | `Fill-or-kill takes one immediate-or-cancel order and no cancels` | A fill-or-kill call with more than one order, an order that isn't immediate-or-cancel, or any cancel. |
+| 6016 | `0x1780` | `NoSeat` | `The trader has no seat on this market` | The trading account has no seat on the Manifest market yet. Claim one with `claim_seat` first. |
+| 6017 | `0x1781` | `InvalidDirection` | `Direction must be 0 (buy) or 1 (sell)` | A direction other than 0 or 1. |
+| 6018 | `0x1782` | `BadGlobalAccounts` | `Global accounts must come in groups of mint, global, global vault, market vault and token program, for this market's mints` | The remaining accounts for Manifest's global orders aren't in groups of five for this market's mints. |
+
 ## Anchor errors below 6000
 
 Anchor raises its own errors before the program's code runs: when the instruction doesn't exist, or when an account fails validation. The common ones:
@@ -217,6 +252,10 @@ Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. S
 ### `pool_swap` fails with `PoolClosedWhileLive` (6044)
 
 The market's price is live, and the bin books trade only while it is stale. Send a committed order (`commit_swap`) instead; it fills at the next price push. See [Trade](/flows/trade).
+
+### Redeem fails with `InsufficientLiquidCollateral` (6022)
+
+The payout is more than the market's liquid collateral. On mainnet most collateral is lent out, and the vault keeps only a liquid share. Escrow the tokens with `request_redemption` and the keeper pays the request in parts as money comes back from the lending venues. Cancel with `cancel_redemption` to take the unpaid part back. See [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet).
 
 ### Mint or redeem fails with `BelowMinimum` (6019)
 

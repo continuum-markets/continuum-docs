@@ -231,6 +231,7 @@ There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_am
 | `InvalidAmount` (6001) | A redeem amount is 0 (both legs must be above 0), an amount exceeds the market's supply, or a token account has the wrong mint. |
 | `MintNotAllowedInStress` (6009), `RedeemNotAllowedInStress` (6010) | The market is in Stress, which blocks both by default. Wait until it leaves Stress. |
 | `Unauthorized` (6021) | `devTokenAccount` isn't owned by `market.feeRecipient`. |
+| `InsufficientLiquidCollateral` (6022) | A redeem pays more than the market's liquid collateral (`total_collateral` minus `deployed_to_yield`) or the vault holds. Send `request_redemption` with the same amounts, or retry after the keeper recalls from lending. See [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet). |
 | SPL Token `insufficient funds` (custom program error `0x1`) | The wallet holds less cUSDC than the mint amount, or fewer L or S tokens than the redeem amounts. |
 | `AccountNotInitialized` (3012) | A token account doesn't exist yet. The script creates all four idempotently before minting. |
 | `CooldownNotElapsed` (faucet, 6000) | The wallet already dripped in the last 24 hours. |

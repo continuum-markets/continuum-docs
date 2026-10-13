@@ -28,7 +28,7 @@ A committed order fills at a price pushed after the commit, so the trader never 
 seeds = [b"global_clp"]
 ```
 
-One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held about 22.13M cUSDC after the keeper's returns of 11 Oct 2026: 5,534,820.82 from funding, plus idle CLP cash that the keeper returned to it, 12.99M on the first pass and 3.6M more once the instant swap was retired. See [Treasury](#treasury).
+One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The global vault is this PDA's cUSDC associated token account (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy` on devnet), and it is the protocol treasury. It held about 22.13M cUSDC after the keeper's returns of 11 Oct 2026 and 36.1M on 13 Oct 2026, as the devnet keeper burns it down. The 22.13M was: 5,534,820.82 from funding, plus idle CLP cash that the keeper returned to it, 12.99M on the first pass and 3.6M more once the instant swap was retired. See [Treasury](#treasury).
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -42,7 +42,7 @@ One per cluster (`BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw` on devnet). The 
 | `admin_wallet` | Pubkey | Owner of the account that receives the `deposit_profit` tax |
 | `bump` | u8 | PDA bump |
 
-`allocate_to_market` adds a `market_allocations` entry the first time it funds a market. The table is informational and holds 10 entries, fewer than the markets, so it never blocks a move. Once it is full, a market without an entry takes over one whose allocation has been fully returned. If there is none, the move still goes ahead, and the market's own `allocated_from_global` is the only record. Until the upgrade of 11 Oct 2026, funding an 11th market failed with `MaxDeploymentsExceeded`. As of 11 Oct 2026, five entries exist: QQQ, SPY, XAU, MSTR and the delisted VXX market.
+`allocate_to_market` adds a `market_allocations` entry the first time it funds a market. The table is informational and holds 10 entries, fewer than the markets, so it never blocks a move. Once it is full, a market without an entry takes over one whose allocation has been fully returned. If there is none, the move still goes ahead, and the market's own `allocated_from_global` is the only record. Until the upgrade of 11 Oct 2026, funding an 11th market failed with `MaxDeploymentsExceeded`. As of 11 Oct 2026, five entries exist: QQQ, SPY, XAU, MSTR (closed on 12 Oct 2026, its allocation fully returned) and the delisted VXX market.
 
 ### `Clp` PDA
 
@@ -169,12 +169,12 @@ One per cluster (`58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR` on devnet, 210 b
 
 The program refills `allowance` only when an instruction touches the policy. To read what can be withdrawn now, compute `min(burst, allowance + rate_per_sec × (now − last_accrual_at))`.
 
-The live policy on 12 Oct 2026:
+The live policy as read on 13 Oct 2026:
 
-- Rate: 64.06 cUSDC per second, about 230,617 cUSDC an hour. It was set to empty the 5.53M funded treasury in about 24 h. At the 40.0M the treasury held late on 12 Oct 2026, a full exit at this rate takes about 7.2 days.
-- Burst: 230,617.53 cUSDC, one hour of refill.
+- Rate: 256.78 cUSDC per second, about 924,403 cUSDC an hour. The keeper keeps the rate in proportion to the balance so that the whole treasury can leave in about 24 h; see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s). The earlier rate was 64.06 cUSDC per second.
+- Burst: 924,402.61 cUSDC, one hour of refill.
 - Delay: 24 h.
-- Pending: 256.78 cUSDC per second with a 924,402.61 cUSDC burst, due at 01:25:50 UTC on 13 Oct 2026. The keeper proposed it so that the whole treasury can leave in 24 h; see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s). It keeps the limits in proportion to the balance from then on.
+- Pending: a rate and a burst of 1,000,000,000 cUSDC (in effect no limit), due at 04:29 UTC on 14 Oct 2026. It stays pending until then; read `TreasuryPolicy` for the values in force.
 
 ### `TreasuryYield` PDA
 
@@ -223,7 +223,7 @@ A fill's spread capture is its distance from the book centre: cUSDC paid minus s
 
 `PoolSwapParams { direction: u8, amount_in: u64, min_out: u64 }`. Direction 0 buys synth with cUSDC, and 1 sells synth for cUSDC. A buy walks the ask bins up from `base·r`; a sell walks the bid bins down from `base/r`. The handler decrements reserves in place, so the stored book always matches the vault balances, and partial bin fills round in the pool's favour. If the book runs out first, the swap fills what it can and takes only what it used. There is no swap fee.
 
-The pool must be enabled and not frozen (`SwapDisabled`), and `base_price_1e6` must be nonzero (`OracleStale`). The market must be floating: its `risk_state` isn't `Normal` and its `twap_updated_at` is more than 300 s old, the age at which mint and redeem freeze (`PoolClosedWhileLive` otherwise). Something must fill (`InsufficientFunds`), the output must reach `min_out` (`SlippageExceeded`), and the fill must fit the `Clp` window cap (`WindowCapExceeded`). `pool_swap` doesn't read `swap_guards.enabled`, `frozen` or the oracle guards: it trades on the book as posted. Off-hours the keeper keeps a capped free-float book, with a guard that can only pull bins on the stale side. Until 11 Oct 2026 the books traded at any hour.
+The pool must be enabled and not frozen (`SwapDisabled`), and `base_price_1e6` must be nonzero (`OracleStale`). The market must be floating: its `risk_state` isn't `Normal` and its `twap_updated_at` is more than 300 s old, the age at which mint and redeem freeze (`PoolClosedWhileLive` otherwise). Something must fill (`InsufficientFunds`), the output must reach `min_out` (`SlippageExceeded`), and the fill must fit the `Clp` window cap (`WindowCapExceeded`). `pool_swap` doesn't read `swap_guards.enabled`, `frozen` or the oracle guards: it trades on the book as posted. Off-hours the keeper keeps a demand-sized free-float book, with a guard that can only pull bins on the stale side. Until 11 Oct 2026 the books traded at any hour.
 
 Accounts, in order:
 
@@ -349,7 +349,7 @@ Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidi
 
 ### Treasury
 
-The global vault is the protocol treasury. `admin_withdraw` pays cUSDC out of the protocol, within the limits in `TreasuryPolicy`. `treasury_lend` sends idle cUSDC to a lending venue within the same limits, and `treasury_recall` brings it back. `backstop_market` moves cUSDC into a market's collateral and has no limit, because the funds stay inside the protocol. The policy, `backstop_market` and the instructions that manage the policy were added on 11 Oct 2026, and the three lending instructions on 12 Oct 2026.
+The global vault is the protocol treasury. `admin_withdraw` pays cUSDC out of the protocol, within the limits in `TreasuryPolicy`. `treasury_lend` sends idle cUSDC to a lending venue within the same limits, and `treasury_recall` brings it back. `backstop_market` moves cUSDC into a market's collateral and has no limit, because the funds stay inside the protocol. The policy, `backstop_market` and the instructions that manage the policy were added on 11 Oct 2026, the three lending instructions on 12 Oct 2026, and `advance_to_market` on 13 Oct 2026.
 
 #### `admin_withdraw(amount: u64)` (`global_clp.authority`)
 
@@ -374,6 +374,12 @@ Accounts: `global_clp`, `authority`, `treasury_policy`, `global_vault` (owned by
 `TreasuryRecallParams { amount, principal, venue }`. Moves `amount` cUSDC from `lend_account` back to the global vault. `principal` of it repays what was lent at `venue` and the rest is booked as `interest`. `principal` can't exceed `amount` (`InvalidAmount`) or what is out at that venue (`InsufficientDeployment`). The returned principal restores the allowance its lend spent, up to `burst`. A recall works while the treasury is frozen, so money coming home is never blocked. Same accounts as `treasury_lend`.
 
 Nothing calls these on a schedule yet. The keeper's yield allocator lends market collateral only, and devnet has no venues.
+
+#### `advance_to_market(amount: u64)` (`global_clp.authority` and `market.authority`)
+
+Lends `amount` cUSDC from the global vault into a market's collateral vault, so that a queued redemption can be paid. The signer must be both `GlobalClp.authority` and the market's authority. It is refused while the treasury is frozen (`TreasuryFrozen`), and it is not charged to the withdrawal allowance, because the cash stays protocol-owned until a settle pays a redeemer. It calls mint-redeem's `receive_advance` by CPI with the `GlobalClp` PDA as funder, so the market's `max_advance_bps` caps it (`AdvanceCapExceeded`) and the cash isn't counted in `total_collateral`. mint-redeem's `repay_advance` returns it to the global vault when the market's own recall lands.
+
+Accounts: `global_clp`, `authority`, `treasury_policy`, `market`, `market_advance`, `collateral_vault`, `global_vault`, `mint_redeem_program`, `token_program`. Emits `MarketAdvanced`.
 
 #### `init_treasury_policy(params: TreasuryPolicyParams)` (`global_clp.authority`)
 
@@ -408,7 +414,7 @@ Hands the guardian role to a new key at once. If a pending change kept the old g
 
 Moves treasury cUSDC straight into a market's collateral vault and credits `total_collateral`. It calls mint-redeem's `fund_collateral_from` by CPI, with the `GlobalClp` PDA as funder. The signer is the global authority, which must also be the market's authority. It is not rate limited, because the funds stay inside the protocol, and it works while frozen.
 
-The keeper's liquidity reallocator calls it: at once for a market below 100% collateral at its stored price, and after 5 minutes for one short of its posted target by more than one confidence band. It fills to the posted target, at most 112%, and never takes a fill back. See [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
+The keeper's liquidity reallocator calls it: at once for a market below 100% collateral at its stored price, and after 5 minutes for one short of its posted target by more than one confidence band. It fills to the posted target, at most 130% by default, and never takes a fill back. See [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
 
 Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's), `global_vault`, `mint_redeem_program`, `token_program`. Emits `MarketBackstopped`, and mint-redeem emits `CollateralFunded`.
 
@@ -438,7 +444,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 
 ## Events
 
-`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded`, and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet` and `MarketBackstopped`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
+`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded`, and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet`, `MarketBackstopped` and `MarketAdvanced`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
 
 | Field | Type | Meaning |
 |---|---|---|

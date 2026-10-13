@@ -19,7 +19,7 @@ A paired operation moves collateral and claims by the same amount at the moment 
 
 With no external venue to trade against, the only riskless extraction is the **paired round trip**: mint a pair, wait for the price to move, redeem. Its gross profit is that convexity gap.
 
-Structurally, the protocol is **short the pair's convexity**, which means short volatility. Two charges work against the round trip. Volatility decay marks the short leg down by the realized variance of the path, and the fee hurdle taxes every mint and redeem. The keeper posts fees from 10 to 100 bps (10 to 52 bps across live markets as of 10 Oct 2026), the program multiplies them by 1.5 in `ProxyMode`, and the round trip pays them twice, plus the worst-case markup.
+Structurally, the protocol is **short the pair's convexity**, which means short volatility. Two charges work against the round trip. Volatility decay marks the short leg down by the realized variance of the path, and the fee hurdle taxes every mint and redeem. The keeper posts fees from 10 to 100 bps (10 to 39 bps across the 13 live markets as of 13 Oct 2026), the program multiplies them by 1.5 in `ProxyMode`, and the round trip pays them twice, plus the worst-case markup.
 
 The result splits by asset class. For a broad index trading near its anchor price, the gap over realistic horizons stays below the hurdle. For a high-growth single name on an NVDA-like path, a flat at-NAV venue alone *can* be drained at scale: the gap compounds with the trend, and volatility decay barely charges a smooth trend. That is why the defenses below exist, and why single-name listings need all of them.
 
@@ -29,7 +29,7 @@ The CLP account also stores an `oi_cap` (250,000 cUSDC per market), but nothing 
 
 ### 1. Depth-capped books
 
-No instant venue exposes unlimited size at NAV. The bin books trade only while a market's price is stale, and carry lean, demand-sized depth (about \$5k of bids and at most \$7.5k of asks per side; off-hours, at most \$10,000 per side, or \$1,250 for the single-name stocks) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
+No instant venue exposes unlimited size at NAV. The bin books trade only while a market's price is stale, and carry lean, demand-sized depth (about \$500 of bids and at most \$750 of asks per side while the market is open; off-hours, at least \$500 a side, limited by a risk cap on that market's share of the treasury) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
 
 Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread. They refuse to fill while the market is below 100% collateralized at the settle price. The cash a large fill needs comes from the treasury when it settles. The instant oracle swap, which filled at the last pushed price, was retired on 11 Oct 2026.
 
@@ -106,13 +106,13 @@ On devnet, collateral yield is emulated. Every live market has `yield_enabled = 
 
 ## The treasury
 
-The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held about 22.13M cUSDC after the keeper's returns of 11 Oct 2026: 5,534,820.82 from funding, plus idle CLP cash that the keeper returned to it.
+The CLP's global vault (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`) is the protocol treasury. It held about 22.13M cUSDC after the keeper's returns of 11 Oct 2026: 5,534,820.82 from funding, plus idle CLP cash that the keeper returned to it. It grew to about 40M by 12 Oct, and the devnet keeper is now burning it down: it held 36.1M cUSDC on 13 Oct 2026.
 
 Moving treasury cUSDC into a market is fast. `backstop_market` puts it straight into a market's vault and credits `total_collateral`. It has no rate limit and works while withdrawals are frozen, because the cUSDC stays inside the protocol.
 
 Taking cUSDC out of the protocol is slow. `admin_withdraw` pays only one named account. Its allowance refills at a rate the keeper keeps in proportion to the balance, so emptying the treasury takes 24 h however much it holds (see [Keeper → Treasury withdrawal rate](/concepts/keeper#treasury-withdrawal-rate-900s)). Loosening any limit waits 24 h. A guardian key can freeze withdrawals and veto a pending loosening, but it can't move funds. See [clp → Treasury](/programs/clp#treasury).
 
-The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books and imbalance control's mint fallback can spend before the next top-up, \$40,000 per market, and returns the rest. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
+The CLP's working cash comes from the treasury too. The keeper keeps each market's CLP vault at what its books' bid refills can spend before the next top-up, \$1,250 per market, and returns the rest. Imbalance control's pair mint is paid from the treasury in the same transaction. Committed orders draw what they need when they settle. See [Keeper → Liquidity reallocator](/concepts/keeper#liquidity-reallocator-30s).
 
 ### Treasury backstop
 
@@ -127,7 +127,7 @@ The keeper's yield allocator counts the treasury as first-loss capital when it c
 
 ## Lending venues and redemption timing
 
-On mainnet the keeper lends each market's collateral to USDC lending venues and keeps a liquid share in the vault for redemptions: 3% of collateral, sized to one 5-minute recall cycle of redemptions ([Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s)). Devnet has no lending venues, so nothing is lent there.
+On mainnet the keeper lends each market's collateral to USDC lending venues and keeps a liquid share in the vault for redemptions: the nightly job's share of 1% to 10% of collateral, or 3% when that file is missing or over 48 hours old, sized to one short recall cycle of redemptions ([Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s)). Devnet has no lending venues, so nothing is lent there.
 
 A redemption larger than the vault's cash waits for a recall, and each venue limits how fast money comes back. The limits on 12 Oct 2026:
 
@@ -136,13 +136,12 @@ A redemption larger than the vault's cash waits for a recall, and each venue lim
 | Kamino Main | \$7.0M (94%) | \$90M per 24 h window |
 | Jupiter Lend | \$44.4M (91%) | 50% of supply at once, refilling over 6 h |
 | Save | \$5.1M (77%) | \$10M per ~1.75 h across the pool |
-| MarginFi | \$0.37M (95%) | \$1.7M an hour and \$3.4M a day |
 
-Free cash runs out before any of these limits does. Each venue's admins can also pause withdrawals. MarginFi paused all of them for about 79 hours from 1 April 2026, then wrote lenders down 1%.
+Free cash runs out before any of these limits does. Each venue's admins can also pause withdrawals. MarginFi, which the keeper no longer lends to, paused all of them for about 79 hours from 1 April 2026, then wrote lenders down 1%.
 
 The r58 study replayed these rules against 197 days of venue data, March to October 2026. With Jupiter Lend's free cash at its current utilisation, a redemption of up to 10% of a market's collateral was paid within one 5-minute keeper cycle on every day, even with every depositor withdrawing at once. Under a rougher path for Jupiter's free cash, 1–2% of days missed the 5 minutes. A single holder redeeming 25–50% of a market could wait hours to days in a venue-wide run, or until a frozen venue reopens. Redemption sizes and pause odds are assumptions, because Continuum has no redemption history yet.
 
-Redemptions don't queue today. One the vault can't pay fails, and the holder retries after the recall. Two changes are planned for mainnet: recalling inside the redeem transaction, and paying large redemptions in parts as money comes back.
+A `redeem_paired` the vault can't pay reverts with `InsufficientLiquidCollateral`. The holder then queues the redemption with `request_redemption`. The keeper's settler pays it in parts: from the vault's cash, then from a recall inside the same transaction, and for what the venues can't release in time from a treasury advance (`advance_to_market`, capped per market by `max_advance_bps`). The advance cash is not counted in `total_collateral`, and the keeper repays it from the market's own next recall. A venue loss is charged to the outstanding advance first, because the treasury is first-loss capital. The owner can cancel the unpaid rest at any time. See [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet).
 
 ## Supporting structural protections
 

@@ -54,20 +54,20 @@ NAV comes from one price `P` and a constant `K = initial_l_price × initial_s_pr
 
 ## The trading venues
 
-Trading a single leg happens in the `clp` program, which has two venues. Which one fills depends on whether the market's price is live:
+Trading a single leg happens in the `clp` program, which has two venues of its own. Which one fills depends on whether the market's price is live:
 
 | Venue | Instruction | Fill | When |
 |---|---|---|---|
 | Bin book | `pool_swap` | Instant, walks on-chain bins with real slippage, small capped size | Only while the price is stale |
 | Committed order | `commit_swap` → `settle_swap` | At a keeper push after the commit, NAV ± the committed spread (10 bps floor), any size | While the keeper pushes prices |
 
-Every market has its two bin books. Since 11 Oct 2026, committed orders are switched on for every live market, and they are the protocol's only venue while prices are pushing. `pool_swap` fails with `PoolClosedWhileLive` until the price is more than 300 s old outside `Normal`. The instant oracle swap (`clp_swap`) was retired the same day and always fails with `SwapDisabled`. The [order book](/flows/order-book), where traders trade with each other, is open at any hour, and while a market is closed the app shows its orders and the bin books' quotes as one book.
+Every market has its two bin books. Since 11 Oct 2026, committed orders are switched on for every live market, and they are the only one of the protocol's own venues that fills while prices are pushing. `pool_swap` fails with `PoolClosedWhileLive` until the price is more than 300 s old outside `Normal`. The instant oracle swap (`clp_swap`) was retired the same day and always fails with `SwapDisabled`. The [order book](/flows/order-book) is a third venue. It is a Manifest book where traders trade with each other, reached through the `trading` program, and it is open at any hour, and while a market is closed the app shows its orders and the bin books' quotes as one book.
 
 ### 1. Bin books: closed hours, small
 
 Each market has one protocol-owned pool per side: 26 books across the 13 live markets. The bins sit inline in the `Pool` account in two zones, with fine core steps near the centre and wide wings further out (QQQ: three 20 bps core steps, then 300 bps wings). The keeper centres each book on NAV plus a small inventory shift, and repositions it when NAV drifts past a gate of at most 20 bps.
 
-Standing depth is deliberately lean. It is sized to organic demand rather than TVL, because the loss to toxic arbitrage grows with deployed depth. Books hold about \$5k of bids and at most \$7.5k of asks per side. They fill only while the market's price is stale: when mint and redeem freeze off-hours, the keeper replaces them with a capped [free-float book](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes) and `pool_swap` opens.
+Standing depth is deliberately lean. It is sized to organic demand rather than TVL, because the loss to toxic arbitrage grows with deployed depth. Depth is sized per market to measured demand, at least \$500 a side. They fill only while the market's price is stale: when mint and redeem freeze off-hours, the keeper replaces them with a demand-sized [free-float book](/concepts/oracle#the-staleness-chain-what-happens-when-the-market-closes) and `pool_swap` opens.
 
 ### 2. Committed orders: open hours, any size
 

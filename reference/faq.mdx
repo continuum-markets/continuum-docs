@@ -23,7 +23,7 @@ A paired position has little exposure to small moves. To take a direction, you s
 
 No. Continuum has no leverage and no liquidations, and you pay the full value of both legs when you mint.
 
-Redeeming needs a price pushed in the last 300 s. While the keeper is pushing, holders of both legs can redeem against the market's collateral vault. They get full NAV while the vault is fully collateralized, or a pro-rata share if a large move has left it below 100%. Nobody is wiped out, and nobody is behind a redemption queue. If the keeper stopped pushing prices, redeem would revert until pushes resumed.
+Redeeming needs a price pushed in the last 300 s. While the keeper is pushing, holders of both legs can redeem against the market's collateral vault. They get full NAV while the vault is fully collateralized, or a pro-rata share if a large move has left it below 100%. Nobody is wiped out. A redemption larger than the vault's cash can be queued with a redemption request and paid in parts as cash comes back (see [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet)). If the keeper stopped pushing prices, redeem would revert until pushes resumed.
 
 You can still lose part of it: to fees, to the short leg's volatility decay, to a pro-rata payout in that tail case, or to ordinary directional risk once you sell one leg.
 
@@ -66,7 +66,7 @@ What keeps working:
 
 On devnet, no. There are no lending venues there, so collateral stays in each market's vault.
 
-On mainnet, mostly yes. The keeper lends a market's collateral to USDC lending venues (Kamino, Jupiter Lend, Save and MarginFi) and keeps 3% in the vault, about five minutes of redemptions. A redemption larger than that waits for the keeper's next recall, one 5-minute cycle. Each venue limits withdrawals, and a venue can pause them: MarginFi paused all withdrawals for about 79 hours in April 2026. A large redemption could then wait until the venue reopens. If a venue loss leaves a market below 100% collateral, the keeper's backstop refills it from the protocol treasury. → [Solvency → Lending venues](/concepts/solvency#lending-venues-and-redemption-timing).
+On mainnet, mostly yes. The keeper lends a market's collateral to USDC lending venues (Kamino, Jupiter Lend and Save) and keeps a liquid share in the vault, 3% by default and re-derived each night in the range 1% to 10%. A redeem larger than that reverts with `InsufficientLiquidCollateral`; the holder queues a redemption request, which the keeper pays as it recalls money from the venues, borrowing from the treasury for the part the venues can't release in time. Each venue limits withdrawals, and a venue can pause them: MarginFi paused all withdrawals for about 79 hours in April 2026. A large redemption could then wait until the venue reopens. If a venue loss leaves a market below 100% collateral, the keeper's backstop refills it from the protocol treasury. → [Solvency → Lending venues](/concepts/solvency#lending-venues-and-redemption-timing).
 
 ## Can I run my own keeper?
 
@@ -97,7 +97,7 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × s_gamma_index / 1e9
 
 | Fee | When | Value |
 |---|---|---|
-| `mint_fee_bps` | On `mint_paired` | Keeper-posted `clamp(fee_mult × half-spread, 10, 100)` bps. As of 10 Oct 2026 it runs from 10 (EUR, GBP, JPY) to 52 (MSTR); QQQ is 18. |
+| `mint_fee_bps` | On `mint_paired` | Keeper-posted `clamp(fee_mult × half-spread, 10, 100)` bps. As of 13 Oct 2026 it runs from 10 (EUR, GBP, JPY) to 39 (TSLA); QQQ is 18. |
 | `redeem_fee_bps` | On `redeem_paired` | Same value as the mint fee. |
 | Risk-state multiplier | On mint and redeem fees | 1.5× in ProxyMode, where every devnet market runs, so QQQ is charged 27 bps. |
 | Book spread | On `pool_swap` | The bin prices themselves; there is no swap fee. |
@@ -139,7 +139,7 @@ Building an integration? Tell us in #general on [Discord](https://discord.gg/U5h
 
 ## Where do I find the source code?
 
-The program, keeper and frontend source is not public. The IDLs for all five programs are published in the docs repo, under [`idl/`](https://github.com/continuum-markets/continuum-docs/tree/main/idl), and are enough to build clients and CPI integrations.
+The program, keeper and frontend source is not public. The IDLs for all six programs are published in the docs repo, under [`idl/`](https://github.com/continuum-markets/continuum-docs/tree/main/idl), and are enough to build clients and CPI integrations.
 
 This docs site's source is [github.com/continuum-markets/continuum-docs](https://github.com/continuum-markets/continuum-docs). PRs welcome.
 

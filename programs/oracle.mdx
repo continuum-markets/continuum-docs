@@ -10,7 +10,7 @@ Devnet ID: 5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC
 ```
 
 <Warning>
-  Don't read `OracleConfig` for live prices. On devnet the keeper never calls `update_price_observation`. QQQ's config was last written on 4 Apr 2026, and the other 13 markets' configs have never been written (`last_price` is 0). Live prices are on the mint-redeem Market account: the keeper writes `Market.user_twap_price` with `update_risk_state_v2`. Despite its name, that field is a spot price, scaled to 1e6 and adjusted for corporate actions. Mainnet will price from Pyth (Pyth Pro).
+  Don't read `OracleConfig` for live prices. On devnet the keeper never calls `update_price_observation`. QQQ's config was last written on 4 Apr 2026, and the other 13 markets' configs (MSTR's included) have never been written (`last_price` is 0). Live prices are on the mint-redeem Market account: the keeper writes `Market.user_twap_price` with `update_risk_state_v2`. Despite its name, that field is a spot price, scaled to 1e6 and adjusted for corporate actions. Mainnet will price from Pyth (Pyth Pro).
 </Warning>
 
 ## How mint-redeem uses it

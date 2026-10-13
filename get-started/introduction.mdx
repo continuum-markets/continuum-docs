@@ -53,7 +53,7 @@ A keeper run by the protocol pushes prices and re-centres the books. Mint and re
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  Continuum on-chain programs                 │
-│   mint-redeem · oracle · clp · registry · faucet (devnet)    │
+│  mint-redeem · oracle · clp · registry · trading · faucet    │
 └──────────────────────────┬──────────────────────────────────┘
                            │
                            ▼
@@ -78,7 +78,7 @@ See [Solvency invariants](/concepts/solvency) for the complete list.
 - **No funding rate.** Nobody pays for being on the crowded side. The short leg's volatility decay charges realized volatility instead, and never touches longs.
 - **No liquidations.** Nothing can close your position; you hold the token.
 - **No leverage.** You pay the full value of both legs when you mint.
-- **No outside venues.** Trading happens on Continuum's own bin books and committed orders, not on an external AMM.
+- **No outside AMM.** Trading happens on Continuum's own bin books and committed orders, and on a Manifest order book that traders reach through Continuum's `trading` program.
 - **No user yield vaults.** The protocol funds the CLP's capital itself, and there are no user LP shares.
 
 ## Get oriented

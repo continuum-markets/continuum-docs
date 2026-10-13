@@ -28,11 +28,11 @@ Every division rounds down. Both quotes run against the user. L is priced at `P 
 
 A worked example: SPY's last push before the weekend, at 20:10 UTC on 9 Oct 2026, set `P` to 778.569999 with `oracle_confidence` 0.123159 and γ 0.99854103. That gives `c` = 0.184738, an L quote of 778.754737 and an S quote of 655.818093 (S's NAV was 655.662481). At those quotes a 1,000 cUSDC mint pays a 24 bps fee of 2.40 cUSDC and receives 0.640509 SPYL and 0.760576 SPYS.
 
-QQQ is the exception. As of 10 Oct 2026 its `worst_case_config.enabled` is false, so `c` is 0 and both legs are quoted at NAV. The other 13 markets have it on.
+QQQ is the exception. As of 10 Oct 2026 its `worst_case_config.enabled` is false, so `c` is 0 and both legs are quoted at NAV. The other 12 live markets have it on (read on chain, 13 Oct 2026).
 
 ## Fees
 
-The keeper posts one fee per market and writes it to both `mint_fee_bps` and `redeem_fee_bps`. The value is `clamp(fee_mult × half-spread, 10, 100)` bps. The half-spread comes from the keeper's volatility model for that market, and `fee_mult` defaults to 1.0. As of 10 Oct 2026 the posted fees run from 10 bps (EUR, GBP, JPY) to 52 bps (MSTR); QQQ posts 18 bps, SPY 16 and NVDA 31.
+The keeper posts one fee per market and writes it to both `mint_fee_bps` and `redeem_fee_bps`. The value is `clamp(fee_mult × half-spread, 10, 100)` bps. The half-spread comes from the keeper's volatility model for that market, and `fee_mult` defaults to 1.0. As of 13 Oct 2026 the posted fees on the 13 live markets run from 10 bps (EUR, GBP, JPY) to 39 bps (TSLA); QQQ posts 18 bps, SPY 16 and NVDA 31.
 
 The program multiplies the posted fee by the risk-state multiplier. In `ProxyMode`, which every devnet market is in, that is 1.5×, so QQQ's 18 bps is charged as 27 bps. The multiplier never lowers a fee.
 
@@ -156,7 +156,7 @@ These multipliers are surcharges. No state discounts the fee, and there is no si
 
 - The waiver hasn't expired (`waiver_end_at` is now or later).
 - The price push is at most 300 s old.
-- The vault's collateral ratio at the current price is at or above the market's target. The target is 100% plus `buffer_target_bps`, clamped to between 101% and 150%. An unset value reads as 102%. Since 11 Oct 2026 each market posts its own fixed target, from 102% to 124% (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)).
+- The vault's collateral ratio at the current price is at or above the market's target. The target is 100% plus `buffer_target_bps`, clamped to between 101% and 150%. An unset value reads as 102%. Each market's target is the daily Monte Carlo value the keeper posts, 101% or more. On 13 Oct 2026 it ran from 101% (SPY and the FX markets) to 109.3% (TSLA) (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)).
 
 Waivers were earned with `donate_to_vault`. The app stopped offering donations on 9 Oct 2026. Waivers already earned still apply, and the app uses them automatically.
 

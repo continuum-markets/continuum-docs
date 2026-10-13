@@ -211,7 +211,7 @@ Output for the QQQ long book at the same time:
 }
 ```
 
-`basePrice1E6` is the book's centre; Anchor turns `base_price_1e6` into `basePrice1E6`, with a capital E. Asks are tokens of the leg and bids are cUSDC. The keeper sets the centre from NAV, shifted by the CLP's inventory, and off-hours it posts a capped free-float book (see [Book management](/keeper/book-management)). Compare the centre with NAV to see how far a book sits from it. To price a trade, walk the bins as in [Quote and swap](/flows/trade#quote-and-swap).
+`basePrice1E6` is the book's centre; Anchor turns `base_price_1e6` into `basePrice1E6`, with a capital E. Asks are tokens of the leg and bids are cUSDC. The keeper sets the centre from NAV, shifted by the CLP's inventory, and off-hours it posts a demand-sized free-float book (see [Book management](/keeper/book-management)). Compare the centre with NAV to see how far a book sits from it. To price a trade, walk the bins as in [Quote and swap](/flows/trade#quote-and-swap).
 
 ## User position value
 
@@ -271,7 +271,7 @@ The Market account changes on every keeper price push, every mint and redeem, an
 ## Common pitfalls
 
 - After a mint, redeem or swap, fetch again once the transaction is confirmed. Values read before it are stale.
-- `getMultipleAccountsInfo` returns null for a book that doesn't exist. All 28 books existed on 10 Oct 2026. Take addresses from [Addresses](/reference/addresses) or derive them as above.
+- `getMultipleAccountsInfo` returns null for a book that doesn't exist. All 28 books of the 14 markets then listed existed on 10 Oct 2026; with MSTR closed, 26 books belong to live markets. Take addresses from [Addresses](/reference/addresses) or derive them as above.
 - Amounts in account state are base units with 6 decimals, for cUSDC and for every L and S token. Divide by `10 ** 6` to display them.
 
 ## See also

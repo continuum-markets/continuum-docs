@@ -53,10 +53,10 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `oracle_confidence` | u64 | Confidence band c, adjusted like the price. |
 | `keeper_authority` | Pubkey | Keeper signer. |
 | `dev_tax_pct` | u8 | Percent of each fee sent to the fee recipient (10 on every market). |
-| `yield_ceiling_bps` | u16 | Largest share of `total_collateral` that may be deployed to yield. 0 until `configure_yield_ceiling` sets it. As of 11 Oct 2026 every live market is set to the keeper's derived liquid share, 6,992 to 7,019 bps. |
+| `yield_ceiling_bps` | u16 | Largest share of `total_collateral` that may be deployed to yield. 0 until `configure_yield_ceiling` sets it. The ceiling may reach 10,000 bps (100%). Read on 13 Oct 2026, all 13 live markets are set to 10,000. |
 | `deployed_to_yield` | u64 | Collateral deployed to yield. |
 | `total_yield_harvested` | u64 | Cumulative harvested yield. |
-| `yield_enabled` | bool | Gates `deploy_collateral_to_yield` and `harvest_collateral_yield`. `initialize_market` sets it to true. It is true on all 14 live markets as of 11 Oct 2026. |
+| `yield_enabled` | bool | Gates `deploy_collateral_to_yield` and `harvest_collateral_yield`. `initialize_market` sets it to true. It is true on all 13 live markets as of 13 Oct 2026. |
 | `buffer_target_bps` | u16 | Keeper-posted buffer over parity. The target ratio is 10,000 plus this value clamped to 100 to 5,000 bps; 0 reads as 200 (a 102% target). |
 | `s_gamma_index` | u64 | γ at 1e9 scale. 0 reads as 1.0. Moves only down, never below 0.5. |
 | `gamma_day_start_ts` | i64 | Start of the current γ day bucket (telemetry). |
@@ -83,6 +83,23 @@ seeds = [b"fee_waiver", donor, market]
 ```
 
 Created by the donor's first `donate_to_vault` on a market and read by the `_with_waiver` instructions. Fields: `donor`, `market`, `waiver_end_at` (unix seconds), `total_donated`, `total_gap_closed_bps` and `bump`.
+
+### RedemptionRequest
+
+```
+seeds = [b"redemption", market, owner]          // 223 bytes
+escrows = [b"redemption_escrow", request, mint]   // one token account per leg
+```
+
+One open request per owner and market. `request_redemption` creates it and moves the owner's L and S into two escrow token accounts owned by the request PDA. Fields: `owner`, `market`, `long_mint`, `short_mint`, `l_requested`, `s_requested`, `l_remaining`, `s_remaining`, the running totals `gross_paid`, `net_paid`, `fee_paid` and `dev_tax_paid`, `fills`, `created_at`, `last_fill_at` and the three bumps. The request closes, and its rent goes back to the owner, when it is paid in full or cancelled.
+
+### MarketAdvance
+
+```
+seeds = [b"market_advance", market]               // 123 bytes
+```
+
+The ledger of the treasury's loan to one market, created by `configure_market_advance`. Fields: `market`, `lender` (the treasury vault, the only account an advance can come from), `max_advance_bps` (0 turns advances off), `outstanding`, `total_advanced`, `total_repaid`, `total_written_off`, `last_advance_at`, `last_repay_at` and `bump`. Advance cash sits in the market's collateral vault but is not counted in `total_collateral`, so the collateral ratio and the redeem haircut never see it.
 
 ### The `collateral_authority` slot
 
@@ -114,7 +131,7 @@ Mint and redeem quote each leg against the user. Let c be `oracle_confidence` ti
 
 ### Fees
 
-The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31, MSTR 52 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
+The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
 
 The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account, the treasury on every live market since 12 Oct 2026. The rest stays in the vault and counts in `total_collateral`.
 
@@ -134,15 +151,23 @@ Deposits `collateral_amount` cUSDC (at least 10 cUSDC) and mints L and S to the 
 
 #### `redeem_paired(l_amount: u64, s_amount: u64)`
 
-Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus the ignored `collateralAuthority` slot; pass `null`. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. See the [redeem flow](/flows/redeem).
+Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at the redeem NAVs, less the fee. Both amounts must be above 0; they can differ. The accounts are those of `mint_paired` plus the ignored `collateralAuthority` slot; pass `null`. If the market's collateral ratio at those NAVs is under 100%, every redeemer is paid `nominal × collateral ratio`, so early redeemers can't drain the vault ahead of others. Above 100% the haircut does nothing. If the payout is larger than the market's liquid collateral (`total_collateral` minus `deployed_to_yield`) or the vault's balance, it fails with `InsufficientLiquidCollateral` (6022). Queue the redemption with `request_redemption` instead. See the [redeem flow](/flows/redeem).
 
 #### `mint_paired_with_waiver` and `redeem_paired_with_waiver`
 
-Same arguments as `mint_paired` and `redeem_paired`. The accounts are the base accounts nested under `base`, plus the caller's `feeWaiver`. The fee is 0 when the waiver hasn't expired, the price is at most 300 s old and the market's collateral ratio is at or above its target ratio (102% to 124% by market since 11 Oct 2026; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)). Otherwise the normal fee applies.
+Same arguments as `mint_paired` and `redeem_paired`. The accounts are the base accounts nested under `base`, plus the caller's `feeWaiver`. The fee is 0 when the waiver hasn't expired, the price is at most 300 s old and the market's collateral ratio is at or above its target ratio (the daily Monte Carlo target the keeper posts for each market, 101% or more; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)). Otherwise the normal fee applies.
 
 #### `donate_to_vault(amount: u64)`
 
 Adds cUSDC to a market's collateral without minting anything, and extends the donor's `FeeWaiver` by 6 s for each basis point of the gap to the target ratio that the donation closes. A donation to a market already at or above target extends nothing. It needs a price at most 300 s old. The instruction is still on-chain, but the app stopped offering it on 9 Oct 2026.
+
+#### `request_redemption(params: RedemptionAmounts)`
+
+Queues a paired redemption the vault cannot pay now. `RedemptionAmounts` holds `l_amount` and `s_amount`, both above 0. It runs the same checks as `redeem_paired` (market active, risk state, price freshness, the 10 cUSDC minimum), then moves the L and S into the request's escrow token accounts and creates the [`RedemptionRequest`](#redemptionrequest). Nothing is burned or paid yet. Signer: the owner. Accounts: `market`, `owner`, `request`, `escrowL`, `escrowS`, `ownerLongAccount`, `ownerShortAccount`, `longMint`, `shortMint`, `oracle`, `tokenProgram`, `systemProgram`. Emits `RedemptionRequested`. See the [redeem flow](/flows/redeem#when-the-vault-cannot-pay-yet).
+
+#### `cancel_redemption()`
+
+Returns the unpaid part of a request, with all rent, and closes it. Signer: the owner. It reads no `Market`, so it works while the market is paused, the price is stale or the keeper is down. It returns each escrow's actual balance, so atoms sent to an escrow by someone else can't block the close. Emits `RedemptionCancelled`.
 
 #### `permissionless_burn(is_long: bool, amount: u64)`
 
@@ -167,6 +192,10 @@ The keeper's price write. It maps the price and the confidence through the corpo
 #### `set_buffer_target(buffer_target_bps: u16)`
 
 Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The keeper posts each market's daily Monte Carlo target, and only when it differs from the stored one; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). The target gates only three things: the fee waiver, the waiver credit a donation earns for closing the gap to target, and how much excess a market can shed (`withdraw_excess_to_clp`, `rebalance_collateral`). Mints and redeems don't read it.
+
+#### `settle_redemption(params: SettleRedemptionParams)`
+
+Pays the largest part of a request that the vault's cash covers now, up to `max_l_amount` of L with the matching share of S. Prices, haircut, fee and dev tax work exactly as in `redeem_paired`. It burns that part from escrow, pays the owner and updates the request. Unlike `redeem_paired`, it may spend the cash of a treasury advance, but never more than the vault holds. It fails with `NothingToSettle` (6053) when the request is empty or no part of it fits. When the request is paid in full and the owner is passed, the escrows and the request close and the rent goes back to the owner. Emits `RedemptionSettled` and `PairedActionExecuted`.
 
 #### `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`
 
@@ -230,6 +259,22 @@ Moves collateral above the market's target ratio into the market's CLP vault. It
 
 Writes down a lost yield deployment by reducing both `deployed_to_yield` and `total_collateral`, so the redeem haircut sees the loss.
 
+#### `configure_market_advance(params: ConfigureAdvanceParams)`
+
+Sets the market's advance cap, `max_advance_bps` of `total_collateral` (at most 10,000; 0 turns advances off), and its lender, creating the [`MarketAdvance`](#marketadvance) on first use. The lender must be the CLP treasury vault, the cUSDC account of the `GlobalClp` PDA (`InvalidAdvanceLender`). It can change only while nothing is outstanding (`AdvanceLenderLocked`). Emits `MarketAdvanceConfigured`.
+
+#### `receive_advance(amount: u64)`
+
+Takes a treasury advance into the collateral vault. Both `market.authority` and the `funder` who owns the lender account sign; the CLP's [`advance_to_market`](/programs/clp#treasury) calls it with the `GlobalClp` PDA as funder. The cash is not added to `total_collateral`. The total outstanding can't pass the cap (`AdvanceCapExceeded`). Emits `AdvanceReceived`.
+
+#### `repay_advance(amount: u64)`
+
+Pays advance cash back from the vault to the lender. Signer: `market.authority` or the keeper. It can't repay more than is outstanding (`AdvanceRepayExceedsOutstanding`), and the vault must keep the market's own liquid collateral (`AdvanceWouldTakeOwnLiquidity`). Emits `AdvanceRepaid`.
+
+#### `write_off_advance(amount: u64)`
+
+Charges a venue loss to the outstanding advance first, because the treasury is first-loss capital. It lowers `deployed_to_yield` and `outstanding` by `amount` and moves no cash. A loss larger than the advance goes through `mark_yield_impairment`, which refuses while any advance is outstanding (`AdvanceOutstanding`). Emits `AdvanceWrittenOff`.
+
 #### `create_token_metadata(name, symbol, uri)`
 
 Creates Metaplex metadata for the market's L or S mint. The Market PDA signs as mint authority; the signer pays and becomes update authority. Limits: name 32 bytes, symbol 10, URI 200.
@@ -273,12 +318,19 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 | `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
 | `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
 | `CollateralFunded` | `fund_collateral` and `fund_collateral_from` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |
+| `RedemptionRequested` | `request_redemption` | `request`, `owner`, `market`, `l_amount`, `s_amount`, `ts` |
+| `RedemptionSettled` | `settle_redemption` | `request`, `owner`, `market`, `l_amount`, `s_amount`, `gross`, `net`, `fee`, `dev_tax`, `l_remaining`, `s_remaining`, `ts` |
+| `RedemptionCancelled` | `cancel_redemption` | `request`, `owner`, `market`, `l_returned`, `s_returned`, `ts` |
+| `MarketAdvanceConfigured` | `configure_market_advance` | `market`, `lender`, `max_advance_bps` |
+| `AdvanceReceived` | `receive_advance` | `market`, `amount`, `outstanding`, `cap`, `ts` |
+| `AdvanceRepaid` | `repay_advance` | `market`, `amount`, `outstanding`, `ts` |
+| `AdvanceWrittenOff` | `write_off_advance` | `market`, `amount`, `outstanding`, `deployed_to_yield`, `ts` |
 
 `is_keeper` is true when the user is the market authority, the keeper or the market's CLP PDA.
 
 ## Errors
 
-mint-redeem errors run from 6000 to 6052. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
+mint-redeem errors run from 6000 to 6059. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Codes 6053 to 6059 come from the redemption requests and the treasury advance. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
 
 ## TypeScript
 

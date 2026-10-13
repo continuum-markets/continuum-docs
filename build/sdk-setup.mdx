@@ -31,20 +31,20 @@ Pin `@solana/web3.js` to 1.x. Anchor 0.32 depends on 1.x and `@solana/spl-token`
 
 ## The IDLs
 
-The IDLs for all five programs are published in the docs repository. Browse them at [github.com/continuum-markets/continuum-docs/tree/main/idl](https://github.com/continuum-markets/continuum-docs/tree/main/idl), or fetch the raw files:
+The IDLs for all six programs are published in the docs repository. Browse them at [github.com/continuum-markets/continuum-docs/tree/main/idl](https://github.com/continuum-markets/continuum-docs/tree/main/idl), or fetch the raw files:
 
 ```
 https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/<name>.json
 ```
 
-`<name>` is `mint_redeem`, `clp`, `oracle`, `registry` or `faucet`. The program source is not public, so these files are the reference for instruction names, arguments and account order. They use the Anchor 0.30+ IDL format, and each one carries its program ID in `address`:
+`<name>` is `mint_redeem`, `clp`, `oracle`, `registry`, `faucet` or `trading`. The program source is not public, so these files are the reference for instruction names, arguments and account order. They use the Anchor 0.30+ IDL format, and each one carries its program ID in `address`:
 
 ```bash
 curl -s https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/mint_redeem.json | jq -r .address
 # 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
 ```
 
-Don't use `anchor idl fetch` for these programs. Their on-chain IDL accounts are out of date: as of 11 Oct 2026, mint-redeem's lists 14 of its 38 instructions and has no `collateral_authority` account. The devnet program IDs are in [Programs overview](/programs/overview).
+Don't use `anchor idl fetch` for these programs. Their on-chain IDL accounts are out of date: as of 13 Oct 2026, mint-redeem's lists 14 of its 45 instructions and has no `collateral_authority` account. The devnet program IDs are in [Programs overview](/programs/overview).
 
 ## Boilerplate (`client.ts`)
 

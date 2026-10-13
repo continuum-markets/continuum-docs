@@ -22,7 +22,7 @@ This is the public lookup table for Continuum's devnet deployment. Every address
 | Manifest (external order book) | `MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms` |
 | `governance` (scaffolded, not active) | `6es5KcjMWKGhVWrttUytYiZ3YELXe4HQyrmsMVdbVawT` |
 
-The IDLs for the five protocol programs are published in the [docs repository](https://github.com/continuum-markets/continuum-docs/tree/main/idl).
+The IDLs for the six protocol programs are published in the [docs repository](https://github.com/continuum-markets/continuum-docs/tree/main/idl).
 
 The registry's state account (`ED8joCbjr7hnWPgmiGspQ2LNpUJGfjobZYqEHD1PWyE1`, PDA `[b"registry"]`) is initialized but holds no markets, and nothing reads it yet. Take addresses from this page instead.
 
@@ -49,7 +49,7 @@ Every long and short mint is a classic SPL Token mint with 6 decimals. Its mint 
 | GOOGL | `42kcUPz39qudU5qv9tgU6a3E7jmiJhKs7AoXDUcarKQ8` | `AGzVgTj53MwsJd8Ke2iyibRSyVLsqdJS3DzQWsSAxgdj` |
 | GBP | `HSGiyJGoAMKYmEG6cZkvnTko3B3BP6nnVCYuikBxRLSJ` | `F6dZpqSCevWEUdCvv6ARaePy5RnqkcVJBm7UubjV8fSG` |
 | JPY | `4NVo5FmKT1Z1Bid3RuRa9obpYgyusrQdxByTPLw6KtsT` | `VqgP5wUX6jZKEtWQiktmip8ntGz2eKCjdJ4ttjfo93a` |
-| MSTR | `4cu47GCf1uFiLFY4M4pz5fxXaQNkFjFCSGZMryHKLx2G` | `2tQ9cyCZX4vmG9rUkonKAtW8oCrgPSZn9Z6rSbrPHT7h` |
+| MSTR (closed 12 Oct 2026) | `4cu47GCf1uFiLFY4M4pz5fxXaQNkFjFCSGZMryHKLx2G` | `2tQ9cyCZX4vmG9rUkonKAtW8oCrgPSZn9Z6rSbrPHT7h` |
 
 ## Market and oracle config PDAs
 
@@ -70,7 +70,7 @@ The Market PDA uses seeds `[b"market", symbol]` on mint-redeem. The `OracleConfi
 | GOOGL | `7kmfunh8gUn2h9eafmJHUP6xeR8qM6yJZVEEyRzKiXhb` | `BLWwgcpbAMADpaA1YVTc2jy7ScxmSa7G47Xze75kiyuv` |
 | GBP | `HjpaEbyXJBqzxP6B7eNnbZvtaUPXRubc5bEywzfMePqK` | `BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn` |
 | JPY | `2hZtLxJtPeYjogUQFWeGYEKjJkWArEcf9iTtGkrChuKC` | `7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1` |
-| MSTR | `66WAH37WCVp1xxSBf3gqJQB4zgQnH1JGRaFymBCSpK9Y` | `BtYkLGtZAh9ifwiV2pyuBFMEwFFC5zUX22HfYpajAt84` |
+| MSTR (closed 12 Oct 2026) | `66WAH37WCVp1xxSBf3gqJQB4zgQnH1JGRaFymBCSpK9Y` | `BtYkLGtZAh9ifwiV2pyuBFMEwFFC5zUX22HfYpajAt84` |
 
 OIL (withdrawn 30 Aug 2026) and VXX (delisted June 2026) are not on this page. Don't integrate against their accounts.
 
@@ -93,7 +93,7 @@ Every market keeps its collateral in its own vault: the cUSDC associated token a
 | GOOGL | `7NHs4FXpKdtB41Z5LdYkCq3qTmCi6JG2j6eaA8nmNToX` |
 | GBP | `3gtGoZTrWbCVdD6vfwz2614aFwvS2JzgQmENadfR8gkF` |
 | JPY | `F78vUS2GfNgn2NC41bLJSPCb2wZaPoGGGDFYfxhoLGfA` |
-| MSTR | `HKStxHs4kWPqHWWN1fkcSCZ6n6QHvbafwcURV6LTQ3Ju` |
+| MSTR (closed 12 Oct 2026) | `HKStxHs4kWPqHWWN1fkcSCZ6n6QHvbafwcURV6LTQ3Ju` |
 
 `Market.total_collateral` is each market's own ledger figure, and the solvency checks read it. On 11 Oct 2026 every vault's token balance equaled its market's ledger. A plain token transfer into a vault raises its balance without changing the ledger, so read the ledger for solvency.
 
@@ -142,7 +142,7 @@ Every market has its own `Clp` PDA (seeds `[b"clp", market]`), including the fou
 | GOOGL | `HRo8q96iUnTP8Secf7eqYfADkNVokLvfy4eg7DjpkqrN` | `6qe3HfoWrC2g7k8URTDrAJYVreCieQGZA8LBZZByoqEM` |
 | GBP | `4gskdJfMfv6sCPqyWErXayUdzJBPLg5GyiZ6jSJ4EB8J` | `5rfH9Er5GFHGcK4wHvga8JRRCS1EAqJsWcnGWMJMVDB5` |
 | JPY | `HKzUKzNyHDyC5AgEYFFscE3PETBB3SfrfCKnt1hGLE1K` | `8PVXUQ6VuuYor9PH7vew3sY35civX2YSJH1jgCXEsaXU` |
-| MSTR | `vR53HxPcBUkjuVzsLYofMGU4GKhy5QgTaJZMBDzjU7n` | `Gs5TSSLFRAriH27zXNy7WrKXzSwcFbJCTKnC7kqb7Qs4` |
+| MSTR (closed 12 Oct 2026) | `vR53HxPcBUkjuVzsLYofMGU4GKhy5QgTaJZMBDzjU7n` | `Gs5TSSLFRAriH27zXNy7WrKXzSwcFbJCTKnC7kqb7Qs4` |
 
 ## Bin books
 
@@ -163,7 +163,7 @@ Each market has one `Pool` PDA per side, with seeds `[b"pool", market, [side]]` 
 | GOOGL | `82RWToVd47PC7kd3ScNM4BwAiascY82oAcu4e4NhStvp` | `6CVRNQPruyE8LLQvdfiVwp6uEiqxcRYjCTD7wU9a2DS1` |
 | GBP | `3e59vEqzQJasUiBHstdCHRKh9KJTtG83w3Mo5W1ASHDw` | `B1UyrycWcxpV9DPTnEhKLf1zfeomnJVVriST7TdKRBtR` |
 | JPY | `NyL2zCi4am2Kiofr6NfNcVCyf23rmcnsqVgNaZPj7mf` | `FsDgk3EkBJbdqEP2C9uyh86qdjy4KpYpg1PTytW86FY4` |
-| MSTR | `G9xCpYdpCwyXw9Y5z2aMddDbVVvj1iy87RRozaAoY9LK` | `TS4njAZnRctsppgdTiHptAUNitoY6FjFMkXjqHKLQU7` |
+| MSTR (closed 12 Oct 2026) | `G9xCpYdpCwyXw9Y5z2aMddDbVVvj1iy87RRozaAoY9LK` | `TS4njAZnRctsppgdTiHptAUNitoY6FjFMkXjqHKLQU7` |
 
 The books charge no swap fee. As of 10 Oct 2026 the core steps run from 10 to 50 bps and the wing steps from 200 to 700 bps. Every book has 12 bid bins and 12 ask bins, and the first 3 on each side are core bins. The XAU long book is the exception, with 6 a side. Per-market geometry is on [Markets](/concepts/markets#live-markets).
 

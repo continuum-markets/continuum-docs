@@ -1,6 +1,6 @@
 ---
 title: IDLs and PDAs
-description: Download the published IDLs, derive every PDA the five programs use, and compose the mint and redeem account lists.
+description: Download the published IDLs, derive every PDA the six programs use, and compose the mint and redeem account lists.
 ---
 
 A cheat sheet: where the IDLs live, how to derive each PDA, and how to build the mint and redeem account lists.
@@ -16,10 +16,11 @@ The program source is private. The IDLs, generated from the source of the deploy
 | `oracle` | [`idl/oracle.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/oracle.json) | `5vxiCrDpFnQ2W5QtgZBC66K2XTC19bjVBjinGYYBsadC` |
 | `registry` | [`idl/registry.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/registry.json) | `Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau` |
 | `faucet` | [`idl/faucet.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/faucet.json) | `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY` |
+| `trading` | [`idl/trading.json`](https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/trading.json) | `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA` |
 
 ```bash
 mkdir -p idl types
-for name in mint_redeem clp oracle registry faucet; do
+for name in mint_redeem clp oracle registry faucet trading; do
   curl -fsSL -o "idl/$name.json" \
     "https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/$name.json"
 done

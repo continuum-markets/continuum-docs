@@ -22,7 +22,7 @@ The app places every trade from your [trading account](/flows/trading-account). 
 
 `pool_swap` trades against a native bin book. Each market has two, one per leg: QQQ's long book and QQQ's short book are separate `Pool` accounts. A book lives inline in its `Pool` account, with up to 16 bins and no rent per bin. `asks[i]` holds tokens of the leg for sale above the centre price `base_price_1e6`, and `bids[i]` holds cUSDC below it.
 
-The keeper sets the centre from NAV, shifted by the CLP's inventory, and reshapes the book as the price moves. Off-hours it posts a capped free-float book, and a guard lets it pull bins only on the stale side. See [Book management](/keeper/book-management).
+The keeper sets the centre from NAV, shifted by the CLP's inventory, and reshapes the book as the price moves. Off-hours it posts a demand-sized free-float book, and a guard lets it pull bins only on the stale side. See [Book management](/keeper/book-management).
 
 Bins use two step sizes: a fine core step (`step_bps`) for the first `core_bins` bins on each side, then a wider wing step (`wing_step_bps`). Ask bin `i`, counting from 0, sits `i + 1` steps above the centre and bid bin `i` sits `i + 1` steps below it. Each step up multiplies the price by `1 + step / 10_000`, and each step down divides by it. On 10 Oct 2026 each QQQ book had 12 bins: 3 core bins 20 bps apart, then 300 bps wing steps. A swap walks the bins outward from the centre. If the book runs out, the swap fills what it can and charges only for that, and `min_out` still applies.
 
@@ -148,7 +148,7 @@ await clp.methods
 
 Against an unchanged book, `quote.out` is exactly what the swap returns. On Saturday 10 Oct 2026, with the market closed, it quoted 0.132577 QQQL for 100 cUSDC on the QQQ long book, and a simulated `pool_swap` returned the same.
 
-Standing depth is small on purpose. It is sized to demand rather than TVL, because the losses to informed traders grow with the depth deployed. On Saturday 10 Oct 2026 the QQQ long book held 5,000 cUSDC of bids and 10.13 QQQL (about 7,600 cUSDC) of asks. The single-stock books held 1,000 to 1,250 cUSDC a side, their off-hours cap. Larger orders belong in a committed order once the market opens, or on the [order book](/flows/order-book).
+Standing depth is small on purpose. It is sized to demand rather than TVL, because the losses to informed traders grow with the depth deployed. On Saturday 10 Oct 2026 the QQQ long book held 5,000 cUSDC of bids and 10.13 QQQL (about 7,600 cUSDC) of asks. The single-stock books held 1,000 to 1,250 cUSDC a side. Depth has since been resized to demand, at least 500 cUSDC a side. Larger orders belong in a committed order once the market opens, or on the [order book](/flows/order-book).
 
 ## Rolling-window cap
 

@@ -89,12 +89,12 @@ S_NAV = K / P × γ        γ = s_gamma_index / 1e9
 ```
 
 - It is always on. The keeper posts it with `set_s_gamma_index`, and nothing turns it off: a keeper started with `CLMM_GAMMA_DECAY_ENABLED` set to any value refuses to boot. `GAMMA_DECAY_COEF` (default 1.0, which is break-even) scales the charge and must be in (0, 1], so it can't zero it either.
-- It charges realized variance and ignores direction. The keeper measures the price close to close over 30-minute windows and banks each window's squared return as decay. It charges a confirmed move of more than 1% at once, and posts when the banked total passes 2e-4. A choppy path costs decay; a smooth directional move barely does, because that payoff sits in the long leg.
+- It charges realized variance and ignores direction. The keeper measures the price close to close over 30-minute windows and banks each window's squared return as decay. It charges a confirmed move of more than 1% at once, and posts when the banked total passes 2e-4, or once a day when at least 1e-6 is owed and nothing has been posted for a day. A choppy path costs decay; a smooth directional move barely does, because that payoff sits in the long leg.
 - It only ratchets down, and bad writes are rejected rather than clamped. `set_s_gamma_index` rejects a value above the current γ (`GammaMustRatchetDown`), a value outside [0.5, 1.0] (`GammaOutOfRange`), and a write computed against an old epoch (`GammaEpochMismatch`). So γ can fall by at most 50% within one epoch.
 - `reanchor_gamma` starts a new epoch. Only the market authority can call it, at least 14 days after the last one. It sets `initial_s_price` to `initial_s_price × γ` and resets γ to 1.0, which leaves every claim unchanged at every price. What it renews is the decay budget. It is not a re-anchor to the current spot price.
 - It is not a funding rate. No cash moves between holders; γ is a mark on the short token's value. An instant mint→redeem round trip at a fixed γ is unaffected, and **long positions never pay it**. The app labels it "volatility decay" on the short side.
 
-As of 11 Oct 2026 no market has been re-anchored, and γ runs from about 0.9998 (GBP) down to about 0.944 (MSTR).
+As of 11 Oct 2026 no market has been re-anchored. Read on 13 Oct 2026, γ on the 13 live markets runs from about 0.9998 (GBP) down to about 0.957 (NVDA). MSTR, closed on 12 Oct 2026, stood at about 0.944.
 
 See [Solvency](/concepts/solvency) for why this covers the variance regime but leaves a directional run uncovered.
 
@@ -156,7 +156,7 @@ The long NAV is linear in price (`L_NAV = P`) but the short NAV is **inverse** (
 | **Mint** (user buys) | `P + c` → fewer L | `K / (P − c) × γ` is higher → fewer S |
 | **Redeem** (user sells) | `P − c` → less out | `K / (P + c) × γ` is lower → less out |
 
-A paired mint→redeem round trip therefore returns **less** than the deposit at any confidence. As of 10 Oct 2026 worst-case quoting is on for 13 markets and off for QQQ, which quotes both legs at mid NAV.
+A paired mint→redeem round trip therefore returns **less** than the deposit at any confidence. As of 13 Oct 2026 worst-case quoting is on for the 12 other live markets and off for QQQ, which quotes both legs at mid NAV.
 
 ## Corporate actions
 

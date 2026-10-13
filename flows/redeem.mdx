@@ -88,7 +88,17 @@ For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee wa
 
 ## Limits
 
-There is no size cap. A redeem can't burn more than the market's outstanding supply of either leg (`InvalidAmount`). The payout plus `dev_tax` must fit within the market's liquid collateral, `total_collateral` minus `deployed_to_yield`, and within the vault's token balance (`InsufficientLiquidCollateral`). The program doesn't check your balances; burning more than you hold fails inside SPL Token.
+There is no size cap. A redeem can't burn more than the market's outstanding supply of either leg (`InvalidAmount`). The payout plus `dev_tax` must fit within the market's liquid collateral, `total_collateral` minus `deployed_to_yield`, and within the vault's token balance (`InsufficientLiquidCollateral`). When it doesn't, [queue a redemption request](#when-the-vault-cannot-pay-yet) instead. The program doesn't check your balances; burning more than you hold fails inside SPL Token.
+
+## When the vault cannot pay yet
+
+`redeem_paired` pays only from cash in the vault. On mainnet the keeper lends most of a market's collateral and keeps a liquid share in the vault, so a large redeem can ask for more than the vault holds right now. It then reverts with `InsufficientLiquidCollateral` (6022). Nothing is lost; the redemption has to go through a request instead:
+
+1. **Request.** `request_redemption(l_amount, s_amount)` moves your L and S into escrow accounts owned by a `RedemptionRequest` PDA. It runs the same checks as a redeem (market active, not in `Stress`, a price at most 300 s old, at least 10 cUSDC) but burns and pays nothing.
+2. **Settle.** The keeper's redemption settler pays the largest part of the request that the vault's cash covers, using `settle_redemption`. If more is needed it recalls the market's lending deposits in the same transaction, and for what the venues can't release in time it takes a loan from the treasury (`advance_to_market`) within the market's advance cap. Each part is priced at the redeem NAVs and fee at the moment it settles, with the same pro-rata haircut as `redeem_paired`, and burned from escrow. A request can therefore fill in several parts.
+3. **Cancel.** `cancel_redemption` returns whatever is still unpaid and closes the request, at any time. It needs no keeper and no fresh price.
+
+The settler is a keeper task that runs only when `REDEMPTION_SETTLE_ENABLED` is true (default false; see [Running a keeper](/keeper/running)). While it is off, a request waits until you cancel it. The accounts are in [mint-redeem → RedemptionRequest](/programs/mint-redeem#redemptionrequest).
 
 ## Under-collateralization: pro-rata redemption
 
@@ -115,7 +125,7 @@ A redeem can never pay out more than the vault holds, because `gross` can't exce
 | `BelowMinimum` | 6019 | The redeem is worth less than 10 cUSDC at the quotes |
 | `TwapNotAvailable` | 6012 | The price is 0 or more than 300 s old. Usually the underlying market is closed |
 | `RedeemNotAllowedInStress` | 6010 | The market is in `Stress` |
-| `InsufficientLiquidCollateral` | 6022 | The payout plus `dev_tax` exceeds the market's liquid collateral or the vault balance |
+| `InsufficientLiquidCollateral` | 6022 | The payout plus `dev_tax` exceeds the market's liquid collateral or the vault balance. Queue a [redemption request](#when-the-vault-cannot-pay-yet), or retry after the keeper recalls from lending |
 | `MarketNotActive` | 6000 | `market.is_active` is false |
 | `OraclePriceUnavailable` | 6005 | A worst-case quote came out as 0 |
 | `Unauthorized` | 6021 | `devTokenAccount` isn't owned by `market.fee_recipient` |

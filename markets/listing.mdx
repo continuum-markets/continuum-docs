@@ -14,7 +14,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
 - A free public source quotes the same instrument the market tracks, with no API key. A proxy doesn't count. OIL was withdrawn on 30 Aug 2026 because its only keyless quote was the front-month WTI future, a different instrument that carries a roll basis.
 - Hyperliquid lists the instrument, or an index the keeper can track it against, so that every price push can be checked.
 - For mainnet, Pyth publishes a feed for it.
-- The keeper has trained volatility coefficients for it. Its fees and spread floors depend on them.
+- The keeper has an entry for it in its volatility config. Its fees and spread floors depend on it.
 
 ## On-chain sequence
 
@@ -63,7 +63,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
 |---|---|---|---|---|
 | Index ETF | QQQ, SPY | 15 to 20 bps × 3 | 250 to 300 bps | 12 |
 | Metal | XAU, XAG | 20 bps × 3 (XAU long book: 50 bps) | 300 bps | 12 (XAU long book: 6) |
-| Single stock | NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL | 25 to 50 bps × 3 | 400 to 700 bps | 12 |
+| Single stock | NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL | 25 to 35 bps × 3 | 400 to 500 bps | 12 |
 | FX | EUR, GBP, JPY | 10 bps × 3 | 200 bps | 12 |
 
 The books charge no swap fee, so the gap between the centre and the first funded bin is the price of an instant trade. A tight core step gives better prices but loses more to informed traders when the price gaps. That is why the volatile single stocks get wider steps than the index ETFs and FX.
@@ -75,10 +75,9 @@ The keeper's source isn't published. Before the protocol's keeper will price and
 1. Add the symbol to the discovery candidate list (`DISCOVERY_CANDIDATES`). At boot the keeper reads each candidate's Market PDA and runs every market with `is_active = true`, unless `ACTIVE_MARKETS` overrides discovery.
 2. Map the symbol to its price sources: the public quote source's symbol, the Pyth feed IDs for mainnet, and a benchmark ticker that seeds the volatility state at boot.
 3. Map it to its Hyperliquid instrument for the price check. If Hyperliquid lists only the index, as for QQQ and SPY, flag it as an index proxy so the keeper learns the ratio.
-4. Add its entry to `vol_coefs.json`. A test in the keeper's suite fails until every candidate has one.
-5. For a single stock, add it to `JUMP_PRONE`, which keeps its off-hours books under a \$1,250-a-side ceiling.
-6. Add its buffer target to the keeper's per-market table, sized like the others from the jump-diffusion study. A market missing from the table posts the 2% floor.
-7. Redeploy. Discovery runs only at boot, so the keeper ignores a new market until it restarts.
+4. Add its entry to `vol_coefs.json`, the keeper's hand-fit volatility config. A test in the keeper's suite fails until every candidate has one.
+5. Add its buffer target to the keeper's per-market fallback table, sized like the others from the jump-diffusion study. The keeper's daily job is the primary source of each market's target, and a market missing from the fallback table posts 1% (100 bps), the program's minimum.
+6. Redeploy. Discovery runs only at boot, so the keeper ignores a new market until it restarts.
 
 ## App changes
 

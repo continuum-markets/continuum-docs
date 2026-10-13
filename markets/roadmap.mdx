@@ -71,7 +71,7 @@ Keeper features that compile but are off by default:
 
 | Feature | Flag | Notes |
 |---|---|---|
-| Idle-collateral yield | `YIELD_ENABLED=false` | The CLP can deploy idle vault balance into lending markets. Audit-gated. |
+| Idle-collateral yield | `COLLATERAL_YIELD_ENABLED=false` | The CLP can deploy idle vault balance into lending markets. Audit-gated. |
 | Legacy Meteora layer | `LEGACY_METEORA_ENABLED=false` | DLMM position management, the arbitrage loop and that loop's MarginFi or Kamino flash-loan funding. The native bin books replaced it. |
 | L/S direct pool arbitrage | `LS_POOLS` unset | Deprecated by the keeper's single-side mint and redeem. It stays disabled. |
 

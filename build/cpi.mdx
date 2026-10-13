@@ -188,7 +188,7 @@ pub mod my_vault {
 }
 ```
 
-`redeem_paired` requires both amounts to be above 0 (there is no single-leg redeem) and a redeem value of at least 10 cUSDC. By default both revert in Stress, with `MintNotAllowedInStress` or `RedeemNotAllowedInStress`. After a CPI, call `ctx.accounts.market.reload()?` before you read `market` again: the deserialized struct still holds the values from before the call.
+`redeem_paired` requires both amounts to be above 0 (there is no single-leg redeem) and a redeem value of at least 10 cUSDC. By default both revert in Stress, with `MintNotAllowedInStress` or `RedeemNotAllowedInStress`. `redeem_paired` also reverts with `InsufficientLiquidCollateral` (6022) when the payout is more than the market's liquid collateral; route a large redemption to `request_redemption` instead, which escrows the tokens and lets the keeper pay it in parts. After a CPI, call `ctx.accounts.market.reload()?` before you read `market` again: the deserialized struct still holds the values from before the call.
 
 ### When the user signs
 

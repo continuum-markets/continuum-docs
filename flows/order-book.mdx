@@ -90,8 +90,8 @@ Anyone can place orders on a Manifest book, so spam is the main risk to plan for
 |---|---|
 | Manifest | `MNFSTqtC93rEfYHB6hF82sKdZpUDFWkViLByLd1k1Ms` |
 | `trading` program | `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA` (devnet) |
-| Book addresses | [`frontend/lib/manifest-markets.json`](https://github.com/nxfi777/continuum-frontend/blob/main/lib/manifest-markets.json), one long and one short book per market |
-| IDL | [`idl/trading.json`](https://github.com/nxfi777/continuum-docs/blob/main/idl/trading.json) |
+| Book addresses | One long and one short book per market, kept in the app's own list. The `trading` program checks that a book trades the right token against cUSDC (`NotOurMarket`). |
+| IDL | [`idl/trading.json`](https://github.com/continuum-markets/continuum-docs/blob/main/idl/trading.json) |
 
 Trading account PDAs, under the `trading` program:
 

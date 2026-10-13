@@ -1,9 +1,9 @@
 ---
 title: Programs overview
-description: The five Anchor programs behind Continuum, with devnet IDs, published IDLs, PDA seeds, and the signer each instruction requires.
+description: The six Anchor programs behind Continuum, with devnet IDs, published IDLs, PDA seeds, and the signer each instruction requires.
 ---
 
-Continuum runs on five programs built with Anchor 0.32.1. They are deployed on **devnet**; mainnet IDs will be added when mainnet launches.
+Continuum runs on six programs built with Anchor 0.32.1. They are deployed on **devnet**; mainnet IDs will be added when mainnet launches.
 
 | Program | Devnet ID | Role |
 |---|---|---|
@@ -23,7 +23,8 @@ keeper ── update_risk_state_v2 ──► mint-redeem   Market.user_twap_pric
 keeper ── set_pool_shape ────────► clp           reprices the two bin books of each market
 clp ───── CPI ───────────────────► mint-redeem   mint_paired, redeem_paired,
                                                  redeem_single_for_vault, permissionless_burn,
-                                                 fund_collateral_from (backstop_market)
+                                                 fund_collateral_from (backstop_market),
+                                                 receive_advance (advance_to_market)
 clp ───── reads Market ──────────► mint-redeem   market state and NAV for commit_swap, settle_swap;
                                                  risk state and price age for pool_swap
 oracle                                           one OracleConfig per market, not updated on devnet
@@ -35,7 +36,7 @@ The keeper is the protocol's off-chain operator service; its source isn't publis
 
 ## IDLs
 
-An IDL is the JSON description of a program's instructions, accounts, types, events and errors. The program source is private, so the IDLs are published in the docs repository instead, generated from the source of the deployed programs ([browse](https://github.com/continuum-markets/continuum-docs/tree/main/idl)). Each one is at `https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/<program>.json`, where `<program>` is `mint_redeem`, `clp`, `oracle`, `registry` or `faucet`. Anchor 0.32 reads the program ID from each IDL's `address` field.
+An IDL is the JSON description of a program's instructions, accounts, types, events and errors. The program source is private, so the IDLs are published in the docs repository instead, generated from the source of the deployed programs ([browse](https://github.com/continuum-markets/continuum-docs/tree/main/idl)). Each one is at `https://raw.githubusercontent.com/continuum-markets/continuum-docs/main/idl/<program>.json`, where `<program>` is `mint_redeem`, `clp`, `oracle`, `registry`, `faucet` or `trading`. Anchor 0.32 reads the program ID from each IDL's `address` field.
 
 [IDLs and PDAs](/build/idls-and-pdas#idl-files) has a download script and the TypeScript setup. For Rust CPI there is no published crate: load the same IDL with Anchor's `declare_program!` (see [CPI](/build/cpi)).
 
@@ -45,6 +46,9 @@ An IDL is the JSON description of a program's instructions, accounts, types, eve
 |---|---|---|
 | mint-redeem | `Market` | `[b"market", symbol]`, raw symbol bytes such as `QQQ` |
 | mint-redeem | `FeeWaiver` | `[b"fee_waiver", donor, market]` |
+| mint-redeem | `RedemptionRequest` | `[b"redemption", market, owner]` |
+| mint-redeem | redemption escrow (token account, one per leg) | `[b"redemption_escrow", request, mint]` |
+| mint-redeem | `MarketAdvance` | `[b"market_advance", market]` |
 | oracle | `OracleConfig` | `[b"oracle_config", market]` |
 | oracle | `OracleFeed` | `[b"oracle_feed", oracle_config, pyth_price_account]` |
 | clp | `GlobalClp` | `[b"global_clp"]` |
@@ -54,11 +58,14 @@ An IDL is the JSON description of a program's instructions, accounts, types, eve
 | clp | escrow (token account) | `[b"escrow", order]` |
 | clp | `RevenueAttribution` | `[b"revenue_attribution"]` |
 | clp | `TreasuryPolicy` | `[b"treasury_policy"]` |
+| clp | `TreasuryYield` | `[b"treasury_yield"]` |
 | registry | `RegistryState` | `[b"registry"]` |
 | registry | `MarketEntry` | `[b"market", symbol]`, symbol uppercased and zero-padded to 16 bytes |
 | faucet | `FaucetState` | `[b"faucet", mint]` |
 | faucet | `DripRecord` | `[b"drip", mint, recipient]` |
 | faucet | mint authority (signs only, holds no data) | `[b"mint_authority", mint]` |
+| trading | trading account | `[b"account", owner]` |
+| trading | trader (the account's Manifest identity) | `[b"trader", owner]` |
 
 A script that derives all of these and checks them on devnet is on [IDLs and PDAs](/build/idls-and-pdas#pda-derivation-cheatsheet).
 
@@ -68,23 +75,25 @@ Each instruction that changes state checks its signer. The table follows the `ha
 
 | Signer | Instructions |
 |---|---|
-| Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account). clp: `pool_swap`, `commit_swap`, `settle_swap` (any cranker), `cancel_swap` (anyone, after the order expires; the refund goes to the owner), `clp_swap` (retired; always fails), `deposit_profit` (the signer's own funds, paid into the treasury vault, which must be owned by the GlobalClp), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
-| `market.keeper_authority` | mint-redeem: `update_risk_state`, `update_risk_state_v2`, `set_s_gamma_index`, `set_buffer_target`, `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `rebalance_collateral` (keeper of both markets), `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`. |
-| `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `fund_collateral`, `fund_collateral_from` (with a second signer, the `funder`, who owns the cUSDC). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
+| Anyone | mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account), `request_redemption` and `cancel_redemption` (the owner of the request). clp: `pool_swap`, `commit_swap`, `settle_swap` (any cranker), `cancel_swap` (anyone, after the order expires; the refund goes to the owner), `clp_swap` (retired; always fails), `deposit_profit` (the signer's own funds, paid into the treasury vault, which must be owned by the GlobalClp), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
+| `market.keeper_authority` | mint-redeem: `update_risk_state`, `update_risk_state_v2`, `set_s_gamma_index`, `set_buffer_target`, `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `rebalance_collateral` (keeper of both markets), `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`, `settle_redemption`, and `repay_advance` (the market authority may also call it). |
+| `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `fund_collateral`, `fund_collateral_from` and `receive_advance` (each with a second signer, the `funder`, who owns the cUSDC), `configure_market_advance`, `write_off_advance`, `repay_advance` (the keeper may also call it). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
 | mint-redeem program upgrade authority | mint-redeem: `initialize_market`. |
 | CLP PDA `[b"clp", market]` | mint-redeem: `redeem_single_for_vault`, reachable only through the CLP's `vault_redeem_single`. |
-| `clp.authority` (per market) | clp: `configure_swap`, `set_commit_spread`, `configure_inventory_budget`, `configure_yield_strategy`, `update_inventory`, `update_oi`, `update_oi_cap`, `collect_fees`, `record_deployment`, `record_withdrawal`, `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `clp_burn_excess`, `pool_sweep_usdc`, `pool_sweep_synth`, `clp_fund_pool_synth`, and the legacy Meteora instructions (`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees`, `clp_close_meteora_position`). |
+| `clp.authority` (per market) | clp: `configure_swap`, `set_commit_spread`, `configure_inventory_budget`, `configure_yield_strategy`, `update_inventory`, `update_oi`, `update_oi_cap`, `collect_fees`, `record_deployment`, `record_withdrawal`, `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `clp_burn_excess`, `pool_sweep_usdc`, `pool_sweep_synth`, `clp_fund_pool_synth`, `clp_fund_pool_usdc`, and the legacy Meteora instructions (`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees`, `clp_close_meteora_position`). |
 | `pool.authority` (per bin book) | clp: `set_pool_shape`, `configure_pool_geom`, `realloc_pool`. |
-| `GlobalClp.authority` | clp: `init_pool`, `admin_fund`, `admin_withdraw`, `allocate_to_market`, `return_to_global`, `add_yield_to_buffer`, `absorb_loss`, `configure_liquidity_seeder`, `init_revenue_attribution`, `configure_revenue_attribution`, `realloc_clp`, `record_harvest`, `vault_record_liquidity_recall`, `init_treasury_policy`, `set_treasury_limits`, `cancel_treasury_limits`, `freeze_treasury`, `backstop_market` (the signer must also be the market's `market.authority`). |
+| `GlobalClp.authority` | clp: `initialize_global_clp`, `init_pool`, `admin_fund`, `admin_withdraw`, `allocate_to_market`, `return_to_global`, `add_yield_to_buffer`, `absorb_loss`, `configure_liquidity_seeder`, `init_revenue_attribution`, `configure_revenue_attribution`, `realloc_clp`, `record_harvest`, `vault_record_liquidity_recall`, `init_treasury_policy`, `set_treasury_limits`, `cancel_treasury_limits`, `freeze_treasury`, `init_treasury_yield`, `treasury_lend`, `treasury_recall`, `backstop_market` and `advance_to_market` (the last two need the signer to also be the market's `market.authority`). |
 | `TreasuryPolicy.guardian` (freeze-only) | clp: `freeze_treasury`, `unfreeze_treasury` (guardian only), `cancel_treasury_limits`, `set_treasury_guardian` (guardian only). The guardian can't move funds. |
 | `OracleConfig.admin_authority` | oracle: `update_oracle_config`, `configure_twap_windows`, `configure_health_thresholds`, `emergency_pause`, `upsert_oracle_feed`, `realloc_oracle_config`. |
 | `OracleConfig.keeper_authority` | oracle: `update_price_observation`, `reset_volatility_counters`. |
 | Registry authority | registry: `register_market`, `update_market`, `update_positions`, `set_active`, `transfer_authority`. |
 | Faucet authority | faucet: `update_params`, `transfer_authority`. |
+| Trading account owner | trading: `open_account`, `set_session`, `revoke_session`, `deposit`, `withdraw_sol`, `close_account`. |
+| Owner or the account's active session key | trading: `withdraw` (pays only the owner's own token account), `claim_seat`, `deposit_to_market`, `withdraw_from_market`, `place_orders`, `swap_pool`, `commit_order`. A session key is bound by a price band and a per-order limit. |
 
 The setup instructions (`initialize_*`, `init_*`) create program and market accounts. The Continuum team runs them when it lists a market; integrators never need them. The oracle's `get_*` instructions and the CLP's `check_inventory_restrictions` and `get_yield_status` are read-only views with no signer.
 
-On devnet (10 Oct 2026) the Continuum team holds every admin role. `8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni` is `market.authority` on all 14 markets, and `9WXGdH5tPCprnATKxnScKt86TUZFYxqeMdejWRrp2RN4` is `market.keeper_authority` on every market. Both are stored on each `Market` account, so you can check them on chain.
+On devnet (10 Oct 2026) the Continuum team holds every admin role. `8xhPK1rGK4neoKo4fT8FxHQDZRiCnSYW9hvEdaVTxCni` is `market.authority` on all 14 markets (13 are live), and `9WXGdH5tPCprnATKxnScKt86TUZFYxqeMdejWRrp2RN4` is `market.keeper_authority` on every market. Both are stored on each `Market` account, so you can check them on chain.
 
 ## Errors
 
@@ -95,6 +104,7 @@ Each program numbers its errors from 6000, so one code means different things in
 - [oracle errors](/reference/errors#oracle)
 - [registry errors](/reference/errors#registry)
 - [faucet errors](/reference/errors#faucet)
+- [trading errors](/reference/errors#trading)
 
 ## Choosing what to call
 
@@ -102,6 +112,7 @@ Each program numbers its errors from 6000, so one code means different things in
 |---|---|---|
 | Mint L and S | `mint-redeem` | `mint_paired` |
 | Redeem L and S at NAV | `mint-redeem` | `redeem_paired`, with both amounts above 0 |
+| Redeem more than the vault's cash can pay now | `mint-redeem` | `request_redemption`; the keeper pays it with `settle_redemption`, and `cancel_redemption` takes back the unpaid part |
 | Read the price, NAV inputs and risk state | `mint-redeem` | fetch `Market` (`user_twap_price`, `twap_updated_at`, `oracle_confidence`, `s_gamma_index`) |
 | Trade while the market is open, at NAV at a later keeper price push | `clp` | `commit_swap`, then `settle_swap`; `cancel_swap` refunds after the 180 s TTL |
 | Trade instantly against a bin book while the market's price is stale | `clp` | `pool_swap` |

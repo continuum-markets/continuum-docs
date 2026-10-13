@@ -18,7 +18,7 @@ Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#marke
 | `Stress` | Oracle unreliable, defensive | Blocked by default (`MintNotAllowedInStress`) | Blocked by default (`RedeemNotAllowedInStress`) | `user_twap_price` |
 | `Recovery` | Wind-down after `Stress` | Open | Open | `user_twap_price`, at most 300 s old |
 
-`Stress` blocks both sides because `allow_mint_in_stress` and `allow_redeem_in_stress` default to false, and both are false on all 14 markets as of 10 Oct 2026. The market authority can turn either on with `configure_risk_fees`. A mint in `Stress` is then also held to `stress_mint_cap` per transaction. That cap is 0 (no cap) on every market.
+`Stress` blocks both sides because `allow_mint_in_stress` and `allow_redeem_in_stress` default to false, and both are false on all markets, 14 when checked on 10 Oct 2026 and 13 live now. The market authority can turn either on with `configure_risk_fees`. A mint in `Stress` is then also held to `stress_mint_cap` per transaction. That cap is 0 (no cap) on every market.
 
 ## Fee and confidence multipliers
 

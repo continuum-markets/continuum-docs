@@ -49,9 +49,9 @@ description: Continuum-specific terms in one place.
 
 **Fee waiver** - A grant created by `donate_to_vault` that lets the donor mint and redeem fee-free for a period, through `mint_paired_with_waiver` and `redeem_paired_with_waiver`. It applies only while the market's vault is above its target ratio. The app no longer offers it.
 
-**Force price** - The oracle program's `force_price` instruction, compiled only into devnet builds. An operator emergency tool.
+**Force price** - The oracle program's `force_price` instruction. It exists in the source only behind the `devnet` build feature, is not in the published IDL and is not deployed. An operator emergency tool.
 
-**Free float** - The book the keeper posts while mint and redeem are frozen (last push over 300 s old): anchored at the last price, each side in one bin within 1% of it, sized to measured demand (\$500 a side until flow is measured) and capped at \$10,000 per side (\$1,250 for single-name stocks). A guard can pull bins that other venues show have gone stale. → [Book management](/keeper/book-management).
+**Free float** - The book the keeper posts while mint and redeem are frozen (last push over 300 s old): anchored at the last price, each side in one bin within 1% of it, sized to measured demand (\$500 a side until flow is measured) and limited by a risk cap on that market's share of the treasury. A guard can pull bins that other venues show have gone stale. → [Book management](/keeper/book-management).
 
 **γ index** - `Market.s_gamma_index`, the short leg's volatility-decay index (1e9 = 1.0), which multiplies its NAV. The keeper lowers it as realized volatility accrues (`set_s_gamma_index`); the program rejects writes that raise it or fall out of range. `reanchor_gamma` (authority only, at least 14 days apart) folds γ into `initial_s_price` and resets it to 1. It is not a reset to the spot price. → [Volatility decay](/concepts/nav#volatility-decay).
 
@@ -77,7 +77,7 @@ description: Continuum-specific terms in one place.
 
 ## M to R
 
-**`mint_fee_bps`** - Per-market mint fee, posted by the keeper as `clamp(fee_mult × half-spread, 10, 100)` bps. As of 10 Oct 2026: QQQ 18, SPY 16, NVDA 31, MSTR 52, EUR/GBP/JPY 10. The risk-state multiplier applies on top (1.5× in ProxyMode), and 10% of the fee is a dev tax.
+**`mint_fee_bps`** - Per-market mint fee, posted by the keeper as `clamp(fee_mult × half-spread, 10, 100)` bps. As of 13 Oct 2026: QQQ 18, SPY 16, NVDA 31, TSLA 39, EUR/GBP/JPY 10. The risk-state multiplier applies on top (1.5× in ProxyMode), and 10% of the fee is a dev tax.
 
 **`mint_paired`** - User-facing instruction. Deposits at least 10 cUSDC and returns L and S at NAV, half the net value each. → [Mint flow](/flows/mint).
 
@@ -133,7 +133,7 @@ description: Continuum-specific terms in one place.
 
 **Swap guards** - `Clp.swap_guards`, set with `configure_swap`: whether a market takes committed orders (`enabled`, `frozen`), plus the price checks and the collateral floor that `settle_swap` applies. On for every live market since 11 Oct 2026. → [Trade flow](/flows/trade#committed-orders).
 
-**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held about 40.0M cUSDC late on 12 Oct 2026, after the keeper's liquidity reallocator returned idle CLP cash on 11 Oct and the CLP's own holdings were cut to working size on 12 Oct. `backstop_market` moves it into a market's collateral with no limit. The keeper does that when a market falls below 100% or stays short of its posted target, filling to that target, at most 130%. `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
+**Treasury** - The CLP's global vault, the cUSDC ATA of the `GlobalClp` PDA (`5GSTKN4u5LfropcnQQoqFht48JMaF1SzZzBcgDNL5VKy`). It held about 40.0M cUSDC late on 12 Oct 2026, after the keeper's liquidity reallocator returned idle CLP cash on 11 Oct and the CLP's own holdings were cut to working size on 12 Oct. The devnet keeper is now burning it down, and it held 36.1M on 13 Oct 2026. `backstop_market` moves it into a market's collateral with no limit. The keeper does that when a market falls below 100% or stays short of its posted target, filling to that target, at most 130%. `admin_withdraw` takes it out of the protocol at a capped rate, set in `TreasuryPolicy`, to one named account. The keeper's yield allocator counts it as first-loss capital. → [Treasury](/programs/clp#treasury).
 
 **TWAP** (Time-Weighted Average Price) - A price averaged over a window. The oracle program keeps TWAPs in `OracleConfig`, but nothing updates them on devnet. `Market.user_twap_price` is a spot price despite its name.
 

@@ -40,7 +40,9 @@ The keeper loads `.env` from its working directory, or the file named by `KEEPER
 | Variable | Default | Meaning |
 |---|---|---|
 | `UPDATE_INTERVAL_MS` | `15000` (`5000` in the image) | Price-push interval. |
-| `PYTH_API_KEY` | unset | Pyth Pro key. Without it Pyth requests fail, and the keeper can price markets only from its fallback public quote source, which has its own enable flag (off by default). With neither source answering, it withholds every push. |
+| `PYTH_API_KEY` | unset | Pyth Pro key. Without it Pyth requests fail, and the keeper can price markets only from its fallback public quote source, which is switched on by `CNBC_FALLBACK_ENABLED` (off by default). With neither source answering, it withholds every push. |
+| `CNBC_FALLBACK_ENABLED` | `false` | Allows the fallback public quote source. Without it, the keeper uses Pyth only. |
+| `HERMES_URL` | `https://hermes.pyth.network` | Hermes base URL, for addressing a different host directly. |
 | `HERMES_STALE_SECS` | `120` | Withhold a market's push when the source's own publish time is older than this, whichever source it came from. |
 | `HL_CROSS_CHECK_ENABLED` | `true` | Compare each fresh print with Hyperliquid and withhold the push when they disagree. An unreachable Hyperliquid lets the print through; Hyperliquid never sets a price. |
 | `CROSS_CHECK_BAND_BPS` | 30 FX, 60 metals, 100 stocks | Largest allowed disagreement. One value overrides all three. |
@@ -59,11 +61,13 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `CLMM_INVENTORY_SKEW_ENABLED` | `true` | Inventory centre-shift, tuned by `CLMM_INVENTORY_GAIN` (`1.0`) and `CLMM_INVENTORY_CAP_FRAC` (`0.5`). |
 | `CLMM_SHAPE_KEEP_BPS` | `7000` | Per-bin decay of the live shape (0.7 per bin). |
 | `CLMM_REFILL_ENABLED` | `true` | Ask refill, bid refill, trim and bid cap. |
+| `CLMM_SKEW_GAIN` | `1.0` | Gain on the protective drift skew: the side a continuing trend would pick is widened by this multiple of the trend's z-score, and the other side is never tightened. |
+| `CLMM_REFILL_DUST_USD` | `500` | Smallest bid refill, in dollars, worth a transaction. |
 | `CLMM_BID_TARGET_USD` | unset | Overrides the bid cUSDC each side stages while the market is open. Unset, each side stages the depth its next free-float book will post (r55's rule, \$500 a side until the keeper has measured flow). The pool vault's cUSDC above the target is swept to the CLP vault, and a vault below it is refilled from there. |
 | `CLMM_TRIM_RATIO` | `1.5` | Largest ask value as a multiple of the bid target. |
 | `CLMM_FEE_SCALE_ENABLED` | `true` | Posts `clamp(fee_mult × half-spread, 10, 100)` bps as the mint and redeem fee when it moves by 5 bps or more. `fee_mult` is 1.0. |
 | `CLMM_COMMIT_SPREAD_ENABLED` | `true` | Posts `clamp(half-spread, 10, 500)` bps as the committed-order spread when it moves by 2 bps or more. |
-| `CLMM_BUFFER_POST_ENABLED` | `true` | Posts each market's fixed overcollateralization target (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)) when it differs from the value on chain. |
+| `CLMM_BUFFER_POST_ENABLED` | `true` | Posts each market's overcollateralization target (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)) when it differs from the value on chain. |
 | `CLMM_BUFFER_TARGETS_BPS` | unset | Overrides the posted buffer for listed markets, as `SYM:bps` pairs (`NVDA:1000,TSLA:1200`), clamped to 100 to 5,000 bps. It wins over the daily target the keeper reads from R2 (`cr-targets/latest.json`, written by the daily Monte Carlo job), which wins over the fixed fallback table; a market missing from that table posts 100 bps. |
 | `CLMM_REBALANCE_ENABLED` | `true` | Cross-market collateral rebalance. |
 | `GAMMA_DECAY_COEF` | `1.0` | γ calibration. Must be in (0, 1]; any other value aborts boot. |
@@ -73,8 +77,8 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CLMM_FREEFLOAT_CAP_USD` | `10000` | Dollar cap per side of a free-float book. |
-| `CLMM_FREEFLOAT_CAP_USD_JUMP` | `1250` | The same cap for AAPL, AMZN, GOOGL, MSFT, MSTR, NVDA and TSLA. |
+| `CLMM_FREEFLOAT_DMIN_USD` | `500` | Smallest depth, in dollars, a free-float book posts per side. The depth is `max(this, min(demand quantile, risk cap))`, with no static ceiling. The old `CLMM_FREEFLOAT_CAP_USD` and `CLMM_FREEFLOAT_CAP_USD_JUMP` caps are ignored. |
+| `CLMM_FREEFLOAT_FLOW_USD_<SYM>` | `0` | Uninformed flow per closed period across all four sides of market `<SYM>`, in dollars. At 0 every side posts the minimum. |
 | `FF_GUARD_ENABLED` | `true` | Free-float guard, which pulls stale-side bins when other venues show a move. |
 | `FF_GUARD_MIN_MOVE_BPS` | `10` | Venue moves smaller than this count as noise. |
 | `FF_GUARD_RESTORE_SECS` | `600` | How long venues must allow it before pulled bins return. |
@@ -115,6 +119,22 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `IMBALANCE_KEEP_BPS` | unset | Overrides the CLP's stock share per leg (bps of the market's claims, at most 500). Unset, it follows the daily job's value, or 50 if the file is missing or over 48 hours old. |
 | `IMBALANCE_MIN_USD` | `100` | Smallest redemption or trim it sends. |
 
+### Redemption settler
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `REDEMPTION_SETTLE_ENABLED` | `false` | Pays queued `request_redemption` requests, oldest first: `settle_redemption` from the vault's cash, then with a recall from the lending venues in the same transaction, then with a treasury advance (`advance_to_market`), and it repays an advance from the market's next recall. See [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet). |
+| `REDEMPTION_SETTLE_INTERVAL_SECS` | `60` | Idle cadence, minimum 10. It drops to 10 s while work is pending. |
+| `REDEMPTION_ADVANCE_ENABLED` | `true` | Allows treasury advances. The market's on-chain `max_advance_bps` still decides how much. |
+| `REDEMPTION_SPLIT_RECALL` | `false` | Sends the recall and the settle as separate transactions. An escape hatch; off, they are one atomic transaction. |
+| `REDEMPTION_ESTIMATE_PAD_BPS` | `100` | Margin added to the settler's estimate of what a part will pay. |
+
+### Devnet treasury trim
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DEVNET_TREASURY_TARGET_USD` | unset | Devnet only. When set, the keeper withdraws what the treasury policy's allowance allows every 5 minutes, never past this balance, and burns it in the same transaction. Unset or 0 is off. It never runs on mainnet. |
+
 ### Health and alerts
 
 | Variable | Default | Meaning |
@@ -124,6 +144,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `SOL_HEALTH_CLP_AUTHORITY_LOW_LAMPORTS`, `SOL_HEALTH_CLP_AUTHORITY_CRITICAL_LAMPORTS` | 1 SOL, 0.2 SOL | The same lines for the CLP authority. |
 | `SOL_REFILL_BUFFER_LAMPORTS` | 1 SOL | Top-ups aim this far above the low line. |
 | `SOL_AUTO_AIRDROP_ENABLED` | `true` | Devnet top-up by airdrop. |
+| `SOL_REFILL_SLIPPAGE_BPS` | `100` | Slippage tolerance for the USDC-to-SOL swap. |
 | `SOL_REFILL_SWAP_ENABLED` | `true` | Mainnet top-up: swaps the keeper wallet's own USDC to SOL through Jupiter, at most \$250 per swap (`SOL_REFILL_MAX_USDC`). |
 | `DISCORD_BOT_TOKEN` and `DISCORD_NOTIF_CHANNEL_ID`, or `DISCORD_SOL_HEALTH_WEBHOOK_URL` | unset | Alert by bot (tried first) or by webhook. With neither set, alerting is off and the keeper logs that at startup. |
 | `SOL_HEALTH_ALERT_COOLDOWN_SECS` | `3600` | At most one alert per wallet in this window. |
@@ -148,12 +169,13 @@ The allocator's limits come from the stress assumptions below and the treasury b
 | `YIELD_ALLOCATOR_ENABLED` | `true` | Yield planning, on every cluster. The devnet emulator uses its mainnet snapshots, so turning it off also stops emulated yield. |
 | `YIELD_ALLOCATOR_INTERVAL_SECS` | `300` | Planning cadence, at least 60 s. |
 | `YIELD_STRESS_REDEEM_FRAC_PER_DAY` | `0.5` | Share of a market's collateral a stressed run can redeem in a day. |
-| `YIELD_RECALL_HORIZON_HOURS` | `12` | Time to get lent collateral back. With the line above it sets the liquid share, 29.3% by default. |
-| `YIELD_MIN_LIQUID_USD` | `10000` | Liquid floor per market, in dollars. |
+| `YIELD_LIQUID_SHARE` | `0.03` | Measured liquid share. It is the fallback: while the nightly cr-targets file is under 48 h old, the allocator uses that job's liquid share instead (1% to 10%; a rise applies at once, a fall is limited). |
+| `YIELD_RECALL_HORIZON_HOURS` | `0.1` | Time to get lent collateral back (6 minutes). Together with the stress rate above it gives only a small share, so the liquid share binds. |
+| `YIELD_MIN_LIQUID_USD` | `0` | Liquid floor per market, in dollars. There is no fixed floor. |
 | `YIELD_VENUE_LOSS_BUDGET` | `0.5` | Share of all markets' collateral above 100% that counts as first-loss capital, on top of the treasury. |
 | `YIELD_VENUE_FAILURES_COVERED` | `1` | Venue failures to cover, 1 to 4. Each venue's total position across all markets is capped at first-loss capital divided by this number, on top of its share below. |
 | `YIELD_VENUE_LOSS_SHARE_TIER1` | `0.5` | Largest share of first-loss capital one venue may hold if it has no lender losses on record: Kamino and Jupiter Lend. |
-| `YIELD_VENUE_LOSS_SHARE_TIER2` | `0.25` | The same for every other venue: Save and MarginFi. |
+| `YIELD_VENUE_LOSS_SHARE_TIER2` | `0.25` | The same for every other venue: Save. MarginFi is disabled in the plan. |
 | `YIELD_EXIT_LIQUIDITY_SHARE` | `0.5` | Largest share of a venue's withdrawable liquidity the protocol may hold. |
 | `YIELD_SPOT_WEIGHT` | `0.25` | Weight of today's rate against the 30-day mean. |
 | `YIELD_MIN_MARGINAL_APR` | `0.01` | Hurdle: no more is lent once the marginal rate falls below it. |
