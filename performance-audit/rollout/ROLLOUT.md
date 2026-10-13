@@ -101,3 +101,4 @@ The earlier local audit's broad coverage remains documented in [REPORT.md](../RE
 - Optional paid Pyth reference history is intentionally unconfigured on devnet. The interface states this and uses posted on-chain prices for trading. It is not counted as a fast successful history response. Mint's chain-backed content still takes about 2.2–2.5 seconds in this lab run.
 - The required oracle-print wait remains in committed trades. Keeper notification latency is supported by one successful live order, not a before/after percentile distribution. Populated arb-scan/pool-state HTTP workloads and large live R2 tails remain unmeasured.
 - The broader concurrent SDK, privacy and corporate-action work was excluded from this rollout. Mainnet performance, sustained load and real-user p95 latency are not established by this devnet audit.
+

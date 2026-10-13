@@ -34,3 +34,4 @@ The final 375 px sweep completed three additional build-checked route samples an
 This is a shared 24 GB Mac with roughly 14 GB of 15 GB swap in use. Use one compiler or one isolated diagnostic browser at a time. Do not kill the user's Chrome, T3 or shared MCP processes. Private disposable-wallet fixtures stay under `/tmp` with mode 0600 and must never be logged or copied into evidence.
 
 The workspace root is not a Git repository; frontend, Keeper, programs and faucet service are separate repositories with substantial pre-existing and concurrent changes. Preserve them. The audit does not establish production post-deployment timing, every business branch, successful private spending, configured chart history, populated Keeper HTTP performance, CAPTCHA workflows or third-party message delivery. The coverage ledgers distinguish those gaps from executed measurements.
+

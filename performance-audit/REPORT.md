@@ -108,3 +108,4 @@ Browser scripts in `frontend/scripts/performance-*.py` require the installed Chr
 ## UX decisions
 
 **Doherty:** measure immediate feedback separately from chain completion, remove main-thread work, and show transaction progress promptly. **Jakob:** retain native disclosures/selects and familiar wallet behavior. **Tesler:** centralize expensive selection and shared reads while keeping required data ready for the user. **Aesthetic–Usability:** preserve the reviewed visual design and motion quality rather than exchanging them for a smaller performance number.
+

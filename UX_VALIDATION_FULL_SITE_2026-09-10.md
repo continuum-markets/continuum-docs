@@ -189,3 +189,4 @@ No wallet was connected and no transaction was submitted. Swap signing/settlemen
 The simulated 503 test was limited to a fresh isolated browser context and read APIs; it did not change a backend or deployed configuration. The actual AAPL history 502/upstream 404 and Hermes CORS failures were observed locally and should be diagnosed separately from UI defects.
 
 Native Safari/iOS, physical touch/trackpad momentum, native OS reduced-motion toggling, exhaustive zoom/text enlargement, every route × every viewport, all external forms/Docs workflows, semantic rich-result eligibility, indexing and search performance were not certified. The report deliberately distinguishes rendered observations, HTTP checks, source-only findings and recommendations.
+
