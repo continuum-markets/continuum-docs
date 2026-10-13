@@ -7,8 +7,8 @@ Continuum trades L and S tokens on its own venues in the CLP program. Which one 
 
 | Venue | Instruction | When it fills | Price | Size |
 |---|---|---|---|---|
-| Committed order | `commit_swap`, then `settle_swap` | While the keeper pushes prices, at the first push after the commit | NAV ± `max(commit_spread_bps, 10)` bps | No cap; bounded by CLP inventory and the collateral floor |
-| Bin book | `pool_swap` | Only while the price is stale: the risk state isn't `Normal` and the last push is more than 300 s old | Walks the book's bins, with real slippage | The standing depth, small by design |
+| Committed order | `commit_swap`, then `settle_swap` | While the keeper pushes prices, at the first push after the commit | NAV ± `max(commit_spread_bps, 10)` bps | No size cap of its own; bounded by CLP inventory, the collateral floor and the market's [exposure cap](#exposure-cap) |
+| Bin book | `pool_swap` | Only while the price is stale: the risk state isn't `Normal` and the last push is more than 300 s old | Walks the book's bins, with real slippage | The standing depth, small by design, and the market's [exposure cap](#exposure-cap) |
 
 Since 11 Oct 2026, open-hours trading is committed orders only. `pool_swap` fails with `PoolClosedWhileLive` whenever the market's price is live. The CLP's instant oracle swap, `clp_swap`, is [retired](#retired-instant-oracle-swap): the instruction keeps its accounts and arguments, but every call fails with `SwapDisabled`. Committed orders work on every live market.
 
@@ -45,7 +45,9 @@ There is no pool-level kill switch. A new pool stays disabled until the keeper p
 | `usdcVault` (mut) | The pool's cUSDC account (its ATA) |
 | `tokenProgram` | SPL Token |
 | `revenueAttribution` (mut) | PDA `[b"revenue_attribution"]` under clp (`A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4`) |
-| `market` | The book's Market PDA under mint_redeem, read for its risk state and price age. Must come last |
+| `market` | The book's Market PDA under mint_redeem, read for its risk state and price age. Must come last among the named accounts |
+
+When the market is capped (`Clp.oi_cap` above 0), add four read-only remaining accounts after `market`: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. Without them `pool_swap` fails with `ExposureAccountsMissing`. An uncapped market ignores them. See [Exposure cap](#exposure-cap). A trade through `swap_pool` on your [trading account](/flows/trading-account) passes its remaining accounts on to `pool_swap`.
 
 ### Setup
 
@@ -166,7 +168,7 @@ sell:  out = amount_in * NAV * (1 - spread / 10_000)
 
 NAV is the leg's NAV at the settling push: `P` for the long leg and `K / P * γ` for the short leg (see [Mint](/flows/mint#math)). The keeper posts `commit_spread_bps` as `clamp(half-spread, 10, 500)` from its volatility model. As of 10 Oct 2026 it was 18 bps on QQQ, 15 on SPY and 18 on XAU.
 
-The price is set after you commit, so nobody can trade against a stale quote. That is why committed orders have no size cap and skip the rolling window. They are bounded by the price checks at settle, the collateral floor and the CLP's inventory.
+The price is set after you commit, so nobody can trade against a stale quote. That is why committed orders have no size cap of their own and skip the rolling window. They are bounded by the price checks at settle, the collateral floor, the CLP's inventory and the market's [exposure cap](#exposure-cap).
 
 Committed orders need the market's swap guards (`Clp.swap_guards`, set with `configure_swap`) to be enabled and not frozen. Since 11 Oct 2026 they are on for all 13 live markets, with the same settings:
 
@@ -187,6 +189,7 @@ Their spread (`spread_bps`) and window cap were left unchanged. `spread_bps` pri
     `settle_swap` becomes valid once `market.twap_updated_at` is later than the commit, in a later second. It stays valid until `expires_at`. Anyone can call it, and the keeper sends it after the first push that qualifies. It fills at the market's current price, which may come from a later push than the first one after your commit.
 
     - If the output misses `min_out`, the order is refunded in full and closed.
+    - If the market's exposure cap has room for only part of the order, the part that fits fills and the rest is refunded with the escrow (see [Exposure cap](#exposure-cap)).
     - If the market is below its collateral floor (a 100% collateral ratio at the settle price), or the price fails the checks above, settle reverts. The order stays pending and fills at a later push, if one passes before it expires.
     - If the CLP lacks inventory, settle reverts and the order stays pending while the keeper provisions it.
 
@@ -243,6 +246,8 @@ pub struct Order {
 
 `settle_swap` takes `cranker` (signer: anyone, who pays the transaction fee and gets nothing), `user` (`order.user`, who receives the rent), `order`, `escrow`, `clp`, `clpVault` and `clpSynth` (the CLP's cUSDC and leg inventory), `market`, `userOut`, `userIn` and `tokenProgram`. All but `cranker`, `market` and `tokenProgram` are mutable.
 
+When the market is capped it also needs four read-only remaining accounts after those: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. The keeper passes them on every settle. Without them a capped market's settle fails with `ExposureAccountsMissing` and the order stays pending. An uncapped market ignores them.
+
 `cancel_swap` takes `user` (the order's owner, who receives the rent; not a signer), `order`, `escrow`, `userIn` (the owner's token account for the escrowed mint, which receives the refund) and `tokenProgram`. All but `tokenProgram` are mutable. Whoever sends the transaction pays its fee.
 
 ### Commit and cancel
@@ -298,7 +303,22 @@ await clp.methods
   .rpc();
 ```
 
-The order emits `OrderCommitted`, then one of `OrderSettled` (with `out`, `nav` and `base_price`), `OrderRefunded` (a `min_out` miss) or `OrderCancelled`. Fills also emit `SwapExecuted`, whose `route` is 1 for `pool_swap` and 2 for a committed settlement. Route 0 belonged to the retired `clp_swap`.
+The order emits `OrderCommitted`, then one of `OrderSettled` (with `out`, `nav` and `base_price`), `OrderRefunded` (a `min_out` miss, or a market with no room under its exposure cap) or `OrderCancelled`. A partial fill emits `OrderSettled` for the part that filled, whose `amount_in` is only that part, together with `OrderCapped`. Fills also emit `SwapExecuted`, whose `route` is 1 for `pool_swap` and 2 for a committed settlement. Route 0 belonged to the retired `clp_swap`.
+
+## Exposure cap
+
+Each market limits how far traders can go net long or net short. The cap is `Clp.oi_cap`, in cUSDC atoms, where 0 means uncapped. It binds traders' net position E, which is what traders hold long minus what they hold short, at NAV, not counting the CLP's own inventory. The protocol's treasury is the other side of that net position. The nightly sizing and the exact rule are in [Solvency](/concepts/solvency#6-exposure-cap), and the instruction-level detail is in the [CLP reference](/programs/clp#exposure-cap).
+
+The rule in short: a trade is allowed if it leaves E inside the cap, or if it moves E toward zero. A trade never pushes E further past the cap than it already is, and a trade that shrinks E always passes. Buying a long raises E and buying a short lowers it, so each short opens room for one more long, and the reverse. A paired mint never changes E.
+
+- **Committed orders** fill up to the room left, measured at the settle price. If the order is bigger, the part that fits fills and the rest returns to you with the escrow. Your `min_out` scales down to the filled share, so a partial fill is held to the same price as a full one. The settle logs `settle_swap PARTIAL filled=X of Y` and emits `OrderCapped` with `filled_in`, `refunded_in`, E before the fill and the cap. If less than \$1 of room is left the whole order is refunded, and the log reads `settle_swap REFUND exposure cap`. A market that is full on one side accepts orders on the other.
+- **The bin book** fills whole or not at all. A `pool_swap` that would push E past the cap reverts with `ExposureCapExceeded` (6045).
+- **The order book** is not affected. Trades between traders on the [order book](/flows/order-book) don't change what traders hold net against the CLP.
+- **Redemptions** are checked too when they are lopsided. See [Redeem](/flows/redeem#exposure-cap).
+
+The app shows how much of a capped market can still be bought (**Longs available**, or **Shorts available**), and says "This market is full for new longs. Every short opens room for one." when under \$1 is left. It warns when your order is larger than the room, and it never changes the amount you typed. After a partial fill it shows what filled and what came back because the market reached its limit. An uncapped market shows none of this.
+
+The cap is a number the keeper re-posts each night, so read the live `Clp.oi_cap` from the chain, not a figure copied from a document.
 
 ## Retired: instant oracle swap
 
@@ -322,6 +342,8 @@ The order emits `OrderCommitted`, then one of `OrderSettled` (with `out`, `nav` 
 | `CollateralFloorBreach` | 6016 | `settle_swap` | The market is below its collateral floor; the order waits for a later push |
 | `InsufficientFunds` | 6018 | `pool_swap`, `settle_swap` | The book has nothing on that side, or the CLP lacks the inventory |
 | `PoolClosedWhileLive` | 6044 | `pool_swap` | The market's price is live; use a committed order |
+| `ExposureCapExceeded` | 6045 | `pool_swap` | The fill would push the market's net exposure past its cap. Committed orders fill in part instead |
+| `ExposureAccountsMissing` | 6046 | `pool_swap`, `settle_swap` | The market is capped and the four inventory accounts weren't passed |
 
 See the [full error catalog](/reference/errors).
 

@@ -59,7 +59,6 @@ Going from devnet to mainnet is gated on:
 | Devnet stability under load | Open. About 4 weeks of devnet stress testing. |
 | Bug bounty program | Open. Live before mainnet. |
 | Multisig migration of upgrade authorities | Open. Squads (at least 3-of-5) for upgrade authority, plus a separate multisig for the CLP authority. |
-| Enforced OI caps | Open. Each market's `Clp` stores an `oi_cap` (250,000 cUSDC on devnet), but nothing enforces it yet. Enforcement is planned. |
 | Pyth (Pyth Pro) feed for every listed asset | Open. Checked per market before listing. |
 | Gradual rollout | Plan agreed: one invite-only market first. |
 
@@ -78,7 +77,6 @@ Keeper features that compile but are off by default:
 ## Features under design
 
 - Governance activation, covering CNTM staking, listing votes and parameter votes. A program scaffold is deployed on devnet; the on-chain wiring is the remaining work.
-- OI cap enforcement. Today `oi_cap` is checked only in an authority-only instruction that nothing calls.
 - User-supplied LP shares. For now the protocol is the only LP.
 - Multi-keeper coordination beyond the current primary and standby pair, for higher availability.
 - Cross-market keeper coordination, with edge-weighted dispatching across operators.

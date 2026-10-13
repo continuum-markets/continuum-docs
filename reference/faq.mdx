@@ -106,9 +106,11 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × s_gamma_index / 1e9
 
 10% of each mint and redeem fee is a dev tax. A mint and redeem round trip at an unchanged price costs about twice the charged fee: 54 bps on QQQ.
 
-## What's the OI cap?
+## What's the exposure cap?
 
-Each market's `Clp` account stores an `oi_cap` of 250,000 cUSDC (as of 10 Oct 2026), but nothing enforces it. Only the authority-only `update_oi` instruction checks the cap, nothing calls it, and `current_oi` is 0 on every market. Mints are not limited by it.
+Each market's `Clp` account stores an `oi_cap` in cUSDC atoms (0 means uncapped). It limits traders' net position in the market: what traders hold long minus what they hold short, at NAV, not counting the CLP's own inventory. The treasury is the other side of that net position, so the cap bounds what a one-sided move can cost it. A trade that pushes the net further past the cap is refused or cut down; a trade that shrinks it always goes through. Because the cap is on the net, every short opens room for one more long.
+
+A committed order that doesn't fit fills in part and the rest comes back to you. A bin-book fill or a lopsided redemption that doesn't fit reverts. Paired mints are never limited by it. The keeper re-sizes each cap every night from a one-year simulation and the treasury's balance, so read the live `Clp.oi_cap` from the chain. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap) and [Trade](/flows/trade#exposure-cap). The older `current_oi` field and the `update_oi` instruction are unused.
 
 ## Why is the protocol the sole LP?
 

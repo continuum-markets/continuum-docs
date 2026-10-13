@@ -94,6 +94,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 
 | Variable | Default | Meaning |
 |---|---|---|
+| `EXPOSURE_CAPS_MODE` | `dryrun` | `off`, `dryrun` (logs the caps it would post) or `live`. Every 30 minutes the primary keeper writes the nightly cr-targets job's `exposure_caps_atoms` to each market's `Clp.oi_cap` with `update_oi_cap`: any decrease at once, an increase only above 1%. It holds the on-chain cap when the file is missing or over 48 h old, when a market has no entry, or when a target is under \$1, and it never posts 0. Any other value means `dryrun`. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap). |
 | `LIQUIDITY_REALLOCATOR_MODE` | `live` | `off`, `dryrun` (logs the moves) or `live`. Keeps each market's CLP vault between its working need and twice that need, topping up from the treasury and returning the rest, and runs the treasury backstop (`backstop_market`). |
 | `LIQUIDITY_REALLOCATOR_INTERVAL_SECS` | `30` | Cadence, minimum 30. The working need counts every consumer run that fits in one tick, so a longer tick widens the band. |
 | `TREASURY_BACKSTOP_MAX_TARGET_BPS` | `13000` | Highest collateral ratio the treasury backstop fills a market to, in bps of claims, clamped to 10,000 to 15,000. Below it, a market is filled to its posted target. |

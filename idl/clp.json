@@ -5067,6 +5067,19 @@
       ]
     },
     {
+      "name": "OrderCapped",
+      "discriminator": [
+        143,
+        96,
+        148,
+        39,
+        92,
+        127,
+        128,
+        219
+      ]
+    },
+    {
       "name": "OrderCommitted",
       "discriminator": [
         120,
@@ -5435,6 +5448,16 @@
       "code": 6044,
       "name": "PoolClosedWhileLive",
       "msg": "The book trades only while the market is closed; use a committed order"
+    },
+    {
+      "code": 6045,
+      "name": "ExposureCapExceeded",
+      "msg": "This trade would push the market's net exposure past its cap"
+    },
+    {
+      "code": 6046,
+      "name": "ExposureAccountsMissing",
+      "msg": "The market is capped: pass the pool synth vaults and the CLP's token accounts"
     }
   ],
   "types": [
@@ -6335,6 +6358,47 @@
           },
           {
             "name": "amount_in",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderCapped",
+      "docs": [
+        "A committed order the exposure cap filled only in part; `refunded_in` went",
+        "back to the owner with the escrow. `exposure` is traders' net position (E,",
+        "cUSDC atoms) before the fill."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "filled_in",
+            "type": "u64"
+          },
+          {
+            "name": "refunded_in",
+            "type": "u64"
+          },
+          {
+            "name": "exposure",
+            "type": "i64"
+          },
+          {
+            "name": "cap",
             "type": "u64"
           }
         ]

@@ -20,6 +20,30 @@ Anyone can call `pool_swap`, `commit_swap` and `settle_swap`, and anyone can sen
 
 A committed order fills at a price pushed after the commit, so the trader never trades against a quote seen before committing. Since 11 Oct 2026 committed orders are on for every live market and are the protocol's only venue while its price is live. `pool_swap` fills only while the market floats (its risk state isn't `Normal` and its last push is more than 300 s old) and fails with `PoolClosedWhileLive` otherwise. The keeper sizes the bin books to expected demand. The instant oracle swap, `clp_swap`, was retired the same day. See `SwapGuardsState` below.
 
+## Exposure cap
+
+`Clp.oi_cap` bounds traders' net position in the market, in cUSDC atoms. 0 means uncapped. The protocol is the counterparty to whatever traders hold net, so the cap bounds what a one-sided move can cost the treasury. [Exposure cap](/concepts/solvency#6-exposure-cap) explains the reasoning and the nightly sizing.
+
+Traders' net position E is measured at NAV from on-chain balances:
+
+```
+E = (L supply − CLP-held L) · l_nav − (S supply − CLP-held S) · s_nav
+```
+
+CLP-held for a leg is the balance of the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. A paired mint splits the deposit by value between the two legs, so it never moves E. A committed buy of L, a book buy of L, a committed sell of S back to the CLP and a lopsided redemption that burns more S than L all raise E. The reverse trades lower it.
+
+A change ΔE is allowed when the cap is 0 or when E + ΔE stays inside [min(−cap, E), max(cap, E)]. Nobody can push E further past the cap than it already is, and a trade that shrinks it always passes, even when a price move has carried E past the cap with no trade at all.
+
+The program reads the inventory from four accounts pinned by address, so a caller cannot understate the CLP's holdings with a look-alike account. In order, they are the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. An account that was never created counts as empty. A wrong address, owner or mint fails with `ExposureAccountMismatch` (6061) in mint-redeem. The measurement lives in mint-redeem's `exposure` module, which the CLP calls.
+
+| Path | Accounts to pass | Over the cap |
+|---|---|---|
+| `settle_swap` | The four inventory accounts, when `oi_cap > 0` | Fills up to the room left and refunds the rest. Under \$1 of room refunds the whole order |
+| `pool_swap` (also through the trading program's `swap_pool`) | The four inventory accounts, when `oi_cap > 0` | Reverts with `ExposureCapExceeded` (6045) |
+| `redeem_paired`, `redeem_paired_with_waiver`, `request_redemption` | The `Clp` account, then the four inventory accounts, when the redemption's L and S values differ by more than \$1 | Reverts with `ExposureCapExceeded` (mint-redeem 6060) |
+
+`commit_swap` is not checked, because nothing has moved yet: the cap applies when the order settles. A redemption signed by the market's own CLP (`vault_redeem_pairs`) isn't checked either, because burning CLP-held tokens lowers a supply and the CLP's holding of it together, so E doesn't move. Trades on the [P2P order book](/flows/order-book) are unaffected by the cap.
+
 ## Accounts
 
 ### `GlobalClp` PDA
@@ -56,7 +80,7 @@ One per market. Its operating vault (`clp_vault`) is this PDA's cUSDC associated
 |---|---|---|
 | `market_id` | Pubkey | Bound Market PDA |
 | `total_fees_collected` | u64 | Fees moved in by `collect_fees` |
-| `oi_cap` / `current_oi` | u64 | Stored OI cap (250,000 cUSDC on every devnet market) and its mirror. Not enforced: only `update_oi` checks the cap, nothing calls it, and `current_oi` is 0 |
+| `oi_cap` / `current_oi` | u64 | `oi_cap` is the exposure cap in cUSDC atoms, 0 meaning uncapped. It bounds traders' net position on committed fills, `pool_swap` fills and lopsided redemptions (see [Exposure cap](#exposure-cap)). The keeper posts it from the nightly job. `current_oi` is a legacy mirror that nothing maintains and reads 0 |
 | `bump` | u8 | PDA bump |
 | `inventory_budget` | `InventoryBudget` | Soft and hard bounds on the volatile share q, plus drawdown limits |
 | `inventory_state` | `InventoryState` | Current q, drawdown, breach flags and peak value |
@@ -242,6 +266,8 @@ Accounts, in order:
 
 The pool PDA signs the outbound transfer. Each fill updates `RevenueAttribution` and emits `SwapExecuted` with route 1.
 
+Remaining accounts, needed only when the market is capped (`clp.oi_cap > 0`): the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account, in that order. They are the [inventory accounts](#exposure-cap) the cap measures. A fill that would push traders' net position past the cap reverts with `ExposureCapExceeded` (6045), and a capped market called without them fails with `ExposureAccountsMissing` (6046). An uncapped market ignores them. Unlike a committed order, a book fill is never cut to the room left: it fills whole or reverts.
+
 #### `clp_swap(side: u8, direction: u8, amount_in: u64, min_out: u64)` (retired)
 
 Retired on 11 Oct 2026. It was the instant swap against CLP inventory at NAV ± `swap_guards.spread_bps`, with NAV from `Market.user_twap_price`. The instruction keeps its accounts (`user`, `user_usdc`, `user_synth`, `clp`, `clp_vault`, `clp_synth`, `market`, `token_program`) and arguments, so existing clients still decode it, but every call fails with `SwapDisabled`. Use a committed order instead. Its fills emitted `SwapExecuted` with route 0.
@@ -264,12 +290,18 @@ It doesn't recheck `swap_guards.enabled`. Since 13 Oct 2026 a paused market (`ma
 |---|---|
 | Market paused (`market.is_active` false) | Full refund. The accounts close and `OrderRefunded` is emitted |
 | An oracle guard fails | Revert (`SwapFrozen`, `OracleStale`, `OracleConfidenceTooWide` or `OracleDeviationTooLarge`). The order stays pending and can fill at a later push |
-| Quote at or above `min_out` | Fill: `amount_in` to the CLP, payout to the user, anything else in the escrow back to the user, accounts close. Emits `OrderSettled` and `SwapExecuted` (route 2) |
+| Quote at or above `min_out`, and the exposure cap has room for all of it | Fill: `amount_in` to the CLP, payout to the user, anything else in the escrow back to the user, accounts close. Emits `OrderSettled` and `SwapExecuted` (route 2) |
+| The exposure cap has room for only part of it (at least \$1) | Partial fill: the part that fits is filled and `OrderSettled` reports that part as `amount_in`. The rest goes back to the user with the escrow, `min_out` is scaled to the filled share, and `OrderCapped` is emitted. The log line starts `settle_swap PARTIAL` |
+| The exposure cap has under \$1 of room | Full refund, logged as `settle_swap REFUND exposure cap`. The accounts close and `OrderRefunded` is emitted |
 | Quote below `min_out` | Full refund instead of a revert, so a runaway price can't leave the order retrying until expiry. The accounts close and `OrderRefunded` is emitted |
 | Market below `collateral_floor_bps` at the settle price | Revert (`CollateralFloorBreach`). The order stays pending and can fill at a later push once the market is topped up |
 | CLP inventory short | Revert. The order stays pending while the keeper adds inventory and retries |
 
 The collateral floor is checked only on the fill path. A fill updates `swap_prev_price` but doesn't count toward the window cap. Accounts: `cranker` (signer), `user` (receives the rent), `order`, `escrow`, `clp`, `clp_vault`, `clp_synth`, `market`, `user_out`, `user_in`, `token_program`.
+
+Remaining accounts, needed only when the market is capped: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. The keeper passes them on every settle. A capped market settled without them fails with `ExposureAccountsMissing` (6046), and the order stays pending until someone settles it with them. An uncapped market ignores them, as did the program before the upgrade, so passing them is always safe.
+
+A partial fill is the CLP's check against the room left, measured at the settle price: the largest input whose value fits the room, with the spread included on a buy. A `min_out` that the partial fill misses is an ordinary refund. A settle always empties the escrow, so nothing is stranded.
 
 The keeper posts `commit_spread_bps` with `set_commit_spread`, as `clamp(half-spread, 10, 500)` from its volatility model, and re-posts it whenever it moves by 2 bps or more. As of 10 Oct 2026 it is 18 bps on QQQ, 15 on SPY and 18 on XAU.
 
@@ -424,7 +456,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 - `initialize_clp(oi_cap: u64, oracle_config: Pubkey)` creates a market's `Clp` with the default inventory budget, yield off and zeroed swap guards. The signer must be the Market's `authority` and becomes `clp.authority`.
 - `configure_swap(params: ConfigureSwapParams)` (`clp.authority`) sets `SwapGuardsState`. `ConfigureSwapParams { enabled, frozen, spread_bps, max_staleness_secs, max_confidence_bps, max_deviation_bps, window_cap_usd, window_secs, collateral_floor_bps }` holds the separate arguments the instruction took until 11 Oct 2026, with the same fields in the same order, so the bytes on the wire are unchanged. Every field is optional, and `None` leaves it unchanged. `frozen = true` stops `commit_swap` and `settle_swap`, but not `pool_swap` or `cancel_swap`.
 - `set_commit_spread(commit_spread_bps: u16)` (`clp.authority`) sets the committed-order half-spread, at most 1,000 bps (else `InvalidAmount`). `settle_swap` floors it at 10 bps.
-- `update_oi_cap(new_cap: u64)` (`clp.authority`) sets the stored OI cap, which nothing enforces.
+- `update_oi_cap(new_cap: u64)` (`clp.authority`) sets `oi_cap`, the [exposure cap](#exposure-cap). 0 uncaps the market. The keeper posts it nightly from the cr-targets job, and the posted value takes effect on the next trade.
 - `configure_inventory_budget(params: ConfigureInventoryBudgetParams)` and `configure_yield_strategy(params: ConfigureYieldStrategyParams)` (`clp.authority`) set the inventory bounds and the yield shares. Each struct holds the instruction's former arguments as optional fields, in the same order, so the bytes on the wire are unchanged: `ConfigureInventoryBudgetParams { soft_lower_bps, soft_upper_bps, hard_lower_bps, hard_upper_bps, max_drawdown_bps, target_drawdown_bps, enforce_hard_bounds }` and `ConfigureYieldStrategyParams { normal_deployment_bps, proxy_deployment_bps, stress_deployment_bps, recovery_deployment_bps, min_liquid_reserve, min_liquid_reserve_bps, oi_liquidity_buffer_bps, enabled }`.
 - `configure_liquidity_seeder(threshold: Option<u64>)` and `realloc_clp()` (`global_clp.authority`) set the seed threshold and grow an older `Clp` to the current layout.
 - `init_revenue_attribution(params: RevenueAttributionParams)` and `configure_revenue_attribution(params: RevenueAttributionParams)` (`global_clp.authority`) create the `RevenueAttribution` singleton and replace its `keeper_authorities`. `RevenueAttributionParams` is `{ keeper_authorities: [Pubkey; 4] }`. Configuring leaves the counters and `started_at` alone.
@@ -432,7 +464,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 ### Inventory checks
 
 - `update_inventory(volatile_value: u64, stable_value: u64)` (`clp.authority`) recomputes q, drawdown and the breach flags.
-- `update_oi(new_oi: u64)` (`clp.authority`) sets `current_oi` and fails with `OICapExceeded` above `oi_cap`. Nothing calls it today.
+- `update_oi(new_oi: u64)` (`clp.authority`) sets `current_oi` and fails with `OICapExceeded` above `oi_cap`. Nothing calls it, and it has nothing to do with the exposure cap.
 - `check_inventory_restrictions()` returns `hard_breach && enforce_hard_bounds`, and `get_yield_status()` returns `(total_deployed, max_deployable, can_deploy_more)`. Both are read-only and CPI-callable. `max_deployable` is still the old limit sized by the CLP's own capital, which `record_deployment` stopped applying on 12 Oct 2026.
 
 ### Yield (off)
@@ -445,7 +477,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 
 ## Events
 
-`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded`, and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet`, `MarketBackstopped` and `MarketAdvanced`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
+`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded` (and `OrderCapped` as well when the exposure cap cut a fill short), and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet`, `MarketBackstopped` and `MarketAdvanced`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -460,6 +492,16 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | `collateral_amount` / `synth_amount` | u64 | The same two amounts, by token |
 | `reference_price` | u64 | NAV (1e6) on routes 0 and 2; the book centre on route 1 |
 | `spread_capture` | u64 | Execution spread against `reference_price`, in cUSDC base units. It isn't realized revenue |
+
+`OrderCapped` is emitted together with `OrderSettled` when the exposure cap filled an order only in part:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `order` / `user` / `market` | Pubkey | The order, its owner and the market |
+| `filled_in` | u64 | Input that filled, in base units. It equals the `amount_in` of the matching `OrderSettled` |
+| `refunded_in` | u64 | Input returned to the owner with the escrow |
+| `exposure` | i64 | Traders' net position E before the fill, in cUSDC atoms |
+| `cap` | u64 | `oi_cap` at the time |
 
 ## Errors
 
@@ -510,6 +552,8 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6042 | `TreasuryChangeNotReady` | `apply_treasury_limits` before `pending_at` |
 | 6043 | `MarketMismatch` | A vault instruction named a market other than the CLP's own |
 | 6044 | `PoolClosedWhileLive` | `pool_swap` while the market's price is live: its risk state is `Normal`, or its last push is at most 300 s old |
+| 6045 | `ExposureCapExceeded` | `pool_swap` that would push traders' net position past `oi_cap`: "This trade would push the market's net exposure past its cap" |
+| 6046 | `ExposureAccountsMissing` | `pool_swap` or `settle_swap` on a capped market without the four inventory accounts: "The market is capped: pass the pool synth vaults and the CLP's token accounts" |
 
 → [Full error catalog](/reference/errors)
 

@@ -125,7 +125,7 @@ Mint and redeem take a `devTokenAccount`, which must be a cUSDC account owned by
 
 `pool_swap` takes the `RevenueAttribution` PDA after `token_program`, followed by the market's mint-redeem `Market` account, which comes last.
 
-Every market has its own `Clp` PDA (seeds `[b"clp", market]`), including the four markets added in June 2026. Its vault is the cUSDC ATA of the `Clp` PDA. Each `Clp` stores an OI cap of 250,000 cUSDC, which nothing enforces yet.
+Every market has its own `Clp` PDA (seeds `[b"clp", market]`), including the four markets added in June 2026. Its vault is the cUSDC ATA of the `Clp` PDA. Each `Clp` stores `oi_cap`, the market's exposure cap in cUSDC atoms (0 means uncapped).
 
 | Market | `Clp` PDA | CLP vault |
 |---|---|---|

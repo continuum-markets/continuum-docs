@@ -43,7 +43,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
     On the oracle program, `initialize_oracle_config(max_confidence_interval, max_staleness, keeper_authority)` creates the `OracleConfig` PDA. `upsert_oracle_feed(priority, kind, is_active)` registers each Pyth price account as a feed. Mint and redeem check only the `OracleConfig` address. On devnet the keeper doesn't update it and writes prices to `Market.user_twap_price` instead.
   </Step>
   <Step title="Create and fund the CLP">
-    On the clp program, `initialize_clp(oi_cap, oracle_config)` creates the per-market `Clp` PDA (`[b"clp", market]`). Every live market stores an OI cap of 250,000 cUSDC (`oi_cap = 250_000_000_000`), but nothing enforces it yet. The CLP vault and the CLP's L and S token accounts are ATAs of the `Clp` PDA. `allocate_to_market(amount)` moves capital from the GlobalClp vault into the CLP vault.
+    On the clp program, `initialize_clp(oi_cap, oracle_config)` creates the per-market `Clp` PDA (`[b"clp", market]`). `oi_cap` is the market's exposure cap in cUSDC atoms, and 0 leaves the market uncapped. The keeper then posts a cap every night with `update_oi_cap`. The CLP vault and the CLP's L and S token accounts are ATAs of the `Clp` PDA. `allocate_to_market(amount)` moves capital from the GlobalClp vault into the CLP vault.
   </Step>
   <Step title="Open the two books">
     `init_pool(side, step_bps, num_bins)` creates each `Pool` PDA (`[b"pool", market, [side]]`, side 0 long, side 1 short), and only the GlobalClp authority can sign it. `configure_pool_geom(wing_step_bps, core_bins)` then sets the two-zone geometry. The pool's token vaults are its ATAs for the synth mint and for cUSDC.

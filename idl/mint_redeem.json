@@ -4215,6 +4215,21 @@
       "code": 6059,
       "name": "InvalidAdvanceLender",
       "msg": "The advance lender must be the CLP treasury vault (GlobalClp's cUSDC account)"
+    },
+    {
+      "code": 6060,
+      "name": "ExposureCapExceeded",
+      "msg": "This would push the market's net exposure past its cap"
+    },
+    {
+      "code": 6061,
+      "name": "ExposureAccountMismatch",
+      "msg": "An exposure account is not the market's CLP, pool synth vault or CLP token account"
+    },
+    {
+      "code": 6062,
+      "name": "ExposureAccountsMissing",
+      "msg": "A lopsided redemption must pass the exposure accounts: CLP, pool vaults, CLP token accounts"
     }
   ],
   "types": [

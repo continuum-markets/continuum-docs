@@ -18,7 +18,15 @@ Everything the app shows comes from on-chain accounts. This page covers the read
 
 The price is `Market.user_twap_price`. Despite the name, it holds the keeper's latest spot price, scaled to 1e6 and adjusted for corporate actions. The oracle program's `OracleConfig` accounts are not updated on devnet, so don't read prices from them.
 
-`Clp.oi_cap` is set (250,000 cUSDC on every market as of 10 Oct 2026), but nothing enforces it. `Clp.current_oi` is not maintained and reads 0 on every market.
+`Clp.oi_cap` is the market's [exposure cap](/concepts/solvency#6-exposure-cap) in cUSDC atoms, 0 meaning uncapped. It sits at byte offset 48 of the account (after the discriminator, `market_id` and `total_fees_collected`). `Clp.current_oi` is not maintained and reads 0 on every market.
+
+To see how much room a capped market has, compute traders' net position E from the `Market` account and four token balances:
+
+```
+E = (total_l_supply − (poolLongVault + clpLong)) · l_nav − (total_s_supply − (poolShortVault + clpShort)) · s_nav
+```
+
+`poolLongVault` and `poolShortVault` are the synth vaults of the two `Pool` accounts. `clpLong` and `clpShort` are the associated token accounts of the `Clp` PDA for the long and short mints. A token account that was never created counts as 0. `l_nav` and `s_nav` are the legs' NAVs (see [NAV](/concepts/nav)). E and the cap are both in cUSDC atoms. Traders can still go net long by `cap − E`, and net short by `cap + E`, where a negative result means 0 room.
 
 ## Fetch one market
 

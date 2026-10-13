@@ -25,13 +25,11 @@ The result splits by asset class. For a broad index trading near its anchor pric
 
 ## The defenses
 
-The CLP account also stores an `oi_cap` (250,000 cUSDC per market), but nothing enforces it, so it is not one of these defenses.
-
 ### 1. Depth-capped books
 
 No instant venue exposes unlimited size at NAV. The bin books trade only while a market's price is stale, and carry lean, demand-sized depth (about \$500 of bids and at most \$750 of asks per side while the market is open; off-hours, at least \$500 a side, limited by a risk cap on that market's share of the treasury) with real slippage across bins. Extraction per round trip is capped by what's deployed, and what's deployed is deliberately small. See [CLP: lean by design](/concepts/clp#lean-by-design).
 
-Committed orders have no size cap. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread. They refuse to fill while the market is below 100% collateralized at the settle price. The cash a large fill needs comes from the treasury when it settles. The instant oracle swap, which filled at the last pushed price, was retired on 11 Oct 2026.
+Committed orders have no size cap of their own, but the [exposure cap](#6-exposure-cap) limits how far the market can go net long or short. They fill at a price set *after* the commitment, so they offer no stale quote to extract against, and they pay the keeper's vol-scaled committed spread. They refuse to fill while the market is below 100% collateralized at the settle price. The cash a large fill needs comes from the treasury when it settles. The instant oracle swap, which filled at the last pushed price, was retired on 11 Oct 2026.
 
 ### 2. Vol-informed fees
 
@@ -91,6 +89,29 @@ It charges **realized variance** and ignores direction. A smooth directional run
 ### 5. `reanchor_gamma` is not a spot re-anchor
 
 `reanchor_gamma` renews γ's budget. Only the market authority can call it, at least 14 days after the previous one. It folds γ into `initial_s_price` and resets γ to 1.0, so every claim is unchanged at every price. It collects and returns nothing; it lets decay keep charging once γ nears its floor. It does not move the curve's minimum to the current price. A re-anchor to spot would revalue holders' positions, and the program has no instruction for it.
+
+### 6. Exposure cap
+
+Paired tokens are solvency-neutral, but a trader who holds only one leg is a directional position, and the protocol is the other side of it. Traders' **net exposure** E is what they hold long minus what they hold short, at NAV, excluding whatever the CLP itself holds:
+
+```
+E = (L supply − CLP-held L) · l_nav − (S supply − CLP-held S) · s_nav
+```
+
+CLP-held means the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. Paired mints split the deposit by value, so they never move E. Trades against the CLP or the bin books do, and so does a redemption of unequal L and S, which is why redemptions are checked too.
+
+Each market's `Clp.oi_cap` (in cUSDC atoms, 0 meaning uncapped) binds |E|. A change ΔE is allowed when E + ΔE stays inside [min(−cap, E), max(cap, E)]. Nobody can push E further past the cap than it already is, and a trade that shrinks E always passes, even after a price move has carried E past the cap with no trade. Because the cap is on the net, each short opens room for one more long. The room to buy longs is the cap plus the shorts traders already hold, less the longs.
+
+The cap is sized so that a bad year across every market together takes at most half the treasury. The same nightly job that posts the buffer targets reruns the sizing:
+
+1. It simulates one year of price paths for every live market at tonight's volatility, on the same paths so correlation between markets is in.
+2. For each market it takes R, the year's rise, and the weight w = 1 / q99(R), where q99 is the 99th percentile. Every market gets an equal 1-in-100 budget.
+3. A market's share of the treasury is w × 0.5 / q99(Σ w·R), the 99th percentile of the weighted sum over all markets. A 1-in-100 year with every market's longs filled to their caps then costs at most half the treasury.
+4. The cap is that share times the live treasury balance.
+
+A lower cap applies at once, and a higher one rises at most 25% a day. The job publishes the result as `exposure_caps_atoms`, and the keeper posts it to each market's `Clp.oi_cap` (see [Keeper](/concepts/keeper#exposure-caps)). If any step fails, the previous caps stay. The caps therefore move with the treasury and with volatility, so read the live `oi_cap` from the chain rather than a figure in a document.
+
+What a trader sees depends on the venue. A committed order fills up to the room left at its settle price and the rest comes back with the escrow, so a large buy can fill in part. With under \$1 of room it is refunded whole. A bin-book fill that would pass the cap reverts, and so does a lopsided redemption. Orders on the [P2P order book](/flows/order-book) are not affected. See [Trade](/flows/trade#exposure-cap) and [Redeem](/flows/redeem#exposure-cap).
 
 ## How the collateral ratio refills
 

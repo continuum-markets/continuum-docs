@@ -30,7 +30,7 @@ Per market, each tick:
 - **Repositions** a book with `set_pool_shape` when NAV drifts from its centre by more than a gate. The gate is 20 bps at most, cut down to each leg's funded quote edge.
 - **Refills and trims** both ways. Each side's bid cUSDC holds at the depth its next free-float book will post (\$500 today): the pool vault's excess goes to the CLP vault, and bids that sellers spent are refilled from it (`clp_fund_pool_usdc`). Asks trim to at most 1.5× that target. Nothing refills while a book floats off-hours.
 - Posts one **free-float book** per side off-hours, anchored at the last price. Each side puts all its depth in one bin, the outermost within 1% of that price: the r55 study found that bins further out took no ordinary flow and only carried gap risk. The depth is sized to demand, max(\$500, min(the 99.9th percentile of one side's measured flow per closed period, a risk cap)). The risk cap limits what a gap at the 99.9th percentile of that market's daily move could cost the treasury's share for the market (r61), so a volatile market gets less. There are no fixed dollar ceilings. Until the keeper measures its own fills, flow comes from `CLMM_FREEFLOAT_FLOW_USD_<SYM>` and defaults to zero, so every side posts \$500. A guard can then pull the bin on the side that other venues show is stale. It never moves the centre or adds depth.
-- Posts each market's **buffer target** (`set_buffer_target`): the daily Monte Carlo target from the market's live state, or a fixed fallback if that is over 48 hours old. The same nightly job publishes each market's CLP stock share for imbalance control (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)), only when it differs from the value on chain. Posts the **mint/redeem fee** (`update_market`, `clamp(fee_mult × half-spread, 10, 100)` bps, the same value for both) and the **committed spread** (`set_commit_spread`, `clamp(half-spread, 10, 500)` bps) once they move by at least 5 and 2 bps respectively. The keeper posts a committed spread on all 13 markets, and since 11 Oct 2026 every one accepts committed orders.
+- Posts each market's **buffer target** (`set_buffer_target`): the daily Monte Carlo target from the market's live state, or a fixed fallback if that is over 48 hours old. The same nightly job publishes each market's CLP stock share for imbalance control (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)), only when it differs from the value on chain, and each market's exposure cap (see [Exposure caps](#exposure-caps)). Posts the **mint/redeem fee** (`update_market`, `clamp(fee_mult × half-spread, 10, 100)` bps, the same value for both) and the **committed spread** (`set_commit_spread`, `clamp(half-spread, 10, 500)` bps) once they move by at least 5 and 2 bps respectively. The keeper posts a committed spread on all 13 markets, and since 11 Oct 2026 every one accepts committed orders.
 - Posts the **short-leg volatility decay** (`set_s_gamma_index`). It is always on and has no switch. Charges accrue until they reach a 2e-4 posting gate, and the unposted balance is saved to R2 or `DATA_DIR`, so a restart doesn't discard it. A market that hasn't had a γ write for a day is posted anyway once at least 1e-6 is pending, so slow markets such as FX are charged at least daily. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 - Runs the **cross-market collateral rebalance**. It plans at the price the program checks, which is the stored price with γ applied to the short leg, and leaves each source one confidence band of margin above its target. A market within one confidence band of its target is left alone, since the next price can close that gap. Past the band it is filled to its target plus the band. Markets below 100% collateralization are filled first, then markets below their target, and each source's excess is split across the markets it can reach in proportion to their need. The program clamps each move to the source's excess above its own target.
 
@@ -39,6 +39,7 @@ Per market, each tick:
 The settler finds pending `Order` accounts with one filtered `getProgramAccounts` call, and also wakes early on websocket notifications. It settles up to 10 orders per tick, largest first, and simulates each settle before sending it:
 
 - A refund (a `min_out` miss), or a fill the CLP vault already covers, is sent unchanged.
+- Every `settle_swap` carries the four exposure accounts: the pool long and short synth vaults, then the CLP's long and short token accounts. A capped market needs them, and an uncapped one ignores them. The settler reads each simulated settle's logs and classes it as a fill, a partial fill (`settle_swap PARTIAL`: the exposure cap took part of the order and refunded the rest), a refund at the exposure cap (`settle_swap REFUND exposure cap`) or an ordinary refund.
 - A fill the CLP can't cover is funded first. The settler borrows the cash it lacks from the treasury (`allocate_to_market`) and mints or redeems pairs if needed: a sell pays out cUSDC, and a buy needs synth, which the CLP mints in pairs at twice the value it lacks. These steps go in the same transaction as the settle where they fit, so a fill that fails takes its funding back with it. Otherwise they run in sequence before the settle.
 - An order that the collateral floor or the oracle checks hold back waits for a later push.
 
@@ -111,6 +112,16 @@ Pays the `request_redemption` requests that holders queue when a redeem is large
 
 Devnet only, and off unless `DEVNET_TREASURY_TARGET_USD` is set. It withdraws what the treasury policy's allowance allows every tick, never past the target balance, and burns the cUSDC in the same transaction. The treasury's rate task holds the rate in force while the trim runs.
 
+### Exposure caps
+
+Every 30 minutes it posts each market's [exposure cap](/concepts/solvency#6-exposure-cap) to `Clp.oi_cap` with `update_oi_cap`, signed as the CLP authority. The nightly cr-targets job sizes the caps and publishes them as `exposure_caps_atoms` (cUSDC atoms by symbol) in `cr-targets/latest.json`. Each tick the primary keeper compares each market's published cap with the one on chain:
+
+- A decrease posts at once, and so does capping a market that is uncapped. An increase posts only when it exceeds the on-chain cap by more than 1%, so the cap doesn't churn.
+- It fails closed. A missing file, a file over 48 hours old, a market with no entry or a target under \$1 leaves the on-chain cap as it is. It never posts 0, because 0 would uncap the market.
+- `EXPOSURE_CAPS_MODE` is `off`, `dryrun` or `live`. `dryrun` is the default, and any other value also means `dryrun`, so a typo can't go live. In `dryrun` it logs what it would post.
+
+It logs the market's current net exposure E next to the cap on chain and the target, so the log shows how close each market is to full. Only the primary instance runs it.
+
 ### Housekeeping
 
 SOL balance checks every 300 s (with alerts, and airdrop top-ups on devnet), an inventory monitor, and an operator dashboard.
@@ -155,6 +166,7 @@ Most keeper behavior sits behind env switches that default on. γ decay has none
 | `FF_GUARD_ENABLED` | on | Off-hours free-float guard |
 | `COMMIT_SETTLE_ENABLED` | on | Settlement crank |
 | `LIQUIDITY_REALLOCATOR_MODE` | `live` | Treasury ↔ CLP-vault moves (`off`, `dryrun` or `live`) |
+| `EXPOSURE_CAPS_MODE` | `dryrun` | Posting the nightly exposure caps to `Clp.oi_cap` (`off`, `dryrun` or `live`) |
 | `YIELD_ALLOCATOR_ENABLED` | on | Yield planning, on every cluster |
 | `COLLATERAL_YIELD_ENABLED` | off | Lending collateral (mainnet USDC only) |
 | `DEVNET_YIELD_EMULATION` | on (devnet only) | Devnet yield emulator |

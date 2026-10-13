@@ -49,6 +49,8 @@ Redeem takes the mint accounts, with the same names and checks, plus one ignored
 | `tokenProgram` | SPL Token |
 | `collateralAuthority` (optional) | Ignored. The program never reads this slot and accepts any account. Pass `null`, and Anchor sends mint-redeem's program ID |
 
+A redemption whose L and S values differ by more than \$1 also passes five remaining accounts after these, for the [exposure cap](#exposure-cap).
+
 Every market's vault is owned by its Market PDA, which signs the payout. The slot is left over from the unified vault, which the upgrade of 11 Oct 2026 removed. The IDL published that day gives the slot no seeds, so Anchor can't fill it in for you. Pass `collateralAuthority: null`, as below.
 
 ## TypeScript
@@ -88,7 +90,21 @@ For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee wa
 
 ## Limits
 
-There is no size cap. A redeem can't burn more than the market's outstanding supply of either leg (`InvalidAmount`). The payout plus `dev_tax` must fit within the market's liquid collateral, `total_collateral` minus `deployed_to_yield`, and within the vault's token balance (`InsufficientLiquidCollateral`). When it doesn't, [queue a redemption request](#when-the-vault-cannot-pay-yet) instead. The program doesn't check your balances; burning more than you hold fails inside SPL Token.
+There is no fixed size cap, but a redemption whose L and S values differ by more than \$1 is held to the market's [exposure cap](#exposure-cap). A redeem can't burn more than the market's outstanding supply of either leg (`InvalidAmount`). The payout plus `dev_tax` must fit within the market's liquid collateral, `total_collateral` minus `deployed_to_yield`, and within the vault's token balance (`InsufficientLiquidCollateral`). When it doesn't, [queue a redemption request](#when-the-vault-cannot-pay-yet) instead. The program doesn't check your balances; burning more than you hold fails inside SPL Token.
+
+## Exposure cap
+
+Redeeming equal values of L and S leaves what traders hold net unchanged. Redeeming unequal values doesn't. Mint a pair and redeem only the S, say, and traders end up net long without ever touching the CLP. So a redemption whose L and S values differ by more than \$1, at the redeem NAVs, is checked against the market's exposure cap before anything is burned. It is treated as a trade: redeeming more S than L raises traders' net long position, and redeeming more L than S lowers it. The rule is the one in [Trade](/flows/trade#exposure-cap): it passes if it leaves the net position inside the cap, or moves it toward zero. The sizing and the reasoning are in [Solvency](/concepts/solvency#6-exposure-cap).
+
+A lopsided redemption must pass five remaining accounts, in this order:
+
+1. The market's `Clp` account (PDA `[b"clp", market]` under clp).
+2. The pool long synth vault.
+3. The pool short synth vault.
+4. The CLP's long token account.
+5. The CLP's short token account.
+
+Without them it fails with `ExposureAccountsMissing` (6062). Each account is checked against its derived address, owner and mint (`ExposureAccountMismatch`, 6061), so an empty look-alike can't understate the CLP's holdings. A redemption past the cap fails with `ExposureCapExceeded` (6060). A redemption within \$1 of balanced skips the check and needs no extra accounts. A lopsided one needs them even on a market whose `oi_cap` is 0, where the check then passes. The market's CLP redeeming its own inventory (`vault_redeem_pairs`) is exempt, because burning CLP-held tokens lowers a supply and the CLP's holding of it together, so traders' net position doesn't move. `redeem_paired_with_waiver` and `request_redemption` follow the same rule, and a request is checked when it is made. If you hit the cap, redeem more evenly, sell the extra leg on a venue with room, or wait for the room to grow.
 
 ## When the vault cannot pay yet
 
@@ -129,6 +145,9 @@ A redeem can never pay out more than the vault holds, because `gross` can't exce
 | `MarketNotActive` | 6000 | `market.is_active` is false |
 | `OraclePriceUnavailable` | 6005 | A worst-case quote came out as 0 |
 | `Unauthorized` | 6021 | `devTokenAccount` isn't owned by `market.fee_recipient` |
+| `ExposureCapExceeded` | 6060 | A redemption more than \$1 lopsided would push the market's net exposure past its cap |
+| `ExposureAccountMismatch` | 6061 | An exposure account isn't the market's `Clp`, pool synth vault or CLP token account |
+| `ExposureAccountsMissing` | 6062 | A redemption more than \$1 lopsided without the five exposure accounts |
 | SPL Token error `0x1` | | Your L or S balance is below the amount |
 
 See the [full error catalog](/reference/errors).

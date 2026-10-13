@@ -89,9 +89,11 @@ description: Continuum-specific terms in one place.
 
 **Native book / bin book** - Continuum's own per-leg quote book: one `Pool` account per market and side, up to 16 bins stored inline (no per-bin rent), filled by `pool_swap` only while the market's price is stale (`PoolClosedWhileLive` otherwise). Each bin holds a fixed amount at a fixed price, and a swap walks outward from the centre. The `CLMM_*` keeper variables and `clmm.rs` keep an older label. → [What the book actually is](/concepts/clp#what-the-book-actually-is).
 
-**OI** (Open Interest) - Outstanding token supply, tracked per leg on the `Market` account (`total_l_supply`, `total_s_supply`).
+**OI** (Open Interest) - Outstanding token supply, tracked per leg on the `Market` account (`total_l_supply`, `total_s_supply`). The exposure cap works on traders' net position, not on OI.
 
-**`oi_cap`** - A cap stored on each market's `Clp` account (250,000 cUSDC on every live market as of 10 Oct 2026). It is not enforced: only the authority-only `update_oi` checks it, and nothing calls that.
+**`oi_cap`** - The exposure cap stored on each market's `Clp` account, in cUSDC atoms (0 means uncapped). It bounds traders' net position E. The keeper posts it nightly. → [Exposure cap](/concepts/solvency#6-exposure-cap).
+
+**Exposure (E)** - Traders' net position in a market: `(L supply − CLP-held L) · l_nav − (S supply − CLP-held S) · s_nav`. CLP-held is the pool's synth vault plus the CLP's own token account for that leg. Above 0, traders are net long and the treasury is net short.
 
 **Oracle** - The oracle program, which holds a per-market `OracleConfig` with feeds, TWAPs and health state. On devnet the keeper does not update it; mint and redeem use the price the keeper writes to `Market`. → [Oracle concept](/concepts/oracle).
 

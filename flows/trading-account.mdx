@@ -89,7 +89,7 @@ One cost never comes back: each book seat, and each book slot an order once need
 | `close_account` | Owner | Closes the empty token accounts and the rules account, and sends their rent and the trader's SOL to the owner |
 | `claim_seat`, `deposit_to_market`, `withdraw_from_market` | Owner or key | Manifest seats |
 | `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market |
-| `swap_pool` | Owner or key | The CLP's `pool_swap` from the account |
+| `swap_pool` | Owner or key | The CLP's `pool_swap` from the account. On a capped market, pass the pool long and short synth vaults and the CLP's long and short token accounts as remaining accounts; `swap_pool` hands them on to `pool_swap` for the [exposure cap](/flows/trade#exposure-cap) |
 | `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address |
 
 A committed order placed from the account is owned by the trader address, so settlement pays its token accounts and refunds return there, the same as for any other order.
