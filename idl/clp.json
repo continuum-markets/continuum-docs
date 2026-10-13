@@ -288,6 +288,121 @@
       ]
     },
     {
+      "name": "advance_to_market",
+      "docs": [
+        "Lend treasury cUSDC to a market's collateral vault for LIQUIDITY only",
+        "(r58 lever 3): mint-redeem's `receive_advance`, with the GlobalClp PDA",
+        "as the funder. Unlike `backstop_market` (one-way, unchanged) this is a",
+        "reversible loan: it is NOT credited to the market's `total_collateral`,",
+        "it is capped per market by `MarketAdvance.max_advance_bps`, and",
+        "mint-redeem's `repay_advance` returns it to the global vault when the",
+        "market's own recall lands. The signer must be global_clp.authority AND",
+        "market.authority. Refused while the guardian has the treasury frozen.",
+        "Not charged to the withdrawal allowance: the cash stays protocol-owned",
+        "until a settle pays a redeemer what the market owes them."
+      ],
+      "discriminator": [
+        14,
+        176,
+        18,
+        29,
+        189,
+        191,
+        110,
+        155
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "global_clp.authority, which must also be market.authority."
+          ],
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "treasury_policy",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "market_advance",
+          "writable": true
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "global_vault",
+          "writable": true
+        },
+        {
+          "name": "mint_redeem_program",
+          "address": "5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "allocate_to_market",
       "discriminator": [
         185,
@@ -4913,6 +5028,19 @@
   ],
   "events": [
     {
+      "name": "MarketAdvanced",
+      "discriminator": [
+        253,
+        79,
+        123,
+        170,
+        110,
+        122,
+        85,
+        140
+      ]
+    },
+    {
       "name": "MarketBackstopped",
       "discriminator": [
         26,
@@ -6046,6 +6174,30 @@
           },
           {
             "name": "price_adjust_last_effective_ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketAdvanced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "ts",
             "type": "i64"
           }
         ]

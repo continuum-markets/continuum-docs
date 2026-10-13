@@ -131,6 +131,158 @@
       ]
     },
     {
+      "name": "cancel_redemption",
+      "docs": [
+        "Give back the unpaid part of a request and close it (owner only).",
+        "Reads no `Market` and needs no keeper, so it works when the market is",
+        "paused, the price is stale or the keeper is down. Returns the escrowed",
+        "L and S and all rent to the owner."
+      ],
+      "discriminator": [
+        197,
+        243,
+        101,
+        86,
+        2,
+        37,
+        105,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "request"
+          ]
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.market",
+                "account": "RedemptionRequest"
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_l",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request"
+              },
+              {
+                "kind": "account",
+                "path": "request.long_mint",
+                "account": "RedemptionRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_s",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request"
+              },
+              {
+                "kind": "account",
+                "path": "request.short_mint",
+                "account": "RedemptionRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner_long_account",
+          "writable": true
+        },
+        {
+          "name": "owner_short_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "close_market_admin",
       "discriminator": [
         81,
@@ -154,6 +306,109 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "configure_market_advance",
+      "docs": [
+        "Set a market's advance cap and lender (market.authority). Creates the",
+        "`MarketAdvance` PDA on first use. `max_advance_bps = 0` turns advances",
+        "off. The lender (the token account advances come from and are repaid",
+        "to) may change only while nothing is outstanding."
+      ],
+      "discriminator": [
+        123,
+        86,
+        250,
+        195,
+        145,
+        69,
+        248,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "market_advance",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  97,
+                  100,
+                  118,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lender",
+          "docs": [
+            "The token account advances come from and are repaid to."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ConfigureAdvanceParams"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "configure_risk_fees",
@@ -1719,6 +1974,115 @@
       ]
     },
     {
+      "name": "receive_advance",
+      "docs": [
+        "Take a liquidity advance into the collateral vault. `market.authority`",
+        "signs (`has_one`) and so does the `funder` who owns the lender account,",
+        "which is the GlobalClp PDA when the CLP's `advance_to_market` calls",
+        "this. The cash is NOT credited to `total_collateral`: CR and the",
+        "haircut never see it, and only `settle_redemption` and `repay_advance`",
+        "can spend it. Capped at `max_advance_bps` of `total_collateral`."
+      ],
+      "discriminator": [
+        180,
+        88,
+        38,
+        111,
+        92,
+        250,
+        249,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "funder",
+          "docs": [
+            "Owner of the lender account; the GlobalClp PDA signing through CPI."
+          ],
+          "signer": true
+        },
+        {
+          "name": "market_advance",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  97,
+                  100,
+                  118,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "funder_collateral",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "redeem_paired",
       "discriminator": [
         224,
@@ -2031,6 +2395,300 @@
       ]
     },
     {
+      "name": "repay_advance",
+      "docs": [
+        "Repay the advance from the vault to its lender (market.authority or",
+        "keeper). Never more than is outstanding, and the vault keeps the",
+        "market's own liquid share (`redemption::repay_allowed`), so a repay can",
+        "only return the advance's own cash. The keeper calls it when the",
+        "market's own recall lands, before that cash is lent again."
+      ],
+      "discriminator": [
+        247,
+        119,
+        157,
+        136,
+        70,
+        66,
+        200,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "docs": [
+            "market.authority or market.keeper_authority. Safe for the keeper: the",
+            "money can only go back to the recorded lender."
+          ],
+          "signer": true
+        },
+        {
+          "name": "market_advance",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  97,
+                  100,
+                  118,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "lender",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "request_redemption",
+      "docs": [
+        "Queue a paired redemption the vault cannot pay now. The L and S move",
+        "into escrow token accounts owned by the request PDA; the keeper pays",
+        "the request (in parts if need be) with `settle_redemption`, and the",
+        "owner can `cancel_redemption` the unpaid rest at any time. Same active,",
+        "Stress, price-freshness and $10-minimum checks as `redeem_paired`."
+      ],
+      "discriminator": [
+        14,
+        62,
+        182,
+        237,
+        59,
+        79,
+        149,
+        22
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_l",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request"
+              },
+              {
+                "kind": "account",
+                "path": "long_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_s",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request"
+              },
+              {
+                "kind": "account",
+                "path": "short_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner_long_account",
+          "writable": true
+        },
+        {
+          "name": "owner_short_account",
+          "writable": true
+        },
+        {
+          "name": "long_mint"
+        },
+        {
+          "name": "short_mint"
+        },
+        {
+          "name": "oracle"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "RedemptionAmounts"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "set_buffer_target",
       "discriminator": [
         223,
@@ -2129,6 +2787,227 @@
           "type": {
             "defined": {
               "name": "SetGammaParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "settle_redemption",
+      "docs": [
+        "Pay the largest part of a request the vault's cash covers now (keeper",
+        "only), up to `max_l_amount` of L with the matching pro-rata S. Prices,",
+        "haircuts and charges fee + dev tax exactly like `redeem_paired`",
+        "(`redemption::quote_at_navs`), burns that part from escrow and pays the",
+        "owner. Unlike the instant path it may spend the treasury advance's cash",
+        "(that is what the advance is for), but never more than the vault holds.",
+        "When the request is fully paid and `owner` is passed, the escrows and",
+        "the request close and their rent goes back to the owner; without",
+        "`owner` an empty request waits for the owner's `cancel_redemption`."
+      ],
+      "discriminator": [
+        21,
+        217,
+        64,
+        236,
+        36,
+        148,
+        2,
+        161
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          },
+          "relations": [
+            "request"
+          ]
+        },
+        {
+          "name": "keeper",
+          "docs": [
+            "The keeper. Same signer as `recall_collateral_from_yield`, so a recall",
+            "and the settle it pays for share one transaction."
+          ],
+          "signer": true
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              },
+              {
+                "kind": "account",
+                "path": "request.owner",
+                "account": "RedemptionRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_l",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request"
+              },
+              {
+                "kind": "account",
+                "path": "market.long_mint",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_s",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  109,
+                  112,
+                  116,
+                  105,
+                  111,
+                  110,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request"
+              },
+              {
+                "kind": "account",
+                "path": "market.short_mint",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "long_mint",
+          "writable": true
+        },
+        {
+          "name": "short_mint",
+          "writable": true
+        },
+        {
+          "name": "collateral_vault",
+          "writable": true
+        },
+        {
+          "name": "owner_collateral",
+          "docs": [
+            "Where the owner is paid: any cUSDC account the request owner owns."
+          ],
+          "writable": true
+        },
+        {
+          "name": "dev_token_account",
+          "writable": true
+        },
+        {
+          "name": "oracle"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "The request owner, receiving the rent when the last part closes the",
+            "request. Optional so the settle still fits beside a large venue recall;",
+            "must equal `request.owner` when present."
+          ],
+          "writable": true,
+          "optional": true
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SettleRedemptionParams"
             }
           }
         }
@@ -2682,9 +3561,61 @@
         198,
         154
       ]
+    },
+    {
+      "name": "MarketAdvance",
+      "discriminator": [
+        0,
+        31,
+        66,
+        40,
+        250,
+        93,
+        245,
+        228
+      ]
+    },
+    {
+      "name": "RedemptionRequest",
+      "discriminator": [
+        117,
+        157,
+        214,
+        214,
+        64,
+        160,
+        31,
+        58
+      ]
     }
   ],
   "events": [
+    {
+      "name": "AdvanceReceived",
+      "discriminator": [
+        12,
+        235,
+        11,
+        44,
+        176,
+        44,
+        202,
+        187
+      ]
+    },
+    {
+      "name": "AdvanceRepaid",
+      "discriminator": [
+        185,
+        191,
+        136,
+        90,
+        224,
+        95,
+        1,
+        197
+      ]
+    },
     {
       "name": "CollateralFunded",
       "discriminator": [
@@ -2725,6 +3656,19 @@
       ]
     },
     {
+      "name": "MarketAdvanceConfigured",
+      "discriminator": [
+        138,
+        69,
+        68,
+        118,
+        122,
+        47,
+        83,
+        112
+      ]
+    },
+    {
       "name": "PairedActionExecuted",
       "discriminator": [
         7,
@@ -2735,6 +3679,45 @@
         52,
         131,
         212
+      ]
+    },
+    {
+      "name": "RedemptionCancelled",
+      "discriminator": [
+        22,
+        106,
+        118,
+        26,
+        83,
+        110,
+        71,
+        174
+      ]
+    },
+    {
+      "name": "RedemptionRequested",
+      "discriminator": [
+        245,
+        155,
+        98,
+        131,
+        210,
+        25,
+        137,
+        146
+      ]
+    },
+    {
+      "name": "RedemptionSettled",
+      "discriminator": [
+        75,
+        9,
+        197,
+        96,
+        249,
+        61,
+        27,
+        245
       ]
     }
   ],
@@ -3003,9 +3986,86 @@
       "code": 6052,
       "name": "SweepExceedsSurplus",
       "msg": "Sweep would take collateral still attributed to a market on the unified vault"
+    },
+    {
+      "code": 6053,
+      "name": "NothingToSettle",
+      "msg": "No part of this redemption request fits in the vault's cash now"
+    },
+    {
+      "code": 6054,
+      "name": "AdvanceCapExceeded",
+      "msg": "Advance would exceed this market's advance cap"
+    },
+    {
+      "code": 6055,
+      "name": "AdvanceRepayExceedsOutstanding",
+      "msg": "Repayment exceeds the outstanding advance"
+    },
+    {
+      "code": 6056,
+      "name": "AdvanceWouldTakeOwnLiquidity",
+      "msg": "Repayment would take the market's own liquid collateral"
+    },
+    {
+      "code": 6057,
+      "name": "AdvanceLenderLocked",
+      "msg": "The advance lender can change only while nothing is outstanding"
     }
   ],
   "types": [
+    {
+      "name": "AdvanceReceived",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "cap",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AdvanceRepaid",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
     {
       "name": "CollateralFunded",
       "type": {
@@ -3084,6 +4144,18 @@
           },
           {
             "name": "weight_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigureAdvanceParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "max_advance_bps",
             "type": "u16"
           }
         ]
@@ -3542,6 +4614,87 @@
       }
     },
     {
+      "name": "MarketAdvance",
+      "docs": [
+        "The treasury's reversible liquidity advance to one market (r58 lever 3).",
+        "",
+        "PDA seeds: `[b\"market_advance\", market]`. The advance's cash sits in the",
+        "market's collateral vault but is NOT `total_collateral`: CR and the haircut",
+        "never count it, and every pre-existing outflow is gated on the market's own",
+        "liquid share, so only `settle_redemption` and `repay_advance` spend it.",
+        "Invariant: `vault + deployed_to_yield = total_collateral + outstanding + slack`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "lender",
+            "docs": [
+              "The only token account an advance may come from and be repaid to",
+              "(the CLP global vault). Changeable only while nothing is outstanding."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "max_advance_bps",
+            "docs": [
+              "Cap: `outstanding ≤ max_advance_bps × total_collateral / 10_000`.",
+              "0 = advances off. r58's 2,500 (0.25×) is a TEST value, not a proposal."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "total_advanced",
+            "type": "u64"
+          },
+          {
+            "name": "total_repaid",
+            "type": "u64"
+          },
+          {
+            "name": "last_advance_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_repay_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketAdvanceConfigured",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "lender",
+            "type": "pubkey"
+          },
+          {
+            "name": "max_advance_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
       "name": "OracleType",
       "type": {
         "kind": "enum",
@@ -3627,6 +4780,241 @@
       }
     },
     {
+      "name": "RedemptionAmounts",
+      "docs": [
+        "`request_redemption` arguments, in ONE struct (the v1.45 toolchain",
+        "miscompiles per-argument borsh offsets on multi-arg instructions)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "l_amount",
+            "type": "u64"
+          },
+          {
+            "name": "s_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "request",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "l_returned",
+            "type": "u64"
+          },
+          {
+            "name": "s_returned",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionRequest",
+      "docs": [
+        "A paired redemption waiting for the keeper to pay it (r58 lever 1 + 2).",
+        "",
+        "PDA seeds: `[b\"redemption\", market, owner]` — one open request per",
+        "(market, owner). The escrowed L and S sit in two token accounts owned by",
+        "this PDA (`[b\"redemption_escrow\", request, mint]`); their balances always",
+        "equal `l_remaining` / `s_remaining`. The tokens stay in supply until a",
+        "settle burns them, so a waiting request changes no CR or haircut.",
+        "",
+        "Lives in its own account, never in `Market` (Anchor deserializes before",
+        "realloc; see `market_space_tests`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "long_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "l_requested",
+            "type": "u64"
+          },
+          {
+            "name": "s_requested",
+            "type": "u64"
+          },
+          {
+            "name": "l_remaining",
+            "type": "u64"
+          },
+          {
+            "name": "s_remaining",
+            "type": "u64"
+          },
+          {
+            "name": "gross_paid",
+            "docs": [
+              "Running totals over all fills (cUSDC atoms)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "net_paid",
+            "type": "u64"
+          },
+          {
+            "name": "fee_paid",
+            "type": "u64"
+          },
+          {
+            "name": "dev_tax_paid",
+            "type": "u64"
+          },
+          {
+            "name": "fills",
+            "type": "u32"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "last_fill_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "escrow_l_bump",
+            "type": "u8"
+          },
+          {
+            "name": "escrow_s_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "request",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "l_amount",
+            "type": "u64"
+          },
+          {
+            "name": "s_amount",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "request",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "l_amount",
+            "type": "u64"
+          },
+          {
+            "name": "s_amount",
+            "type": "u64"
+          },
+          {
+            "name": "gross",
+            "type": "u64"
+          },
+          {
+            "name": "net",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": "u64"
+          },
+          {
+            "name": "dev_tax",
+            "type": "u64"
+          },
+          {
+            "name": "l_remaining",
+            "type": "u64"
+          },
+          {
+            "name": "s_remaining",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "RiskFeeConfig",
       "type": {
         "kind": "struct",
@@ -3686,6 +5074,22 @@
           {
             "name": "expected_epoch",
             "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleRedemptionParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "max_l_amount",
+            "docs": [
+              "Most L to settle in this call (`u64::MAX` = all that fits). The",
+              "program shrinks it to what the vault's cash covers."
+            ],
+            "type": "u64"
           }
         ]
       }
