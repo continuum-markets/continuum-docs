@@ -17,7 +17,7 @@ description: Continuum-specific terms in one place.
 
 **Base price** - A book's posted centre, `Pool.base_price_1e6`: NAV moved by the inventory centre-shift, or the last price during free float. Ask bins ladder above it, bid bins below.
 
-**Bid cap** - Keeper inventory rule: standing bid cUSDC is held at \$5,000 per side (`CLMM_BID_TARGET_USD`). The excess goes to the CLP vault, and bids that sellers spent are refilled from it. Large sells use committed orders while the market is open.
+**Bid cap** - Keeper inventory rule: each side's bid cUSDC is held at the depth its next free-float book will post (\$500 a side until the keeper has measured flow; `CLMM_BID_TARGET_USD` overrides it). The excess goes to the CLP vault, and bids that sellers spent are refilled from it. Large sells use committed orders while the market is open.
 
 **Bin step** - The spacing between bins, in bps. Books use a fine core step for the first `core_bins` bins and a wide wing step beyond. On the live books the core is 10 to 50 bps over 3 bins and the wings 200 to 700 bps.
 
