@@ -284,6 +284,11 @@
     },
     {
       "name": "close_market_admin",
+      "docs": [
+        "Close a market account for migration/cleanup.",
+        "Uses unchecked account to handle both old and new struct layouts.",
+        "Authority is verified by reading raw bytes at offset [8..40]."
+      ],
       "discriminator": [
         81,
         108,
@@ -297,12 +302,48 @@
       "accounts": [
         {
           "name": "market",
+          "docs": [
+            "Authority is verified by reading raw bytes [8..40] in the instruction body."
+          ],
           "writable": true
         },
         {
           "name": "authority",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "market_advance",
+          "docs": [
+            "may not exist. Read by `advance_outstanding`."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  97,
+                  100,
+                  118,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -1420,6 +1461,24 @@
     },
     {
       "name": "mark_yield_impairment",
+      "docs": [
+        "Write down an impaired yield deployment (admin/governance only; audit M2).",
+        "",
+        "`recall_collateral_from_yield` only ever decrements `deployed_to_yield` by",
+        "what physically returns, and never touches `total_collateral`. So if a",
+        "lending venue freezes or loses principal, `total_collateral` — the solvency",
+        "source of truth the CR/haircut math reads — keeps reporting phantom",
+        "backing: the CR check returns \"fully collateralized\", early redeemers exit",
+        "at par, and stragglers eat 100% of the loss (hidden insolvency).",
+        "",
+        "This instruction realizes the loss by decrementing BOTH `deployed_to_yield`",
+        "(the funds are gone from the venue) AND `total_collateral` (real backing",
+        "shrank). The pro-rata `solvency_haircut_gross` then measures true CR and",
+        "SOCIALIZES the loss uniformly across all remaining holders. Gated on the",
+        "admin `authority` (not the keeper): writing down collateral is a governance",
+        "action, and this can only REDUCE reported backing (never inflate it), so a",
+        "mistaken call is conservative, never a drain."
+      ],
       "discriminator": [
         69,
         208,
@@ -1461,6 +1520,36 @@
           "relations": [
             "market"
           ]
+        },
+        {
+          "name": "market_advance",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  97,
+                  100,
+                  118,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -3533,6 +3622,98 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "write_off_advance",
+      "docs": [
+        "Absorb a venue loss into the treasury's advance first (authority only).",
+        "The treasury is first-loss capital, so a loss is charged to the",
+        "outstanding advance before any holder: `deployed_to_yield` (the lost",
+        "principal) and `outstanding` (the treasury's claim) both drop by",
+        "`amount`, `total_collateral` is untouched and no cash moves, so slack is",
+        "unchanged. A loss beyond the advance goes through `mark_yield_impairment`,",
+        "which refuses while anything is still outstanding."
+      ],
+      "discriminator": [
+        178,
+        230,
+        117,
+        10,
+        235,
+        4,
+        61,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "market_advance",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116,
+                  95,
+                  97,
+                  100,
+                  118,
+                  97,
+                  110,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -3614,6 +3795,19 @@
         95,
         1,
         197
+      ]
+    },
+    {
+      "name": "AdvanceWrittenOff",
+      "discriminator": [
+        31,
+        187,
+        14,
+        87,
+        255,
+        94,
+        150,
+        227
       ]
     },
     {
@@ -4011,6 +4205,16 @@
       "code": 6057,
       "name": "AdvanceLenderLocked",
       "msg": "The advance lender can change only while nothing is outstanding"
+    },
+    {
+      "code": 6058,
+      "name": "AdvanceOutstanding",
+      "msg": "A treasury advance is outstanding: write it off or repay it first"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidAdvanceLender",
+      "msg": "The advance lender must be the CLP treasury vault (GlobalClp's cUSDC account)"
     }
   ],
   "types": [
@@ -4057,6 +4261,34 @@
           },
           {
             "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AdvanceWrittenOff",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "deployed_to_yield",
             "type": "u64"
           },
           {
@@ -4657,6 +4889,13 @@
           },
           {
             "name": "total_repaid",
+            "type": "u64"
+          },
+          {
+            "name": "total_written_off",
+            "docs": [
+              "Venue losses absorbed by the treasury through `write_off_advance`."
+            ],
             "type": "u64"
           },
           {
