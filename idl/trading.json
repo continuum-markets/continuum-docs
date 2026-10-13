@@ -1695,7 +1695,7 @@
               "Total supply of Long tokens. Paired mint/redeem keeps this equal to",
               "`total_s_supply`; single-side keeper mint/redeem (`keeper_mint_single`,",
               "see lib.rs) intentionally moves only one side, so the two supplies can",
-              "diverge — a first-order (directional) delta the γ decay does NOT charge."
+              "diverge, giving a first-order (directional) delta the γ decay does NOT charge."
             ],
             "type": "u64"
           },
@@ -1831,7 +1831,7 @@
           {
             "name": "buffer_target_bps",
             "docs": [
-              "Keeper-posted overcollateralization buffer (bps OVER parity) — the dynamic",
+              "Keeper-posted overcollateralization buffer (bps OVER parity), the dynamic",
               "solvency target. Target ratio = 10_000 + buffer_target_bps, clamped to",
               "[MIN_BUFFER_BPS, MAX_BUFFER_BPS]. 0 (legacy/unset) is treated as the default",
               "200 (102%) by `target_ratio_bps()`, so old accounts behave as before until the",
@@ -1846,10 +1846,10 @@
               "(1_000_000_000 = 1.0 = no decay). The effective short NAV is",
               "`(K / l_nav) · s_gamma_index / 1e9`. It only ever ratchets DOWN, by the",
               "realized variance the short pair accrues, so holding the short across a",
-              "choppy path costs the decay — which banks as collateral surplus (the",
+              "choppy path costs the decay, which banks as collateral surplus (the",
               "long leg is never touched). `0` (legacy/unset) is read as 1e9 by",
               "`short_gamma_index()`, so old accounts behave exactly as before until",
-              "the keeper posts a value. NOT a perp funding rate — there is no periodic",
+              "the keeper posts a value. NOT a perp funding rate; there is no periodic",
               "cash transfer; it is a structural mark on the short token's value, so the",
               "1:1 paired round-trip and buy-and-hold mechanics are unchanged at a fixed γ."
             ],
@@ -1866,7 +1866,7 @@
             "name": "gamma_day_decay_1e9",
             "docs": [
               "γ index units (1e9) decayed inside the current day-bucket. TELEMETRY",
-              "ONLY — tracked so an auditor can see the day's total, never enforced."
+              "ONLY: tracked so an auditor can see the day's total, never enforced."
             ],
             "type": "u64"
           },
@@ -1874,7 +1874,7 @@
             "name": "gamma_last_write_ts",
             "docs": [
               "Unix ts of the last accepted γ write. Lets an auditor alarm on writer",
-              "SILENCE — the failure mode no cap can catch, because it looks like calm."
+              "SILENCE, the failure mode no cap can catch, because it looks like calm."
             ],
             "type": "i64"
           },
@@ -1941,7 +1941,7 @@
               "",
               "This exists because arming a ratio early is otherwise actively harmful,",
               "not merely useless. The adjustment multiplies the NEXT raw print, and",
-              "before the ex-date that print is still PRE-split — so an early 2:1 would",
+              "before the ex-date that print is still PRE-split, so an early 2:1 would",
               "double the stored price, the 25% move guard would reject every push, and",
               "the market would halt from the moment of arming until the split actually",
               "happened. Gating on a timestamp is what makes \"schedule it weeks ahead\"",
@@ -1961,7 +1961,7 @@
             "docs": [
               "Unix ts from which the pending pair applies. 0 = nothing pending.",
               "",
-              "Set it to the ex-date OPEN — the first instant a venue quotes the",
+              "Set it to the ex-date OPEN, the first instant a venue quotes the",
               "post-action price. Misalignment is bounded and self-correcting for",
               "ratios above ~1.333: a print on the wrong side of the boundary is",
               "REJECTED by the 25% guard, not absorbed, so an early or late `ts` costs",
@@ -2139,7 +2139,7 @@
         "`x·y=k` curve and no permissionless LPs: each bin holds a fixed reserve at a",
         "fixed price (constant-sum within a bin), and the ladder is POSTED by the",
         "keeper rather than emerging from deposits. It is a discrete-bin liquidity",
-        "book (Trader Joe \"Liquidity Book\" / Meteora DLMM family — `clmm.rs` calls",
+        "book (Trader Joe \"Liquidity Book\" / Meteora DLMM family; `clmm.rs` calls",
         "its own math \"DLMM-style\"), with a single quoter. The old names are kept for",
         "config compatibility; docs say \"bin book\"."
       ],

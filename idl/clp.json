@@ -5259,12 +5259,12 @@
     {
       "code": 6009,
       "name": "OrderExpired",
-      "msg": "Order expired \u2014 use cancel_swap to refund"
+      "msg": "Order expired; use cancel_swap to refund"
     },
     {
       "code": 6010,
       "name": "OrderNotExpired",
-      "msg": "Order not yet expired \u2014 wait for settlement or the TTL"
+      "msg": "Order not yet expired; wait for settlement or the TTL"
     },
     {
       "code": 6011,
@@ -5374,12 +5374,12 @@
     {
       "code": 6032,
       "name": "PoolNotConfigured",
-      "msg": "Meteora pool not configured \u2014 run configure_meteora_pools first"
+      "msg": "Meteora pool not configured; run configure_meteora_pools first"
     },
     {
       "code": 6033,
       "name": "AdminWithdrawCapExceeded",
-      "msg": "Admin withdrawal would exceed the 24h cap of $100K \u2014 wait for window to roll or rotate authority if attack is suspected"
+      "msg": "Admin withdrawal would exceed the 24h cap of $100K; wait for window to roll or rotate authority if attack is suspected"
     },
     {
       "code": 6034,

@@ -1,4 +1,4 @@
-# Performance audit checkpoint — 9 October 2026
+# Performance audit checkpoint, 9 October 2026
 
 The primary deliverable is [REPORT.md](REPORT.md), with runtime coverage in [runtime-coverage.md](runtime-coverage.md). Evidence is retained alongside those reports and in `frontend/docs/performance-audit/`.
 

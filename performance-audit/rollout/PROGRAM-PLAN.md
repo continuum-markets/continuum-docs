@@ -1,4 +1,4 @@
-# Devnet program rollout — completed
+# Devnet program rollout: completed
 
 Release source `cd2ae7a2c0bb8fec8618abd7dc147652a082f0081a314d082368ac4574858e14` is deployed analytics commit `29960efb4d9db88c2bfc2ead42f0a2b8af52b847` plus exactly five reviewed CLP/Oracle files. The working-tree corporate-action changes are excluded, including from the mint-redeem dependency. The detached release source is `/tmp/continuum-performance-release-source/programs`; `performance-only.patch` and `release-boundary.json` record the boundary. Existing business events are retained.
 

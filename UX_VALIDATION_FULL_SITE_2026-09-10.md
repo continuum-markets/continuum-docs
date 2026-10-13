@@ -1,4 +1,4 @@
-# Full-site UX and SEO validation — 10 September 2026
+# Full-site UX and SEO validation, 10 September 2026
 
 ## Verdict
 
@@ -36,7 +36,7 @@ Surface classification matters: pools are a working interface, trade/mint/faucet
 
 ### 1. An AAPL mint CTA opens the QQQ form
 
-**Browser-confirmed.** On `/trade/aapl`, “Or mint the AAPL pair directly” links to `/mint`. Clicking it opened Mint with **QQQ — Nasdaq-100 ETF** selected, not AAPL.
+**Browser-confirmed.** On `/trade/aapl`, “Or mint the AAPL pair directly” links to `/mint`. Clicking it opened Mint with **QQQ (Nasdaq-100 ETF)** selected, not AAPL.
 
 The primary “Open the AAPL market” points correctly to `/pools/AAPL`. It is the asset-specific secondary action that drops intent. The template uses a generic mint URL, so this is a shared-template risk; AAPL → QQQ was the exercised case.
 

@@ -1,4 +1,4 @@
-# Keeper and on-chain performance audit — 2026-10-09
+# Keeper and on-chain performance audit, 2026-10-09
 
 ## Evidence and limits
 

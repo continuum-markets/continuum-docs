@@ -1,4 +1,4 @@
-# Oracle allocation migration — devnet completed
+# Oracle allocation migration: devnet completed
 
 The old allocator reserves 1,765 bytes. The correct size is **1,781 bytes**, including the discriminator: two `TwapState.cumulative_price` fields are u128, not u64. The 60th observation otherwise fails serialization, retaining the previously committed 59 observations. The performance audit reproduced this on freshly built SBF. After user authorization, the clean Oracle upgrade finalized at slot 509018501 and all 15 selected resizes finalized successfully. Final slot 509020184 confirms their 1,781-byte size and preserved data; the three missing-Market configs and one older schema remain byte-identical. See [deployment evidence](rollout/deployment.json) and [per-account receipts](rollout/oracle-migration-results.csv).
 

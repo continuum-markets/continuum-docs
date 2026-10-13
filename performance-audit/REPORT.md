@@ -33,7 +33,7 @@ The user funded a new disposable devnet wallet. Browser measurements use the pro
 | Redeem paired tokens | 3,022.0 ms | 31.6 ms | 2,150.4 ms |
 | Commit a trade | Pending at 2,823.9 ms | 26.4 ms | Pending at 1,694.4 ms |
 | Committed order settlement | Observed by 14,381.7 ms | Progress remains visible | Observed by 24,218.9 ms |
-| Reload and reconnect wallet | 944.7 ms after navigation | — | 852.3 ms after navigation |
+| Reload and reconnect wallet | 944.7 ms after navigation | n/a | 852.3 ms after navigation |
 
 These are single signed-action samples from two audit builds, not controlled chain-latency percentiles or a pristine-source comparison. Mint/redeem and commit confirmation appeared sooner in the final run; settlement took longer because the full pipeline includes waiting for a qualifying oracle print and the deployed Keeper. Settlement time is the UI polling observation relative to the original click. [Final browser evidence](../../frontend/docs/performance-audit/wallet-ui-final).
 

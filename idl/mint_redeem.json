@@ -4119,7 +4119,7 @@
     {
       "code": 6040,
       "name": "CorporateActionNoOp",
-      "msg": "Corporate-action ratio is 1:1 — nothing to apply"
+      "msg": "Corporate-action ratio is 1:1; nothing to apply"
     },
     {
       "code": 6041,
@@ -4139,7 +4139,7 @@
     {
       "code": 6044,
       "name": "CorporateActionEffectiveTooFarAhead",
-      "msg": "Corporate-action effective_ts is implausibly far ahead — check the unit (seconds, not milliseconds)"
+      "msg": "Corporate-action effective_ts is implausibly far ahead; check the unit (seconds, not milliseconds)"
     },
     {
       "code": 6045,

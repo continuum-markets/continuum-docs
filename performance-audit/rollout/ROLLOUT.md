@@ -1,4 +1,4 @@
-# Performance rollout — 9 October 2026
+# Performance rollout, 9 October 2026
 
 The authorized devnet rollout upgraded CLP and Oracle, resized all 15 eligible Oracle configs, and deployed the scoped Keeper and frontend improvements. Live mint, redemption, pool buy, pool sell, commit and Keeper settlement succeeded and their six receipts are finalized. The entries below distinguish deployed source from the broader local audit build.
 
