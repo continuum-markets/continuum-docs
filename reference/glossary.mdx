@@ -109,6 +109,8 @@ description: Continuum-specific terms in one place.
 
 **Realized ratchet** - The spread engine's fast term: a trailing empirical q90 of window moves, warm after about 8 windows. One of four terms in the half-spread.
 
+**Rebate pot** - The per-market cUSDC account at `["rebate_pot", market]` in the trading program that the [short rebate](/concepts/short-rebate) pays from. The keeper funds it from the treasury, never beyond the collateral yield the market has harvested since the rebate opened, and the reward index allocates no more than the pot has received.
+
 **Recovery** - The risk state after Stress. The fee and confidence multiplier falls from 3× to 1× over the hour after the market enters Recovery.
 
 **`redeem_fee_bps`** - Per-market redeem fee. The keeper posts the same value as `mint_fee_bps`.
@@ -124,6 +126,8 @@ description: Continuum-specific terms in one place.
 **S** (Short) - One half of a Continuum paired position. Rises in value as the underlying falls.
 
 **`S_NAV`** - Short-leg NAV: `K / L_NAV × s_gamma_index / 1e9`, with `K = initial_l_price × initial_s_price`.
+
+**Short rebate** - cUSDC paid to S staked from a trading account, at an annual rate on the staked S's value of `cap × ramp`. The cap is twice the market's realised collateral yield, and the ramp rises from 0 to 1 as traders' net long averages up to half the exposure cap. The rate can be 0, and nothing promises a return. → [Short rebate](/concepts/short-rebate).
 
 **Slippage** - The difference between the expected and the actual swap output. On the bin books it is the real cost of walking the bin ladder. Committed orders have none: they fill at NAV ± `max(commit_spread_bps, 10)` bps whatever their size.
 

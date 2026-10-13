@@ -48,6 +48,17 @@ A trade draws on the account first. A book order uses that book's seat first, th
 
 After a fill, proceeds stay in the account, ready for the next trade. A committed order that can't fill is refunded to the account.
 
+## Staking S for the rebate
+
+The [short rebate](/concepts/short-rebate) pays cUSDC to S that is staked from your trading account. S in your wallet, in a book seat or in the account's token account earns nothing until it is staked.
+
+1. **Open a position** for the market, once. `open_rebate_position` creates an empty position and vault, and anyone may pay its rent.
+2. **Stake.** `stake_rebate` moves S from the account's token account into the position's vault. The owner, the trading key or the keeper can sign it.
+3. **Claim.** `claim_rebate` pays what the position has earned into the account's own cUSDC token account. The owner, the key or the keeper can sign it, and the money can't go anywhere else.
+4. **Unstake.** `unstake_rebate` moves S back to the account. Only the owner or the trading key can sign it, and the keeper never can.
+
+Staked S earns exactly while it is staked, because staking and unstaking each settle first. Staked S is out of the account's token account, so it isn't there to sell or to place an order against until you unstake it. The rate can be 0, and it depends on the market's collateral yield and on how long traders are net long, so read `RebateMarket.rate_bps` from chain. Instruction and account details are on the [trading program](/programs/trading) page.
+
 ## Where a market order goes
 
 - While a market is closed, the pool's quotes and traders' orders are [one book](/flows/order-book#one-book-while-closed). A market order takes the cheapest offers first when you buy and the highest bids first when you sell, from either, in one transaction. At the same price, traders' orders fill first.
@@ -91,5 +102,8 @@ One cost never comes back: each book seat, and each book slot an order once need
 | `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market |
 | `swap_pool` | Owner or key | The CLP's `pool_swap` from the account. On a capped market, pass the pool long and short synth vaults and the CLP's long and short token accounts as remaining accounts; `swap_pool` hands them on to `pool_swap` for the [exposure cap](/flows/trade#exposure-cap) |
 | `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address |
+| `open_rebate_position` | Anyone | Opens the account's [rebate position](/programs/trading#open_rebate_position) for a market |
+| `stake_rebate`, `claim_rebate` | Owner, key or keeper | Stakes S into the rebate vault; pays earnings to the trader's own cUSDC account |
+| `unstake_rebate` | Owner or key | Returns staked S to the account. Never the keeper |
 
 A committed order placed from the account is owned by the trader address, so settlement pays its token accounts and refunds return there, the same as for any other order.

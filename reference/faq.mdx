@@ -112,6 +112,10 @@ Each market's `Clp` account stores an `oi_cap` in cUSDC atoms (0 means uncapped)
 
 A committed order that doesn't fit fills in part and the rest comes back to you. A bin-book fill or a lopsided redemption that doesn't fit reverts. Paired mints are never limited by it. The keeper re-sizes each cap every night from a one-year simulation and the treasury's balance, so read the live `Clp.oi_cap` from the chain. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap) and [Trade](/flows/trade#exposure-cap). The older `current_oi` field and the `update_oi` instruction are unused.
 
+## Can I earn something for holding the short leg?
+
+Possibly, through the [short rebate](/concepts/short-rebate). S staked from a trading account earns cUSDC from a pot that the keeper funds out of the collateral yield the market has harvested. The annual rate is twice that yield at most, and it is scaled from 0 up to full as traders' net long builds toward the exposure cap. It is 0 until a market's cap is live and traders are net long. It isn't a points program, and nothing promises a return, so read `RebateMarket.rate_bps` on chain for the current rate. Steps are on [Trading account](/flows/trading-account#staking-s-for-the-rebate).
+
 ## Why is the protocol the sole LP?
 
 To keep the MVP simple. The protocol funds the CLP's capital itself, and there are no user LP shares.

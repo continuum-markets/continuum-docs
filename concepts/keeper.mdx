@@ -10,6 +10,7 @@ The **keeper** is an off-chain Rust service, run by the protocol, that drives Co
 3. The commit settler cranks committed-order settlement, which anyone may do.
 4. The liquidity reallocator keeps each market's CLP vault at the cash it needs before its next top-up, holds the rest in the treasury, and backstops a market's collateral from the treasury when it falls below 100% or stays short of its target.
 5. The yield allocator decides how much of each market's collateral to lend, and where. It lends only on mainnet, and only when switched on.
+6. The short rebate crank refreshes each market's rebate rate and, in `live` mode, funds the rebate pot.
 
 The keeper is **not in your transaction**. User mints, redeems and trades go straight to the on-chain programs. But mint and redeem rely on its pushes: both revert with `TwapNotAvailable` when the last push is more than 300 s old.
 
@@ -122,6 +123,17 @@ Every 30 minutes it posts each market's [exposure cap](/concepts/solvency#6-expo
 
 It logs the market's current net exposure E next to the cap on chain and the target, so the log shows how close each market is to full. Only the primary instance runs it.
 
+### Short rebate
+
+About every 16 minutes (960 s, `REBATE_INTERVAL_SECS`) it runs [`refresh_rebate`](/programs/trading#refresh_rebate) for each market's [short rebate](/concepts/short-rebate), with the exposure accounts the instruction reads. The program moves the ramp's average only once 900 s have passed since its last step, so the extra minute makes every keeper refresh step it. The instruction is permissionless, so the keeper is only the cranker that is always running. It sets no rate. Only the primary instance runs it.
+
+`REBATE_MODE` is `off`, `crank` or `live`, and `crank` is the default.
+
+- `crank` sends `refresh_rebate` only. The rate and the ramp keep updating, but the pot is not topped up, so accrual slows to whatever the pot already holds.
+- `live` also funds the pot with `fund_rebate`, signed as the CLP authority. It tops the pot up to about a day of need when it falls under half a day of need, and never past the collateral yield the market has harvested since the rebate opened, which the program enforces with `RebateFundingAboveYield`. The cUSDC comes from the treasury through `admin_withdraw`, in one transaction with the `fund_rebate`, so it is subject to the treasury's withdrawal limits. It funds only when the treasury's withdrawal destination is the CLP authority's own cUSDC account and the withdrawal allowance covers the amount, and it skips a top-up under \$1.
+
+Funding does not count as yield for the cap. MSTR is closed and has no rebate.
+
 ### Housekeeping
 
 SOL balance checks every 300 s (with alerts, and airdrop top-ups on devnet), an inventory monitor, and an operator dashboard.
@@ -167,6 +179,7 @@ Most keeper behavior sits behind env switches that default on. γ decay has none
 | `COMMIT_SETTLE_ENABLED` | on | Settlement crank |
 | `LIQUIDITY_REALLOCATOR_MODE` | `live` | Treasury ↔ CLP-vault moves (`off`, `dryrun` or `live`) |
 | `EXPOSURE_CAPS_MODE` | `dryrun` | Posting the nightly exposure caps to `Clp.oi_cap` (`off`, `dryrun` or `live`) |
+| `REBATE_MODE` | `crank` | Short rebate: `refresh_rebate` only (`crank`), or also pot funding (`live`); `off` disables it |
 | `YIELD_ALLOCATOR_ENABLED` | on | Yield planning, on every cluster |
 | `COLLATERAL_YIELD_ENABLED` | off | Lending collateral (mainnet USDC only) |
 | `DEVNET_YIELD_EMULATION` | on (devnet only) | Devnet yield emulator |

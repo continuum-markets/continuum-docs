@@ -1,0 +1,84 @@
+---
+title: Short rebate
+description: How S held in a trading account can earn cUSDC from a market's collateral yield, why the rate is capped at twice that yield, and why the rebate is a pot rather than a promise.
+---
+
+The short rebate pays cUSDC to S that is staked from a trading account. It exists because the [exposure cap](/concepts/solvency#6-exposure-cap) limits how far traders can go net long, and a short is what opens room for another long. The rebate is a small, bounded reason to hold the short leg in a market that traders are buying one-sidedly.
+
+It is not a points program and it promises no return. The rate can be zero, and the amount paid can never exceed what the market's collateral has earned. Read the live values from chain, as described below.
+
+Every live market has a rebate. MSTR is closed and has none.
+
+## Who earns
+
+Only S that is staked from a trading account earns. [`stake_rebate`](/programs/trading#stake_rebate) moves S from the account's token account into a vault owned by the account's rebate position, and only [`unstake_rebate`](/programs/trading#unstake_rebate) moves it back. Both settle what the position has earned first.
+
+This means S earns exactly while it is staked. The same S can't be counted in two places, because it leaves the first account's token account when it is staked. A rebate that only read a balance could be gamed by moving tokens between accounts around a snapshot.
+
+The CLP's own inventory is never in a trading account, so it never earns.
+
+## How much
+
+The rebate accrues continuously on the value of the staked S, at an annual rate:
+
+```
+rate = cap × ramp
+```
+
+### The cap: twice the collateral yield
+
+`cap` is twice the market's realised collateral yield. The program measures that yield itself, from mint-redeem's `total_yield_harvested`, over windows of at least a day, and averages it with a 30-day time constant. Nothing a keeper reports sets it.
+
+Funding the pot does not count as yield. That cUSDC is yield the market had already harvested, and counting it again would let funding raise the cap.
+
+The ceiling is twice the yield because a held pair is flat under the γ ratchet. At equal value, one L and one S together are unchanged by each γ charge (see [Solvency](/concepts/solvency#the-invariant-paired-mintredeem-is-solvency-neutral)). Anyone can mint a pair without limit, so a rebate on S above twice what the pair's cash earns would pay people to hold both legs. At the ceiling, a pair holder's rebate is at most what lending the same cash would have earned.
+
+A pair still carries path and drift effects over a year, so this is a ceiling on what the rebate can be farmed for, not a claim that a pair is risk free.
+
+### The ramp: only when traders are net long
+
+```
+ramp = clip(EMA14(E / oi_cap) / 0.5, 0, 1)
+```
+
+E is traders' net exposure, measured by the same code the cap uses, and `oi_cap` is the market's [exposure cap](/programs/clp#exposure-cap). The ramp is a 14-day average of E as a share of the cap, scaled so that half the cap gives a ramp of 1.
+
+- It is 0 while the market is uncapped, balanced or short-heavy.
+- It is full once traders' net long has averaged half the cap.
+- The average moves at most once every 900 seconds, so cranking it every second can neither freeze it nor speed it up.
+
+The rate is therefore 0 until a market's exposure cap is live and traders are net long in it.
+
+## Nobody sets the rate
+
+[`refresh_rebate`](/programs/trading#refresh_rebate) recomputes the average, the realised yield and the rate. Anyone can call it. The keeper runs it about every 16 minutes (see [Short rebate in the keeper](/concepts/keeper#short-rebate)), but if it stops, anyone else can crank it. No key can set the rate, the cap or the ramp.
+
+## A pot, not a promise
+
+Rebates are paid from a per-market pot of cUSDC, an account owned by the rebate PDA. The keeper funds it from the treasury. Two rules bound it:
+
+- Cumulative funding can't exceed the collateral yield the market has harvested since the rebate opened. A larger `fund_rebate` fails with `RebateFundingAboveYield` (6020).
+- The reward index never allocates more than the pot has received. If the pot runs short, accrual slows to what the pot holds instead of creating a liability.
+
+A claim pays only into the trader's own cUSDC account, whoever signs it.
+
+## Reading it from chain
+
+The `RebateMarket` account at `["rebate", market]` holds `rate_bps`, `cap_bps`, `yield_bps`, `ema_x`, `total_units`, `funded_total`, `allocated_total` and `claimed_total`. Each `refresh_rebate` also emits `RebateRefreshed`, with the exposure, the cap and the pot's unallocated balance. Fields and seeds are on the [trading program](/programs/trading#accounts) page. Don't copy a rate from a document, because the yield and the exposure both move.
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Staking and claiming" icon="coins" href="/flows/trading-account#staking-s-for-the-rebate">
+    The steps from a trading account.
+  </Card>
+  <Card title="trading program" icon="square-terminal" href="/programs/trading">
+    The seven rebate instructions, accounts, events and errors.
+  </Card>
+  <Card title="Exposure cap" icon="gauge" href="/concepts/solvency#6-exposure-cap">
+    The cap the ramp is measured against.
+  </Card>
+  <Card title="Keeper" icon="robot" href="/concepts/keeper">
+    The crank and the pot funding.
+  </Card>
+</CardGroup>

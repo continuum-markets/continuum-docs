@@ -120,6 +120,12 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `IMBALANCE_KEEP_BPS` | unset | Overrides the CLP's stock share per leg (bps of the market's claims, at most 500). Unset, it follows the daily job's value, or 50 if the file is missing or over 48 hours old. |
 | `IMBALANCE_MIN_USD` | `100` | Smallest redemption or trim it sends. |
 
+### Short rebate
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `REBATE_MODE` | `crank` | `off`, `crank` or `live`. `crank` sends `refresh_rebate` for each market every `REBATE_INTERVAL_SECS` (960 s by default) and nothing else. `live` also funds each market's rebate pot with `fund_rebate`, signed as the CLP authority and paid from the treasury through `admin_withdraw`. It tops the pot up to about a day of need when it holds less than half a day, and never beyond the collateral yield the market has harvested since the rebate opened. See [Short rebate](/concepts/short-rebate). |
+
 ### Redemption settler
 
 | Variable | Default | Meaning |

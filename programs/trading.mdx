@@ -1,0 +1,139 @@
+---
+title: trading
+description: Trading accounts over the Manifest order books and the pool, plus the short rebate, with its accounts, seven instructions, events and errors, grouped by who may sign.
+---
+
+The trading program holds one rules account and one trader address per wallet. The wallet funds the account, and a browser trading key trades from it without a wallet prompt. The program also runs the [short rebate](/concepts/short-rebate), which pays cUSDC to S staked from a trading account.
+
+```
+Devnet ID: Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA
+IDL: idl/trading.json
+```
+
+The account instructions (`open_account`, `set_session`, `deposit`, `withdraw`, `place_orders`, `swap_pool`, `commit_order` and the rest) are listed on [Trading account](/flows/trading-account#program) and [Order book](/flows/order-book). This page covers the rebate.
+
+## Accounts
+
+### `RebateMarket` PDA
+
+```
+seeds = [b"rebate", market]
+```
+
+One per market. `market` is the mint-redeem `Market` PDA. The pot is the cUSDC token account at `[b"rebate_pot", market]`, owned by this PDA.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `market` | Pubkey | The mint-redeem market |
+| `short_mint` | Pubkey | The market's S mint |
+| `pot` | Pubkey | The pot's token account |
+| `acc_per_unit` | u128 | Cumulative cUSDC atoms per staked S atom, times 1e12 |
+| `accrued_until` | i64 | The index is accrued up to this time |
+| `rate_bps` | u32 | Annual rate on the staked S's value, `cap_bps × ramp`, from the last refresh |
+| `cap_bps` | u32 | Twice the realised collateral yield, bps a year |
+| `yield_bps` | u32 | Realised collateral yield, bps a year |
+| `yield_mark_ts` | i64 | Time of the last yield measurement |
+| `yield_mark_total` | u64 | `total_yield_harvested` at that time |
+| `ema_x` | i64 | 14-day average of E / `oi_cap`, times 1e6 |
+| `ema_ts` | i64 | Time of the last step of that average |
+| `total_units` | u64 | S staked across all positions |
+| `funded_total` | u64 | cUSDC put into the pot, cumulative. Never above the yield harvested since the rebate opened |
+| `harvested_base` | u64 | `total_yield_harvested` when the rebate opened |
+| `allocated_total` | u64 | cUSDC committed to the index, cumulative. Never above `funded_total` |
+| `claimed_total` | u64 | cUSDC paid out, cumulative |
+| `bump`, `pot_bump` | u8 | PDA bumps |
+| `reserved` | [u8; 64] | Spare space |
+
+### `RebatePosition` PDA
+
+```
+seeds = [b"rebate_pos", market, trader]
+```
+
+One per trading account and market. `trader` is the account's trader address. The S it holds is in the vault, a token account at `[b"rebate_vault", market, trader]` owned by the position PDA.
+
+| Field | Type | Purpose |
+|---|---|---|
+| `market` | Pubkey | The mint-redeem market |
+| `trader` | Pubkey | The trading account's trader address |
+| `units` | u64 | S staked in the vault |
+| `debt` | u128 | `acc_per_unit` when `pending` was last brought up to date |
+| `pending` | u64 | Earned and not yet claimed, in cUSDC atoms |
+| `bump`, `vault_bump` | u8 | PDA bumps |
+| `reserved` | [u8; 32] | Spare space |
+
+All four seeds are under the trading program.
+
+## Instructions
+
+| Instruction | Signer | What it does |
+|---|---|---|
+| `init_rebate_market` | CLP authority | Creates the market's `RebateMarket` and pot |
+| `fund_rebate(amount)` | CLP authority | Moves cUSDC into the pot, within the harvested-yield bound |
+| [`refresh_rebate`](#refresh_rebate) | Anyone | Accrues the index, then recomputes the average, the yield and the rate |
+| [`open_rebate_position`](#open_rebate_position) | Anyone | Creates a trader's empty position and vault |
+| [`stake_rebate(amount)`](#stake_rebate) | Owner, session key or keeper | Moves S from the account into the vault |
+| [`unstake_rebate(amount)`](#unstake_rebate) | Owner or session key | Moves S from the vault back to the account |
+| [`claim_rebate`](#claim_rebate) | Owner, session key or keeper | Pays the position's earnings into the trader's own cUSDC account |
+
+The keeper here is the market's CLP authority. `amount` is in S atoms for stake and unstake, and in cUSDC atoms for funding. Stake, unstake and claim each accrue the index and settle the position before they move anything, which is why S earns exactly while it is staked.
+
+### `refresh_rebate`
+
+Accounts: `mr_market`, `clp`, `rebate` (writable). The remaining accounts are the exposure inventory, the same four the [exposure cap](/programs/clp#exposure-cap) reads: the pool's long and short synth vaults, then the CLP's long and short token accounts. A market whose `oi_cap` is 0 reads no exposure and gets a rate of 0.
+
+It accrues the index at the old rate first, then updates the rate, so a refresh never rewrites the past. The 14-day average steps only after 900 seconds since its last step. The yield is re-measured after at least a day. It emits `RebateRefreshed`.
+
+### `open_rebate_position`
+
+Accounts: `payer` (signer, writable), `account`, `trader`, `mr_market`, `rebate`, `position` (writable), `vault` (writable), `short_mint`, `token_program`, `system_program`. It only creates an empty position and vault, so anyone may pay the rent for it. The position starts with `debt` set to the current index, so it earns nothing for the past.
+
+### `stake_rebate`
+
+Accounts: `authority` (signer), `account`, `trader`, `mr_market`, `clp`, `rebate`, `position`, `vault`, `trader_short`, `token_program`. The S comes from the trader's associated token account for the market's S mint. The trader address signs the transfer inside the program. The keeper may stake for an account, which only ever moves S into that account's own vault.
+
+### `unstake_rebate`
+
+Takes the same accounts as `stake_rebate`. Only the owner or the account's active session key may sign it. The keeper may never unstake. It fails with `InsufficientStake` (6019) when `amount` is more than the position holds, and with `SessionExpired` when a session key has expired.
+
+### `claim_rebate`
+
+Accounts: `authority` (signer), `account`, `trader`, `mr_market`, `clp`, `rebate`, `position`, `pot`, `trader_usdc`, `token_program`. `trader_usdc` must be the trader's associated cUSDC account, whoever signs, so a claim can't be redirected. A claim with nothing earned succeeds and moves nothing.
+
+## Events
+
+| Event | Fields |
+|---|---|
+| `RebateMarketOpened` | `market`, `pot` |
+| `RebateFunded` | `market`, `amount`, `funded_total` |
+| `RebateRefreshed` | `market`, `exposure`, `cap`, `ema_x`, `yield_bps`, `cap_bps`, `rate_bps`, `total_units`, `pot_free` |
+| `RebateStaked` | `owner`, `market`, `amount`, `units` |
+| `RebateUnstaked` | `owner`, `market`, `amount`, `units` |
+| `RebateClaimed` | `owner`, `market`, `amount` |
+
+In `RebateRefreshed`, `exposure` is traders' net position E in cUSDC atoms (0 while the market is uncapped), and `pot_free` is the pot's cUSDC not yet committed to the index.
+
+## Errors
+
+The rebate adds two errors to the trading program's list.
+
+| Code | Hex | Name | Raised when |
+|---|---|---|---|
+| 6019 | `0x1783` | `InsufficientStake` | `unstake_rebate` asks for more S than is staked |
+| 6020 | `0x1784` | `RebateFundingAboveYield` | `fund_rebate` would take cumulative funding above the yield the market has harvested since the rebate opened |
+
+Rebate instructions also use `NotAuthorized`, `SessionExpired`, `ZeroAmount`, `WrongTokenAccount` and `MathOverflow`. See [Errors](/reference/errors#trading).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Short rebate" icon="coins" href="/concepts/short-rebate">
+    The rate, the cap and the pot.
+  </Card>
+  <Card title="Trading account" icon="wallet" href="/flows/trading-account">
+    Setting up the account and staking from it.
+  </Card>
+  <Card title="Programs overview" icon="layer-group" href="/programs/overview">
+    Every program and its signers.
+  </Card>
+</CardGroup>

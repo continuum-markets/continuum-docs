@@ -180,7 +180,7 @@ Program ID (devnet): `9tUeQAPEtVSB68NSfvFAqfwaB74GuVxm6Zbp1hrMiNKY`
 
 Program ID (devnet): `Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA`
 
-These come from the [order book](/flows/order-book) and the [trading account](/flows/trading-account). Errors raised inside Manifest itself are Manifest's, not these.
+These come from the [order book](/flows/order-book), the [trading account](/flows/trading-account) and the [short rebate](/programs/trading#errors). Errors raised inside Manifest itself are Manifest's, not these.
 
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
@@ -203,6 +203,8 @@ These come from the [order book](/flows/order-book) and the [trading account](/f
 | 6016 | `0x1780` | `NoSeat` | `The trader has no seat on this market` | The trading account has no seat on the Manifest market yet. Claim one with `claim_seat` first. |
 | 6017 | `0x1781` | `InvalidDirection` | `Direction must be 0 (buy) or 1 (sell)` | A direction other than 0 or 1. |
 | 6018 | `0x1782` | `BadGlobalAccounts` | `Global accounts must come in groups of mint, global, global vault, market vault and token program, for this market's mints` | The remaining accounts for Manifest's global orders aren't in groups of five for this market's mints. |
+| 6019 | `0x1783` | `InsufficientStake` | `Not that much S is staked` | `unstake_rebate` asked for more S than the position has staked. Check `RebatePosition.units`. |
+| 6020 | `0x1784` | `RebateFundingAboveYield` | `The rebate pot can't be funded beyond the collateral yield the market has harvested since the rebate opened` | `fund_rebate` would take the pot's cumulative funding above `total_yield_harvested` minus the value it had when the rebate opened. Fund less, or wait for the market to harvest more. |
 
 ## Anchor errors below 6000
 

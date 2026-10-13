@@ -8,6 +8,184 @@
   },
   "instructions": [
     {
+      "name": "claim_rebate",
+      "docs": [
+        "Pay what the position has earned into the trader's own cUSDC account."
+      ],
+      "discriminator": [
+        180,
+        77,
+        169,
+        215,
+        170,
+        162,
+        242,
+        1
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "account.owner",
+                "account": "TradingRules"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                118,
+                63,
+                21,
+                136,
+                120,
+                75,
+                251,
+                217,
+                141,
+                83,
+                221,
+                151,
+                158,
+                38,
+                87,
+                206,
+                12,
+                129,
+                179,
+                110,
+                131,
+                178,
+                220,
+                187,
+                250,
+                67,
+                198,
+                105,
+                252,
+                252,
+                75,
+                71
+              ]
+            }
+          }
+        },
+        {
+          "name": "rebate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  112,
+                  111,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pot",
+          "writable": true
+        },
+        {
+          "name": "trader_usdc",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "claim_seat",
       "docs": [
         "Claim the trader's seat on a market, which Manifest needs before",
@@ -433,6 +611,277 @@
       ]
     },
     {
+      "name": "fund_rebate",
+      "docs": [
+        "Put harvested collateral yield into the pot. CLP authority only. Counted in",
+        "the realised yield that caps the rate, so it must only ever carry yield."
+      ],
+      "discriminator": [
+        92,
+        28,
+        88,
+        58,
+        204,
+        106,
+        236,
+        124
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                118,
+                63,
+                21,
+                136,
+                120,
+                75,
+                251,
+                217,
+                141,
+                83,
+                221,
+                151,
+                158,
+                38,
+                87,
+                206,
+                12,
+                129,
+                179,
+                110,
+                131,
+                178,
+                220,
+                187,
+                250,
+                67,
+                198,
+                105,
+                252,
+                252,
+                75,
+                71
+              ]
+            }
+          }
+        },
+        {
+          "name": "rebate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pot",
+          "writable": true
+        },
+        {
+          "name": "from",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "AmountParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_rebate_market",
+      "docs": [
+        "Open a market's rebate state and its cUSDC pot. CLP authority only."
+      ],
+      "discriminator": [
+        43,
+        67,
+        140,
+        185,
+        217,
+        4,
+        10,
+        109
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                118,
+                63,
+                21,
+                136,
+                120,
+                75,
+                251,
+                217,
+                141,
+                83,
+                221,
+                151,
+                158,
+                38,
+                87,
+                206,
+                12,
+                129,
+                179,
+                110,
+                131,
+                178,
+                220,
+                187,
+                250,
+                67,
+                198,
+                105,
+                252,
+                252,
+                75,
+                71
+              ]
+            }
+          }
+        },
+        {
+          "name": "rebate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pot",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  112,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "open_account",
       "docs": [
         "Create the owner's trading account. The trader PDA needs no account of",
@@ -499,6 +948,243 @@
               }
             ]
           }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_account_paid",
+      "docs": [
+        "Create a trading account for an owner that cannot pay rent itself: a",
+        "program's PDA, signing through invoke_signed (the CLP's pool, which",
+        "quotes on the books through its own account). `payer` funds the rules",
+        "account and owns nothing in it. Everything else is the same account:",
+        "deposits come from, and withdrawals go to, the owner's own token",
+        "accounts, and a session key may only trade inside the band."
+      ],
+      "discriminator": [
+        254,
+        65,
+        74,
+        133,
+        8,
+        114,
+        9,
+        145
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  100,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_rebate_position",
+      "docs": [
+        "Create a trader's empty position and vault for a market. Anyone may pay."
+      ],
+      "discriminator": [
+        27,
+        225,
+        17,
+        65,
+        182,
+        31,
+        204,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "account.owner",
+                "account": "TradingRules"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "rebate",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  112,
+                  111,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "short_mint"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
           "name": "system_program",
@@ -587,6 +1273,109 @@
           }
         }
       ]
+    },
+    {
+      "name": "refresh_rebate",
+      "docs": [
+        "Permissionless crank: accrue the index, then re-measure traders' net",
+        "position against the cap (remaining accounts: the exposure inventory) and",
+        "the realised yield, and set the rate."
+      ],
+      "discriminator": [
+        8,
+        159,
+        42,
+        197,
+        58,
+        204,
+        124,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                118,
+                63,
+                21,
+                136,
+                120,
+                75,
+                251,
+                217,
+                141,
+                83,
+                221,
+                151,
+                158,
+                38,
+                87,
+                206,
+                12,
+                129,
+                179,
+                110,
+                131,
+                178,
+                220,
+                187,
+                250,
+                67,
+                198,
+                105,
+                252,
+                252,
+                75,
+                71
+              ]
+            }
+          }
+        },
+        {
+          "name": "rebate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
     },
     {
       "name": "revoke_session",
@@ -698,12 +1487,232 @@
       ]
     },
     {
+      "name": "stake_rebate",
+      "docs": [
+        "Move S from the trader's token account into its rebate vault. The owner,",
+        "the session key or the keeper (CLP authority)."
+      ],
+      "discriminator": [
+        131,
+        246,
+        107,
+        46,
+        40,
+        87,
+        210,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "account.owner",
+                "account": "TradingRules"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                118,
+                63,
+                21,
+                136,
+                120,
+                75,
+                251,
+                217,
+                141,
+                83,
+                221,
+                151,
+                158,
+                38,
+                87,
+                206,
+                12,
+                129,
+                179,
+                110,
+                131,
+                178,
+                220,
+                187,
+                250,
+                67,
+                198,
+                105,
+                252,
+                252,
+                75,
+                71
+              ]
+            }
+          }
+        },
+        {
+          "name": "rebate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  112,
+                  111,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader_short",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "AmountParams"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "swap_pool",
       "docs": [
         "Swap on the CLP's bin book from the trading account. The book trades",
         "only while the market floats; the CLP enforces that. A session-signed",
         "swap must fill inside the band, judged on what actually moved, so a",
-        "stolen key cannot force a fill deep into the book."
+        "stolen key cannot force a fill deep into the book.",
+        "Remaining accounts are passed through to the CLP's `pool_swap`: when the",
+        "market is capped, the pool long/short synth vaults then the CLP's long/short",
+        "token accounts (the exposure cap's inventory, r63)."
       ],
       "discriminator": [
         217,
@@ -802,6 +1811,222 @@
           "type": {
             "defined": {
               "name": "PoolSwapArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "unstake_rebate",
+      "docs": [
+        "Move staked S back to the trader's token account. The owner or the session key."
+      ],
+      "discriminator": [
+        57,
+        44,
+        44,
+        220,
+        175,
+        78,
+        178,
+        153
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "account",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "account.owner",
+                "account": "TradingRules"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader",
+          "relations": [
+            "account"
+          ]
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                118,
+                63,
+                21,
+                136,
+                120,
+                75,
+                251,
+                217,
+                141,
+                83,
+                221,
+                151,
+                158,
+                38,
+                87,
+                206,
+                12,
+                129,
+                179,
+                110,
+                131,
+                178,
+                220,
+                187,
+                250,
+                67,
+                198,
+                105,
+                252,
+                252,
+                75,
+                71
+              ]
+            }
+          }
+        },
+        {
+          "name": "rebate",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  112,
+                  111,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  98,
+                  97,
+                  116,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              },
+              {
+                "kind": "account",
+                "path": "trader"
+              }
+            ]
+          }
+        },
+        {
+          "name": "trader_short",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "AmountParams"
             }
           }
         }
@@ -1055,6 +2280,19 @@
   ],
   "accounts": [
     {
+      "name": "Clp",
+      "discriminator": [
+        158,
+        129,
+        72,
+        4,
+        111,
+        37,
+        48,
+        111
+      ]
+    },
+    {
       "name": "Market",
       "discriminator": [
         219,
@@ -1078,6 +2316,32 @@
         177,
         109,
         188
+      ]
+    },
+    {
+      "name": "RebateMarket",
+      "discriminator": [
+        242,
+        229,
+        10,
+        107,
+        103,
+        87,
+        137,
+        201
+      ]
+    },
+    {
+      "name": "RebatePosition",
+      "discriminator": [
+        154,
+        143,
+        72,
+        20,
+        162,
+        50,
+        120,
+        169
       ]
     },
     {
@@ -1184,6 +2448,84 @@
         8,
         113,
         78
+      ]
+    },
+    {
+      "name": "RebateClaimed",
+      "discriminator": [
+        225,
+        106,
+        198,
+        84,
+        60,
+        69,
+        42,
+        135
+      ]
+    },
+    {
+      "name": "RebateFunded",
+      "discriminator": [
+        187,
+        119,
+        179,
+        136,
+        146,
+        34,
+        252,
+        64
+      ]
+    },
+    {
+      "name": "RebateMarketOpened",
+      "discriminator": [
+        99,
+        143,
+        72,
+        180,
+        229,
+        110,
+        34,
+        112
+      ]
+    },
+    {
+      "name": "RebateRefreshed",
+      "discriminator": [
+        255,
+        101,
+        155,
+        45,
+        76,
+        249,
+        200,
+        46
+      ]
+    },
+    {
+      "name": "RebateStaked",
+      "discriminator": [
+        224,
+        162,
+        131,
+        190,
+        223,
+        189,
+        71,
+        70
+      ]
+    },
+    {
+      "name": "RebateUnstaked",
+      "discriminator": [
+        192,
+        182,
+        46,
+        143,
+        216,
+        55,
+        23,
+        82
       ]
     },
     {
@@ -1321,6 +2663,16 @@
       "code": 6018,
       "name": "BadGlobalAccounts",
       "msg": "Global accounts must come in groups of mint, global, global vault, market vault and token program, for this market's mints"
+    },
+    {
+      "code": 6019,
+      "name": "InsufficientStake",
+      "msg": "Not that much S is staked"
+    },
+    {
+      "code": 6020,
+      "name": "RebateFundingAboveYield",
+      "msg": "The rebate pot can't be funded beyond the collateral yield the market has harvested since the rebate opened"
     }
   ],
   "types": [
@@ -1399,6 +2751,194 @@
             "type": {
               "option": "u32"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Clp",
+      "docs": [
+        "Per-market CLP operational account.",
+        "",
+        "Seeds: `[b\"clp\", market_id]`",
+        "",
+        "After the global vault migration, this account no longer holds LP capital.",
+        "It tracks market-specific operational state: inventory risk, yield deployments,",
+        "and Meteora position ownership."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market_id",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_fees_collected",
+            "type": "u64"
+          },
+          {
+            "name": "oi_cap",
+            "type": "u64"
+          },
+          {
+            "name": "current_oi",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "inventory_budget",
+            "type": {
+              "defined": {
+                "name": "InventoryBudget"
+              }
+            }
+          },
+          {
+            "name": "inventory_state",
+            "type": {
+              "defined": {
+                "name": "InventoryState"
+              }
+            }
+          },
+          {
+            "name": "yield_strategy",
+            "type": {
+              "defined": {
+                "name": "YieldStrategyConfig"
+              }
+            }
+          },
+          {
+            "name": "oracle_config",
+            "docs": [
+              "Oracle program config account for this market."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "deployment_count",
+            "docs": [
+              "Number of active yield deployments"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "yield_deployments",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "YieldDeployment"
+                }
+              }
+            }
+          },
+          {
+            "name": "total_deployed",
+            "docs": [
+              "Total amount currently deployed for yield"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault_l_deployed",
+            "docs": [
+              "L tokens currently outstanding from vault minting."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "vault_s_deployed",
+            "docs": [
+              "S tokens currently outstanding from vault minting."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_vault_pairs_minted",
+            "docs": [
+              "Cumulative USDC used for vault pair minting (informational)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_meteora_fees_earned",
+            "docs": [
+              "Cumulative Meteora LP fees earned by the vault (informational)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "meteora_long_pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "meteora_short_pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "meteora_long_position",
+            "type": "pubkey"
+          },
+          {
+            "name": "meteora_short_position",
+            "type": "pubkey"
+          },
+          {
+            "name": "allocated_from_global",
+            "docs": [
+              "USDC currently allocated to this market's operating vault from GlobalClp.",
+              "Incremented by allocate_to_market; decremented by vault_mint_pairs."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "swap_guards",
+            "docs": [
+              "Swap guards / circuit-breaker config. Default (zeroed) = disabled."
+            ],
+            "type": {
+              "defined": {
+                "name": "SwapGuardsState"
+              }
+            }
+          },
+          {
+            "name": "swap_window_start",
+            "docs": [
+              "Rolling notional-cap window: start time and cUSDC used so far."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "swap_window_used",
+            "type": "u64"
+          },
+          {
+            "name": "swap_prev_price",
+            "docs": [
+              "Last NAV accepted by a swap (for the deviation breaker; 0 = none yet)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "commit_spread_bps",
+            "docs": [
+              "Keeper-posted committed-order half-spread (bps), driven by the same vol",
+              "model as the book. `settle_swap` uses max(this, COMMIT_SPREAD_BPS) so it",
+              "never quotes thinner than the 10bps floor. 0 (unset/legacy) → floor.",
+              "This is the lever that prices the protocol's short-convexity exposure on",
+              "large committed fills (r38: flips a 20x asset from 99% bust → 0%)."
+            ],
+            "type": "u16"
           }
         ]
       }
@@ -1579,6 +3119,134 @@
           {
             "name": "amount",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InventoryBudget",
+      "docs": [
+        "Inventory risk budget configuration",
+        "q = fraction of treasury in volatile token"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "soft_lower_bps",
+            "docs": [
+              "Soft lower bound for volatile fraction (basis points, e.g., 1000 = 10%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "soft_upper_bps",
+            "docs": [
+              "Soft upper bound for volatile fraction (basis points, e.g., 2500 = 25%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "hard_lower_bps",
+            "docs": [
+              "Hard lower bound - emergency action if breached (basis points, e.g., 500 = 5%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "hard_upper_bps",
+            "docs": [
+              "Hard upper bound - emergency action if breached (basis points, e.g., 3500 = 35%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "max_drawdown_bps",
+            "docs": [
+              "Maximum allowed drawdown (basis points, e.g., 2000 = 20%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "target_drawdown_bps",
+            "docs": [
+              "Target operating drawdown (basis points, e.g., 1200 = 12%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "enforce_hard_bounds",
+            "docs": [
+              "Whether to enforce hard bounds (can pause operations)"
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InventoryState",
+      "docs": [
+        "Current inventory state tracking"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "volatile_value",
+            "docs": [
+              "Current volatile token value in treasury (in USDC terms)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "stable_value",
+            "docs": [
+              "Current stable token value in treasury"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "current_q_bps",
+            "docs": [
+              "Current q ratio (volatile / total) in basis points"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "peak_value",
+            "docs": [
+              "Peak treasury value (for drawdown calculation)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "current_drawdown_bps",
+            "docs": [
+              "Current drawdown from peak (basis points)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "soft_breach",
+            "docs": [
+              "Whether we're in soft bound breach"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "hard_breach",
+            "docs": [
+              "Whether we're in hard bound breach (emergency)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "last_update",
+            "docs": [
+              "Last update timestamp"
+            ],
+            "type": "i64"
           }
         ]
       }
@@ -2292,6 +3960,353 @@
       }
     },
     {
+      "name": "RebateClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebateFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "funded_total",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebateMarket",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "docs": [
+              "The mint-redeem market."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "short_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "pot",
+            "docs": [
+              "cUSDC account owned by this PDA (seeds `rebate_pot`, market)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "acc_per_unit",
+            "docs": [
+              "cUSDC atoms per staked S atom, × ACC_SCALE, cumulative."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "accrued_until",
+            "docs": [
+              "The index is accrued up to here."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "rate_bps",
+            "docs": [
+              "Annual rate on the staked S's value, bps (cap × ramp), from the last refresh."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "cap_bps",
+            "docs": [
+              "Twice the realised collateral yield, bps a year."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "yield_bps",
+            "docs": [
+              "Realised collateral yield, bps a year."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "yield_mark_ts",
+            "type": "i64"
+          },
+          {
+            "name": "yield_mark_total",
+            "docs": [
+              "`total_yield_harvested` at `yield_mark_ts`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "ema_x",
+            "docs": [
+              "14-day average of E / oi_cap, × 1e6."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "ema_ts",
+            "type": "i64"
+          },
+          {
+            "name": "total_units",
+            "docs": [
+              "Staked S across all positions."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "funded_total",
+            "docs": [
+              "cUSDC put into the pot, cumulative. Never above what the market has",
+              "harvested since the rebate opened."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "harvested_base",
+            "docs": [
+              "`total_yield_harvested` when the rebate opened."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "allocated_total",
+            "docs": [
+              "cUSDC committed to the index, cumulative. Never above `funded_total`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "claimed_total",
+            "docs": [
+              "cUSDC paid out, cumulative."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "pot_bump",
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebateMarketOpened",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "pot",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebatePosition",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "trader",
+            "docs": [
+              "The trading account's trader PDA."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "units",
+            "docs": [
+              "S staked in the vault (seeds `rebate_vault`, market, trader)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "debt",
+            "docs": [
+              "`acc_per_unit` when `pending` was last brought up to date."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "pending",
+            "docs": [
+              "Earned, not yet claimed (cUSDC atoms)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebateRefreshed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "exposure",
+            "docs": [
+              "Traders' net position E, cUSDC atoms (0 while uncapped)."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "cap",
+            "type": "u64"
+          },
+          {
+            "name": "ema_x",
+            "type": "i64"
+          },
+          {
+            "name": "yield_bps",
+            "type": "u32"
+          },
+          {
+            "name": "cap_bps",
+            "type": "u32"
+          },
+          {
+            "name": "rate_bps",
+            "type": "u32"
+          },
+          {
+            "name": "total_units",
+            "type": "u64"
+          },
+          {
+            "name": "pot_free",
+            "docs": [
+              "Pot cUSDC not yet committed to the index."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebateStaked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "units",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebateUnstaked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "units",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "RiskFeeConfig",
       "docs": [
         "Configuration for risk-based fee adjustments"
@@ -2422,6 +4437,83 @@
       }
     },
     {
+      "name": "SwapGuardsState",
+      "docs": [
+        "v2 native oracle-pegged swap guards (persisted on `Clp`). Mirrors the pure",
+        "`swap::SwapGuards` used by the math/breaker logic; `to_guards()` converts.",
+        "All-zero default (`enabled=false`) keeps swaps OFF until `configure_swap` is",
+        "called — safe for accounts realloc'd into the new layout."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "enabled",
+            "docs": [
+              "Master on/off for the native swap path."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "frozen",
+            "docs": [
+              "Hard kill switch (admin or auto-set on oracle degradation)."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "spread_bps",
+            "docs": [
+              "LP edge applied to NAV, bps."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "max_staleness_secs",
+            "docs": [
+              "Reject if the NAV/TWAP is older than this many seconds."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "docs": [
+              "Reject if oracle confidence exceeds this (bps of price)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "max_deviation_bps",
+            "docs": [
+              "Reject if NAV moved more than this vs the last accepted price (bps)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "window_cap_usd",
+            "docs": [
+              "Rolling-window notional cap (cUSDC, 6-dec); 0 = uncapped."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "window_secs",
+            "docs": [
+              "Rolling-window length (seconds)."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "collateral_floor_bps",
+            "docs": [
+              "Minimum collateralization (bps) that must hold AFTER a swap."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
       "name": "TradingRules",
       "docs": [
         "One per owner wallet. Holds the trading rules; the funds sit with `trader`,",
@@ -2537,6 +4629,156 @@
               "Confidence multiplier in Stress state (also the starting point for Recovery Dutch auction)"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "YieldDeployment",
+      "docs": [
+        "Yield deployment to a specific protocol"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "protocol",
+            "docs": [
+              "Protocol where yield is deployed"
+            ],
+            "type": {
+              "defined": {
+                "name": "YieldProtocol"
+              }
+            }
+          },
+          {
+            "name": "amount_deployed",
+            "docs": [
+              "Amount deployed"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "deployed_at",
+            "docs": [
+              "Timestamp of deployment"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "last_harvest",
+            "docs": [
+              "Last yield harvest time"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "total_yield_earned",
+            "docs": [
+              "Total yield earned from this deployment"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "docs": [
+              "Whether this deployment is active"
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "YieldProtocol",
+      "docs": [
+        "Yield protocol identifier",
+        "",
+        "Tag only — the on-chain CLP program treats every variant identically",
+        "(just records the deployment in `yield_deployments[]`). The actual",
+        "deposit/withdraw CPI is composed off-chain by the keeper, which means",
+        "adding a new venue here does NOT require any further program changes,",
+        "only a keeper-side adapter. Append-only for backwards-compat with",
+        "existing on-chain `YieldDeployment` records that store the discriminant",
+        "byte: never reorder."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Kamino"
+          },
+          {
+            "name": "MarginFi"
+          },
+          {
+            "name": "Other"
+          },
+          {
+            "name": "Solend"
+          },
+          {
+            "name": "JupiterLend"
+          }
+        ]
+      }
+    },
+    {
+      "name": "YieldStrategyConfig",
+      "docs": [
+        "Yield strategy configuration"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "normal_deployment_bps",
+            "docs": [
+              "Maximum % of idle collateral to deploy for yield (basis points)",
+              "Dynamic based on risk state"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "proxy_deployment_bps",
+            "type": "u16"
+          },
+          {
+            "name": "stress_deployment_bps",
+            "type": "u16"
+          },
+          {
+            "name": "recovery_deployment_bps",
+            "type": "u16"
+          },
+          {
+            "name": "min_liquid_reserve",
+            "docs": [
+              "Absolute minimum reserve to keep liquid (in USDC, 6 decimals)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "min_liquid_reserve_bps",
+            "docs": [
+              "Target liquid reserve as a share of TVL"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "oi_liquidity_buffer_bps",
+            "docs": [
+              "Extra reserve linked to live open interest"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "enabled",
+            "docs": [
+              "Whether yield strategy is enabled"
+            ],
+            "type": "bool"
           }
         ]
       }
