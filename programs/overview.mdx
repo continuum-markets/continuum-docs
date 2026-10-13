@@ -45,7 +45,6 @@ An IDL is the JSON description of a program's instructions, accounts, types, eve
 | Program | Account | Seeds |
 |---|---|---|
 | mint-redeem | `Market` | `[b"market", symbol]`, raw symbol bytes such as `QQQ` |
-| mint-redeem | `FeeWaiver` | `[b"fee_waiver", donor, market]` |
 | mint-redeem | `RedemptionRequest` | `[b"redemption", market, owner]` |
 | mint-redeem | redemption escrow (token account, one per leg) | `[b"redemption_escrow", request, mint]` |
 | mint-redeem | `MarketAdvance` | `[b"market_advance", market]` |
@@ -79,7 +78,7 @@ Each instruction that changes state checks its signer. The table follows the `ha
 
 | Signer | Instructions |
 |---|---|
-| Anyone | trading: `refresh_rebate` (a permissionless crank), `open_rebate_position`. mint-redeem: `mint_paired`, `redeem_paired`, `mint_paired_with_waiver` and `redeem_paired_with_waiver` (with the signer's own waiver), `donate_to_vault`, `permissionless_burn` (owner of the burned account), `request_redemption` and `cancel_redemption` (the owner of the request). clp: `pool_swap`, `commit_swap`, `settle_swap` (any cranker), `cancel_swap` (anyone, after the order expires; the refund goes to the owner), `clp_swap` (retired; always fails), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
+| Anyone | trading: `refresh_rebate` (a permissionless crank), `open_rebate_position`. mint-redeem: `mint_paired`, `redeem_paired`, `donate_to_vault`, `permissionless_burn` (owner of the burned account), `request_redemption` and `cancel_redemption` (the owner of the request). clp: `pool_swap`, `commit_swap`, `settle_swap` (any cranker), `cancel_swap` (anyone, after the order expires; the refund goes to the owner), `clp_swap` (retired; always fails), `apply_treasury_limits` (once the pending change's delay has passed). faucet: `drip`. |
 | `market.keeper_authority` | mint-redeem: `update_risk_state`, `update_risk_state_v2`, `set_s_gamma_index`, `set_buffer_target`, `keeper_mint_single`, `keeper_redeem_single`, `keeper_burn_single`, `rebalance_collateral` (keeper of both markets), `deploy_collateral_to_yield`, `recall_collateral_from_yield`, `harvest_collateral_yield`, `settle_redemption`, and `repay_advance` (the market authority may also call it). |
 | `market.authority` | mint-redeem: `update_market`, `update_keeper_authority`, `update_market_oracle`, `update_fee_recipient`, `configure_risk_fees`, `configure_worst_case_quoting`, `configure_yield_ceiling`, `enable_multi_collateral`, `add_collateral_vault`, `update_collateral_vault`, `withdraw_excess_to_clp`, `mark_yield_impairment`, `reanchor_gamma`, `apply_corporate_action`, `create_token_metadata`, `realloc_market`, `close_market_admin`, `fund_collateral`, `fund_collateral_from` and `receive_advance` (each with a second signer, the `funder`, who owns the cUSDC), `configure_market_advance`, `write_off_advance`, `repay_advance` (the keeper may also call it). oracle: `initialize_oracle_config`. clp: `initialize_clp`. |
 | mint-redeem program upgrade authority | mint-redeem: `initialize_market`. |

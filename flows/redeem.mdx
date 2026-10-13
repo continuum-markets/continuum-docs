@@ -104,7 +104,7 @@ A lopsided redemption must pass five remaining accounts, in this order:
 4. The CLP's long token account.
 5. The CLP's short token account.
 
-Without them it fails with `ExposureAccountsMissing` (6062). Each account is checked against its derived address, owner and mint (`ExposureAccountMismatch`, 6061), so an empty look-alike can't understate the CLP's holdings. A redemption past the cap fails with `ExposureCapExceeded` (6060). A redemption within \$1 of balanced skips the check and needs no extra accounts. A lopsided one needs them even on a market whose `oi_cap` is 0, where the check then passes. The market's CLP redeeming its own inventory (`vault_redeem_pairs`) is exempt, because burning CLP-held tokens lowers a supply and the CLP's holding of it together, so traders' net position doesn't move. `redeem_paired_with_waiver` and `request_redemption` follow the same rule, and a request is checked when it is made. If you hit the cap, redeem more evenly, sell the extra leg on a venue with room, or wait for the room to grow.
+Without them it fails with `ExposureAccountsMissing` (6062). Each account is checked against its derived address, owner and mint (`ExposureAccountMismatch`, 6061), so an empty look-alike can't understate the CLP's holdings. A redemption past the cap fails with `ExposureCapExceeded` (6060). A redemption within \$1 of balanced skips the check and needs no extra accounts. A lopsided one needs them even on a market whose `oi_cap` is 0, where the check then passes. The market's CLP redeeming its own inventory (`vault_redeem_pairs`) is exempt, because burning CLP-held tokens lowers a supply and the CLP's holding of it together, so traders' net position doesn't move. `request_redemption` follows the same rule, and a request is checked when it is made. If you hit the cap, redeem more evenly, sell the extra leg on a venue with room, or wait for the room to grow.
 
 ## When the vault cannot pay yet
 
@@ -151,10 +151,6 @@ A redeem can never pay out more than the vault holds, because `gross` can't exce
 | SPL Token error `0x1` | | Your L or S balance is below the amount |
 
 See the [full error catalog](/reference/errors).
-
-## Fee waivers
-
-`redeem_paired_with_waiver` takes the same accounts plus the user's `FeeWaiver` PDA and skips the fee under the conditions on [Mint](/flows/mint#fee-waivers).
 
 ## What you receive
 

@@ -76,14 +76,6 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 
 Anchor TS decodes `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `gammaDayDecay1E9` and `shortPayoffCapC1E9`; every other field is plain camelCase (`userTwapPrice`).
 
-### FeeWaiver
-
-```
-seeds = [b"fee_waiver", donor, market]
-```
-
-Created by the donor's first `donate_to_vault` on a market and read by the `_with_waiver` instructions. Fields: `donor`, `market`, `waiver_end_at` (unix seconds), `total_donated`, `total_gap_closed_bps` and `bump`.
-
 ### RedemptionRequest
 
 ```
@@ -105,10 +97,9 @@ The ledger of the treasury's loan to one market, created by `configure_market_ad
 
 Every market keeps its collateral in its own vault, owned by its Market PDA, and the Market PDA signs every payout. The upgrade of 11 Oct 2026 removed the unified vault from the program, along with the `CollateralAuthority` account type.
 
-Seven instructions still have a `collateral_authority` account in its old position:
+Six instructions still have a `collateral_authority` account in its old position:
 
 - `redeem_paired`
-- `redeem_paired_with_waiver`, inside `base` and before `fee_waiver`
 - `keeper_mint_single` and `keeper_redeem_single`
 - `redeem_single_for_vault`
 - `withdraw_excess_to_clp` and `deploy_collateral_to_yield`
@@ -131,7 +122,7 @@ Mint and redeem quote each leg against the user. Let c be `oracle_confidence` ti
 
 ### Fees
 
-The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
+The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). No waiver or discount applies, and donating earns none. The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
 
 The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account, the treasury on every live market since 12 Oct 2026. The rest stays in the vault and counts in `total_collateral`.
 
@@ -155,13 +146,9 @@ Burns `l_amount` L and `s_amount` S and pays `l_amount × L + s_amount × S` at 
 
 A redemption whose L and S values differ by more than \$1 at the redeem NAVs is a one-sided trade against the vault, and it is checked against the market's [exposure cap](/concepts/solvency#6-exposure-cap) before anything is burned. Pass five remaining accounts: the market's `Clp` account, the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account, in that order. Without them it fails with `ExposureAccountsMissing` (6062). A wrong address, owner or mint fails with `ExposureAccountMismatch` (6061), and a redemption that would push traders' net position past the cap fails with `ExposureCapExceeded` (6060). A redemption within \$1 of balanced needs none of this. A lopsided one needs the accounts even when `oi_cap` is 0, though the check then passes. The CLP redeeming its own inventory through `vault_redeem_pairs` is exempt, because burning CLP-held tokens can't move traders' net position. Minting a pair and redeeming only the S would otherwise leave traders net long without touching the CLP, which is why redemptions are checked at all.
 
-#### `mint_paired_with_waiver` and `redeem_paired_with_waiver`
-
-Same arguments as `mint_paired` and `redeem_paired`. The accounts are the base accounts nested under `base`, plus the caller's `feeWaiver`. The fee is 0 when the waiver hasn't expired, the price is at most 300 s old and the market's collateral ratio is at or above its target ratio (the daily Monte Carlo target the keeper posts for each market, 101% or more; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)). Otherwise the normal fee applies. `redeem_paired_with_waiver` takes the same exposure remaining accounts as `redeem_paired`.
-
 #### `donate_to_vault(amount: u64)`
 
-Adds cUSDC to a market's collateral without minting anything, and extends the donor's `FeeWaiver` by 6 s for each basis point of the gap to the target ratio that the donation closes. A donation to a market already at or above target extends nothing. It needs a price at most 300 s old. The instruction is still on-chain, but the app stopped offering it on 9 Oct 2026.
+Adds cUSDC to a market's collateral without minting anything. The market must be active and `amount` above 0. The amount goes into the collateral vault and `total_collateral`, and the donor gets nothing back: no tokens, no fee waiver and no other reward. It reads no price, so it has no staleness check. Accounts: `market`, `collateralVault`, `donorCollateral`, `donor` (signer), `tokenProgram`. The app stopped offering donations on 9 Oct 2026.
 
 #### `request_redemption(params: RedemptionAmounts)`
 
@@ -193,7 +180,7 @@ The keeper's price write. It maps the price and the confidence through the corpo
 
 #### `set_buffer_target(buffer_target_bps: u16)`
 
-Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The keeper posts each market's daily Monte Carlo target, and only when it differs from the stored one; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). The target gates only three things: the fee waiver, the waiver credit a donation earns for closing the gap to target, and how much excess a market can shed (`withdraw_excess_to_clp`, `rebalance_collateral`). Mints and redeems don't read it.
+Posts the market's buffer over parity, clamped to 100 to 5,000 bps (a target ratio of 101% to 150%). The keeper posts each market's daily Monte Carlo target, and only when it differs from the stored one; see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer). The target gates how much excess a market can shed (`withdraw_excess_to_clp`, `rebalance_collateral`). Mints and redeems don't read it.
 
 #### `settle_redemption(params: SettleRedemptionParams)`
 
@@ -291,7 +278,7 @@ Zero-fills a market account and returns its lamports to the signer. For an accou
 
 #### `fund_collateral(amount: u64)`
 
-Tops up a market's collateral from the authority's own cUSDC account. It transfers `amount` into `market.collateral_vault` and adds it to `total_collateral`. Unlike `donate_to_vault`, it grants no fee waiver and has no price check. Emits `CollateralFunded`.
+Tops up a market's collateral from the authority's own cUSDC account. It transfers `amount` into `market.collateral_vault` and adds it to `total_collateral`. Like `donate_to_vault`, it grants no fee waiver and has no price check. Emits `CollateralFunded`.
 
 #### `fund_collateral_from(amount: u64)`
 
@@ -316,7 +303,7 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 
 | Event | Emitted by | Fields |
 |---|---|---|
-| `PairedActionExecuted` | every paired mint and redeem, including the waiver variants and the CLP's CPI calls | `user`, `market`, `collateral_mint`, `long_mint`, `short_mint`, `action` (0 mint, 1 redeem), `is_keeper`, `collateral_amount` (paid in or out), `gross_collateral_amount` (before the fee), `long_amount`, `short_amount`, `fee_amount`, `dev_tax`, `long_decimals`, `short_decimals` |
+| `PairedActionExecuted` | every paired mint and redeem, including the CLP's CPI calls | `user`, `market`, `collateral_mint`, `long_mint`, `short_mint`, `action` (0 mint, 1 redeem), `is_keeper`, `collateral_amount` (paid in or out), `gross_collateral_amount` (before the fee), `long_amount`, `short_amount`, `fee_amount`, `dev_tax`, `long_decimals`, `short_decimals` |
 | `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
 | `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
 | `CollateralFunded` | `fund_collateral` and `fund_collateral_from` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |

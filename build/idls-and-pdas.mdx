@@ -78,7 +78,6 @@ const order = pda(
 const addresses: Record<string, PublicKey> = {
   // mint-redeem
   market,
-  feeWaiver: pda([seed("fee_waiver"), wallet.toBuffer(), market.toBuffer()], MINT_REDEEM),
   // oracle
   oracleConfig: pda([seed("oracle_config"), market.toBuffer()], ORACLE),
   // clp
@@ -114,7 +113,6 @@ Output for QQQ on devnet (11 Oct 2026); the wallet-specific rows depend on the w
 
 ```
 market               F12ostJBgYCzsdouwz5GG1qeBCwbmhNGucPBNCZCfPG5 891 bytes
-feeWaiver            (wallet-specific)                            no account
 oracleConfig         7uMgq2tpFW9FatCwAPtAjndvADCr3p8NiNFo7EZLSaV1 1781 bytes
 globalClp            BcGR8kuGCiMhwonyztXZHEZtjJXxXVRgjwbn58bUfXtw 536 bytes
 treasuryPolicy       58JeHAcMAAyEZWusVqmvoFNVqh37cTkmfbbP6bMHExWR 210 bytes
@@ -133,7 +131,6 @@ registryEntry        G2QaqhBF1j1U9DA7s8sjuZJ3ysmPbEJbce9qaKRzzhX7 no account
 
 Some rows can show "no account", and that is expected:
 
-- `feeWaiver` exists only after the wallet has donated to that market with `donate_to_vault`.
 - `order` and `escrow` exist only while that order is open. `settle_swap` and `cancel_swap` close both.
 - `dripRecord` exists after the wallet's first faucet drip.
 - `faucetMintAuthority` is a signing PDA that holds no data. It is the cUSDC mint's mint authority.

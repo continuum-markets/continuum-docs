@@ -74,7 +74,7 @@ The program clamps any target to [100, 5000] bps over parity (101% to 150%).
 
 These targets replaced a formula the keeper computed live from 40 minutes of realized volatility, `B = δ²/2 + |q|·δ + margin`, on 11 Oct 2026. A replay of the keeper's own prices showed that formula swinging from 4% to 50% within the hour and falling to 2% after restarts.
 
-On chain the target gates only three things: the donor fee waiver, how much excess a market can shed to others (`withdraw_excess_to_clp` and `rebalance_collateral`), and the credit a donation earns for closing the gap to target. Mints and redeems don't depend on it. The keeper's [treasury backstop](#treasury-backstop) fills markets toward it.
+On chain the target gates only how much excess a market can shed to others (`withdraw_excess_to_clp` and `rebalance_collateral`). Mints and redeems don't depend on it. The keeper's [treasury backstop](#treasury-backstop) fills markets toward it.
 
 ### 4. Volatility decay (the γ-index)
 
@@ -120,7 +120,7 @@ Five channels push the ratio up over time:
 1. 90% of every mint and redeem fee stays in the vault, immediately.
 2. Each volatility-decay step marks short claims down.
 3. When the price moves back toward a position's mint price, its claim falls and the vault over-collateralizes passively.
-4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`, which grants no fee waiver and needs no fresh price. The CLP's `backstop_market` moves cUSDC from the treasury into a market's vault the same way. CLP trading profits reach a market's collateral only through these. The keeper calls `backstop_market` when a market falls below 100% or stays short of its target (see [Treasury backstop](#treasury-backstop)), and calls neither of the others. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
+4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. Neither grants a fee waiver or any other reward, and neither needs a fresh price. The CLP's `backstop_market` moves cUSDC from the treasury into a market's vault the same way. CLP trading profits reach a market's collateral only through these. The keeper calls `backstop_market` when a market falls below 100% or stays short of its target (see [Treasury backstop](#treasury-backstop)), and calls neither of the others. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
 5. Harvested collateral yield is added to `total_collateral` by `harvest_collateral_yield`.
 
 On devnet, collateral yield is emulated. Every live market has `yield_enabled = true` as of 11 Oct 2026. Each hour the keeper mints the cUSDC that its mainnet lending plan would have earned on a market's collateral and harvests it into that market, which raises its collateral ratio. Nothing is actually lent on devnet.

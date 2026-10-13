@@ -784,6 +784,15 @@
     },
     {
       "name": "donate_to_vault",
+      "docs": [
+        "Permissionless top-up of the collateral vault.",
+        "",
+        "Increases `total_collateral` and the vault balance without minting any",
+        "tokens, so every holder's collateralization strictly improves. It funds",
+        "the protocol's safety buffer and nothing else: the donor receives no",
+        "reward. (A per-donor fee waiver used to be granted here; it was removed",
+        "on 13 Oct 2026, audit MR-13.)"
+      ],
       "discriminator": [
         94,
         168,
@@ -821,51 +830,25 @@
         },
         {
           "name": "collateral_vault",
+          "docs": [
+            "Per-market collateral vault — must match the one bound to this market",
+            "at init. Owned by the Market PDA."
+          ],
           "writable": true
         },
         {
           "name": "donor_collateral",
+          "docs": [
+            "Source ATA. Holds the cUSDC the donor is sending in. Must hold the",
+            "market's collateral mint; the SPL transfer below validates the mint",
+            "match implicitly (cross-mint transfers fail in the SPL token program)."
+          ],
           "writable": true
-        },
-        {
-          "name": "fee_waiver",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  101,
-                  101,
-                  95,
-                  119,
-                  97,
-                  105,
-                  118,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "donor"
-              },
-              {
-                "kind": "account",
-                "path": "market"
-              }
-            ]
-          }
         },
         {
           "name": "donor",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         },
         {
           "name": "token_program",
@@ -1645,129 +1628,6 @@
       ]
     },
     {
-      "name": "mint_paired_with_waiver",
-      "discriminator": [
-        3,
-        247,
-        50,
-        38,
-        144,
-        63,
-        12,
-        187
-      ],
-      "accounts": [
-        {
-          "name": "base",
-          "accounts": [
-            {
-              "name": "market",
-              "writable": true,
-              "pda": {
-                "seeds": [
-                  {
-                    "kind": "const",
-                    "value": [
-                      109,
-                      97,
-                      114,
-                      107,
-                      101,
-                      116
-                    ]
-                  },
-                  {
-                    "kind": "account",
-                    "path": "market.asset_symbol",
-                    "account": "Market"
-                  }
-                ]
-              }
-            },
-            {
-              "name": "user",
-              "writable": true,
-              "signer": true
-            },
-            {
-              "name": "user_collateral",
-              "writable": true
-            },
-            {
-              "name": "user_long_account",
-              "writable": true
-            },
-            {
-              "name": "user_short_account",
-              "writable": true
-            },
-            {
-              "name": "long_mint",
-              "writable": true
-            },
-            {
-              "name": "short_mint",
-              "writable": true
-            },
-            {
-              "name": "collateral_vault",
-              "writable": true
-            },
-            {
-              "name": "dev_token_account",
-              "writable": true
-            },
-            {
-              "name": "oracle"
-            },
-            {
-              "name": "token_program",
-              "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-            }
-          ]
-        },
-        {
-          "name": "fee_waiver",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  101,
-                  101,
-                  95,
-                  119,
-                  97,
-                  105,
-                  118,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "base.user",
-                "account": "MintPaired"
-              },
-              {
-                "kind": "account",
-                "path": "base.market",
-                "account": "MintPaired"
-              }
-            ]
-          }
-        }
-      ],
-      "args": [
-        {
-          "name": "collateral_amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "permissionless_burn",
       "discriminator": [
         183,
@@ -2251,137 +2111,6 @@
         {
           "name": "collateral_authority",
           "optional": true
-        }
-      ],
-      "args": [
-        {
-          "name": "l_amount",
-          "type": "u64"
-        },
-        {
-          "name": "s_amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "redeem_paired_with_waiver",
-      "discriminator": [
-        104,
-        123,
-        138,
-        214,
-        139,
-        211,
-        48,
-        242
-      ],
-      "accounts": [
-        {
-          "name": "base",
-          "accounts": [
-            {
-              "name": "market",
-              "writable": true,
-              "pda": {
-                "seeds": [
-                  {
-                    "kind": "const",
-                    "value": [
-                      109,
-                      97,
-                      114,
-                      107,
-                      101,
-                      116
-                    ]
-                  },
-                  {
-                    "kind": "account",
-                    "path": "market.asset_symbol",
-                    "account": "Market"
-                  }
-                ]
-              }
-            },
-            {
-              "name": "user",
-              "writable": true,
-              "signer": true
-            },
-            {
-              "name": "user_collateral",
-              "writable": true
-            },
-            {
-              "name": "user_long_account",
-              "writable": true
-            },
-            {
-              "name": "user_short_account",
-              "writable": true
-            },
-            {
-              "name": "long_mint",
-              "writable": true
-            },
-            {
-              "name": "short_mint",
-              "writable": true
-            },
-            {
-              "name": "collateral_vault",
-              "writable": true
-            },
-            {
-              "name": "dev_token_account",
-              "writable": true
-            },
-            {
-              "name": "oracle"
-            },
-            {
-              "name": "token_program",
-              "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-            },
-            {
-              "name": "collateral_authority",
-              "optional": true
-            }
-          ]
-        },
-        {
-          "name": "fee_waiver",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  101,
-                  101,
-                  95,
-                  119,
-                  97,
-                  105,
-                  118,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "base.user",
-                "account": "RedeemPaired"
-              },
-              {
-                "kind": "account",
-                "path": "base.market",
-                "account": "RedeemPaired"
-              }
-            ]
-          }
         }
       ],
       "args": [
@@ -3718,19 +3447,6 @@
   ],
   "accounts": [
     {
-      "name": "FeeWaiver",
-      "discriminator": [
-        66,
-        18,
-        17,
-        254,
-        87,
-        223,
-        159,
-        8
-      ]
-    },
-    {
       "name": "Market",
       "discriminator": [
         219,
@@ -4514,38 +4230,6 @@
           {
             "name": "effective_ts",
             "type": "i64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "FeeWaiver",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "donor",
-            "type": "pubkey"
-          },
-          {
-            "name": "market",
-            "type": "pubkey"
-          },
-          {
-            "name": "waiver_end_at",
-            "type": "i64"
-          },
-          {
-            "name": "total_donated",
-            "type": "u64"
-          },
-          {
-            "name": "total_gap_closed_bps",
-            "type": "u64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
           }
         ]
       }

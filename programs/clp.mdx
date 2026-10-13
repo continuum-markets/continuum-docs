@@ -40,7 +40,7 @@ The program reads the inventory from four accounts pinned by address, so a calle
 |---|---|---|
 | `settle_swap` | The four inventory accounts, when `oi_cap > 0` | Fills up to the room left and refunds the rest. Under \$1 of room refunds the whole order |
 | `pool_swap` (also through the trading program's `swap_pool`) | The four inventory accounts, when `oi_cap > 0` | Reverts with `ExposureCapExceeded` (6045) |
-| `redeem_paired`, `redeem_paired_with_waiver`, `request_redemption` | The `Clp` account, then the four inventory accounts, when the redemption's L and S values differ by more than \$1 | Reverts with `ExposureCapExceeded` (mint-redeem 6060) |
+| `redeem_paired`, `request_redemption` | The `Clp` account, then the four inventory accounts, when the redemption's L and S values differ by more than \$1 | Reverts with `ExposureCapExceeded` (mint-redeem 6060) |
 
 `commit_swap` is not checked, because nothing has moved yet: the cap applies when the order settles. A redemption signed by the market's own CLP (`vault_redeem_pairs`) isn't checked either, because burning CLP-held tokens lowers a supply and the CLP's holding of it together, so E doesn't move. Trades on the [P2P order book](/flows/order-book) are unaffected by the cap.
 
