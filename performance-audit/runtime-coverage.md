@@ -135,7 +135,7 @@ Cadences below are source defaults, not measured runtime duration. Feature gates
 | Legacy liquidity seeder | 600s | legacy default disabled; no live benchmark |
 | Devnet keeper top-up | 60s | gated; no live benchmark |
 | Legacy LP fee claimer | 1800s | legacy default disabled; no live benchmark |
-| New settlement subscriptions | event-driven; <=1 scan/s | local protocol +coalescing tests; live after-deploy comparison pending |
+| New settlement subscriptions | event-driven; at most 1 scan/s | local protocol +coalescing tests; live after-deploy comparison pending |
 
 ## Keeper HTTP coverage
 
