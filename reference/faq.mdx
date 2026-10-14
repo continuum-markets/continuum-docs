@@ -110,7 +110,7 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × s_gamma_index / 1e9
 
 Each market's `Clp` account stores an `oi_cap` in cUSDC atoms (0 means uncapped). It limits traders' net position in the market: what traders hold long minus what they hold short, at NAV, not counting the CLP's own inventory. The treasury is the other side of that net position, so the cap bounds what a one-sided move can cost it. A trade that pushes the net further past the cap is refused or cut down; a trade that shrinks it always goes through. Because the cap is on the net, every short opens room for one more long.
 
-A committed order that doesn't fit fills in part and the rest comes back to you. A bin-book fill or a lopsided redemption that doesn't fit reverts. Paired mints are never limited by it. The keeper re-sizes each cap every night from a one-year simulation and the treasury's balance, so read the live `Clp.oi_cap` from the chain. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap) and [Trade](/flows/trade#exposure-cap). The older `current_oi` field and the `update_oi` instruction are unused.
+A committed order that doesn't fit fills in part and the rest comes back to you. A bin-book fill that doesn't fit reverts. Paired mints are never limited by it, and neither are redemptions, which burn a balanced pair. The keeper re-sizes each cap every night from a one-year simulation and the treasury's balance, so read the live `Clp.oi_cap` from the chain. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap) and [Trade](/flows/trade#exposure-cap). The older `current_oi` field and the `update_oi` instruction are unused.
 
 ## Can I earn something for holding the short leg?
 

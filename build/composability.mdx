@@ -202,7 +202,7 @@ A history of book depth, NAV and spreads is a useful dataset for trading and ana
 - Don't pre-mint and hold inventory. Positions track NAV, so mint when you need them; the S leg also loses value to γ while it sits.
 - Don't assume markets move together. Each market prices from its own feed, so treat them independently in basket math.
 - Don't skip ATA creation. Idempotent creation costs about 0.002 SOL of rent, once per user and mint.
-- Don't assume a trade fills in full. A capped market (`Clp.oi_cap` above 0) limits traders' net position. A committed order fills up to the room left and refunds the rest, and a `pool_swap` or a lopsided redemption that doesn't fit reverts. On a capped market these also need the exposure accounts as remaining accounts: the pool long and short synth vaults and the CLP's long and short token accounts, with the market's `Clp` account first for a redemption. See [Exposure cap](/concepts/solvency#6-exposure-cap). Size is also limited by book depth, CLP inventory and the collateral floor.
+- Don't assume a trade fills in full. A capped market (`Clp.oi_cap` above 0) limits traders' net position. A committed order fills up to the room left and refunds the rest, and a `pool_swap` that doesn't fit reverts. On a capped market these also need the exposure accounts as remaining accounts: the pool long and short synth vaults and the CLP's long and short token accounts. Redemptions are not capped and need none, because they burn a balanced pair. See [Exposure cap](/concepts/solvency#6-exposure-cap). Size is also limited by book depth, CLP inventory and the collateral floor.
 
 ## Talk to us
 

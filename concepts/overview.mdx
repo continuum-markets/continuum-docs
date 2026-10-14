@@ -44,7 +44,7 @@ Everything a user touches is protocol-native. There is no external AMM in the ca
 The only program a user writes to for issuance is `mint-redeem`:
 
 - `mint_paired(collateral_amount)` deposits cUSDC and mints matched long (`L`) and short (`S`) tokens at NAV.
-- `redeem_paired(l_amount, s_amount)` burns long and short tokens and returns cUSDC at NAV. Both amounts must be above zero, but they don't have to match.
+- `redeem_paired(l_amount, s_amount)` burns long and short tokens and returns cUSDC at NAV. Both amounts must be above zero and are maxima: the program burns the largest value-balanced pair inside them, and the rest of the larger leg stays in your wallet.
 
 Both need at least 10 cUSDC of value and a keeper price push no more than 300 s old.
 

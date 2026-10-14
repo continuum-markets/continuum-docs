@@ -314,7 +314,7 @@ The rule in short: a trade is allowed if it leaves E inside the cap, or if it mo
 - **Committed orders** fill up to the room left, measured at the settle price. If the order is bigger, the part that fits fills and the rest returns to you with the escrow. Your `min_out` scales down to the filled share, so a partial fill is held to the same price as a full one. The settle logs `settle_swap PARTIAL filled=X of Y` and emits `OrderCapped` with `filled_in`, `refunded_in`, E before the fill and the cap. If less than \$1 of room is left the whole order is refunded, and the log reads `settle_swap REFUND exposure cap`. A market that is full on one side accepts orders on the other.
 - **The bin book** fills whole or not at all. A `pool_swap` that would push E past the cap reverts with `ExposureCapExceeded` (6045).
 - **The order book** is not affected. Trades between traders on the [order book](/flows/order-book) don't change what traders hold net against the CLP.
-- **Redemptions** are checked too when they are lopsided. See [Redeem](/flows/redeem#exposure-cap).
+- **Redemptions** are not capped. Since 14 Oct 2026 they burn a balanced pair, which moves the net position by less than \$1. See [Redeem](/flows/redeem#exposure-cap).
 
 The app shows how much of a capped market can still be bought (**Longs available**, or **Shorts available**), and says "This market is full for new longs. Every short opens room for one." when under \$1 is left. It warns when your order is larger than the room, and it never changes the amount you typed. After a partial fill it shows what filled and what came back because the market reached its limit. An uncapped market shows none of this.
 

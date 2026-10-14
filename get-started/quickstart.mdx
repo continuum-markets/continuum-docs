@@ -23,7 +23,7 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
     Each wallet can drip once every 24 hours. Until then, the button shows the time left until the next drip.
   </Step>
   <Step title="Mint a paired position">
-    Open [/mint](https://continuum.markets/mint). Under **Select asset**, pick a market such as QQQ, and enter an amount of cUSDC: at least 10, so try 100. The preview shows how many long and short tokens you will receive and the mint fee.
+    Open a market page, for example [/pools/QQQ](https://continuum.markets/pools/QQQ), and choose the **Pairs** tab next to the Trade ticket (or open `https://continuum.markets/pools/QQQ?panel=pairs` directly). Pairs uses the page's market, so there is no market selector. Enter an amount of cUSDC: at least 10, so try 100. The preview shows how many long and short tokens you will receive and the mint fee.
 
     For example, at QQQ's last price on 9 Oct 2026 (\$751.27), 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS. The fee is 0.27%: QQQ's posted fee of 18 bps, times 1.5 because every devnet market runs in ProxyMode.
 
@@ -42,7 +42,7 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
     While the market is open, a market order is a committed order. It fills at NAV ± the posted commit spread, at the next price pushed after you submit, unless traders' orders on the [order book](/flows/order-book) fill all of it now for less when you buy, or for more when you sell. If a committed order can't fill within 3 minutes, the keeper returns your input automatically, and a **Refund now** button appears if it hasn't come back a minute after the deadline. While the market is closed, the panel says **Market closed. You can still trade.** The leg's bin book, which quotes from the last price up to a small size, and traders' orders then form [one book](/flows/order-book#one-book-while-closed): a market order takes the cheapest offers first when you buy, and the highest bids first when you sell.
   </Step>
   <Step title="Redeem">
-    To exit at NAV, go back to [/mint](https://continuum.markets/mint) and choose **Redeem**. Redeem burns both legs together, so you need some of each. Enter a cUSDC amount, and the app redeems the same fraction of each leg you hold. The value must be at least 10 cUSDC. If you sold one leg, buy some back first, or sell the remaining leg instead.
+    To exit at NAV, go back to the **Pairs** tab on the market page and choose **Redeem** (or add `&mode=redeem` to the Pairs URL). Redeem burns both legs together, so you need some of each. The form previews and burns a balanced pair: all of the leg worth less, and the same value of the other. **Max** redeems the largest balanced pair. If you hold more of one leg, the form shows what is left and offers a button to sell it in Trade. The pair must be worth at least 10 cUSDC. If you sold one leg, buy some back first, or sell the remaining leg instead.
 
     Click **Redeem paired tokens**. You receive cUSDC at NAV, less the redeem fee (also 0.27% on QQQ as of 10 Oct 2026). A round trip at an unchanged price costs about the two fees combined.
   </Step>
@@ -53,8 +53,8 @@ Everything on this page happens in the app at [**continuum.markets**](https://co
 | Page | What it does |
 |---|---|
 | [/pools](https://continuum.markets/pools) | All 13 markets, with each leg's book price and spread. Click a market to open its page. |
-| `/pools/<SYMBOL>` | Market page: price chart, book depth and trade panel. |
-| [/mint](https://continuum.markets/mint) | Mint and redeem. [/redeem](https://continuum.markets/redeem) redirects here. |
+| `/pools/<SYMBOL>` | Market page: price chart, book depth, and the Trade and Pairs tabs. |
+| `/pools/<SYMBOL>?panel=pairs` | The Pairs tab on each market page: mint and redeem (`&mode=redeem` for redeem). [/mint](https://continuum.markets/mint) and [/redeem](https://continuum.markets/redeem) redirect here, keeping a valid `market` and `mode`, with QQQ as the default. |
 | [/portfolio](https://continuum.markets/portfolio) | Balances and NAV value for every market you hold. |
 | [/faucet](https://continuum.markets/faucet) | Devnet cUSDC drip, once per wallet every 24 hours. |
 | [/learn](https://continuum.markets/learn) and [/guide](https://continuum.markets/guide) | A glossary and step-by-step guides. |

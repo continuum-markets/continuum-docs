@@ -7,7 +7,7 @@ Continuum's solvency rests on one structural rule, one known extraction path and
 
 ## The invariant: paired mint/redeem is solvency-neutral
 
-Every user mint and redeem is **paired**. `mint_paired` deposits cUSDC and issues L and S worth exactly the deposit, less the fee, at the current NAV. `redeem_paired` burns some of each leg (both amounts above zero) and pays their NAV value. Because `S_NAV = K·γ / L_NAV`, one L plus one S is worth
+Every user mint and redeem is **paired**. `mint_paired` deposits cUSDC and issues L and S worth exactly the deposit, less the fee, at the current NAV. `redeem_paired` burns the largest value-balanced pair inside the two amounts you offer (both above zero) and pays its NAV value. Because `S_NAV = K·γ / L_NAV`, one L plus one S is worth
 
 ```
 f(P) = P + K·γ / P        (P = L_NAV, K = initial_l_price × initial_s_price)
@@ -98,7 +98,7 @@ Paired tokens are solvency-neutral, but a trader who holds only one leg is a dir
 E = (L supply − CLP-held L) · l_nav − (S supply − CLP-held S) · s_nav
 ```
 
-CLP-held means the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. Paired mints split the deposit by value, so they never move E. Trades against the CLP or the bin books do, and so does a redemption of unequal L and S, which is why redemptions are checked too.
+CLP-held means the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. Paired mints split the deposit by value, so they never move E. Trades against the CLP or the bin books do. Redemptions do not: since 14 Oct 2026 `redeem_paired` and `request_redemption` burn or escrow only a value-balanced pair, so they move E by less than \$1 and are not capped (the check stays in the code as a guard).
 
 Each market's `Clp.oi_cap` (in cUSDC atoms, 0 meaning uncapped) binds |E|. A change ΔE is allowed when E + ΔE stays inside [min(−cap, E), max(cap, E)]. Nobody can push E further past the cap than it already is, and a trade that shrinks E always passes, even after a price move has carried E past the cap with no trade. Because the cap is on the net, each short opens room for one more long. The room to buy longs is the cap plus the shorts traders already hold, less the longs.
 
@@ -111,7 +111,7 @@ The cap is sized so that a bad year across every market together takes at most h
 
 A lower cap applies at once, and a higher one rises at most 25% a day. The job publishes the result as `exposure_caps_atoms`, and the keeper posts it to each market's `Clp.oi_cap` (see [Keeper](/concepts/keeper#exposure-caps)). If any step fails, the previous caps stay. The caps therefore move with the treasury and with volatility, so read the live `oi_cap` from the chain rather than a figure in a document.
 
-What a trader sees depends on the venue. A committed order fills up to the room left at its settle price and the rest comes back with the escrow, so a large buy can fill in part. With under \$1 of room it is refunded whole. A bin-book fill that would pass the cap reverts, and so does a lopsided redemption. Orders on the [P2P order book](/flows/order-book) are not affected. See [Trade](/flows/trade#exposure-cap) and [Redeem](/flows/redeem#exposure-cap).
+What a trader sees depends on the venue. A committed order fills up to the room left at its settle price and the rest comes back with the escrow, so a large buy can fill in part. With under \$1 of room it is refunded whole. A bin-book fill that would pass the cap reverts. Redemptions are not capped, because they burn a balanced pair. Orders on the [P2P order book](/flows/order-book) are not affected. See [Trade](/flows/trade#exposure-cap) and [Redeem](/flows/redeem#exposure-cap).
 
 ## How the collateral ratio refills
 

@@ -122,7 +122,7 @@ No. They are SPL tokens. Solana uses Associated Token Accounts (ATAs); there is 
 Yes. Both L and S are standard SPL tokens, so you transfer them like any other Solana token. The receiver can redeem them at NAV.
 
 **Q: Do I have to redeem in pairs?**
-Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` and `s_amount` must be above zero. The amounts don't have to match, because redemption is **value-weighted**: you receive the NAV value of whatever you burn.
+Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` and `s_amount` must be above zero. The amounts are maxima, and the program burns the largest value-balanced pair inside them: all of the leg worth less, and the same value of the other. You receive the NAV value of what is burned, and the rest of the larger leg stays in your wallet. If you hold more of one leg, you can sell the leftover in a trade.
 
 **Q: What happens if I lose access to half the pair?**
 The program won't redeem one leg alone. Sell it with a committed order while the market is open or on its bin book while it is closed, or get some of the other leg and redeem the two together.

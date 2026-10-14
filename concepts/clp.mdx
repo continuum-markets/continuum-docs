@@ -98,7 +98,7 @@ bin books ◄──── pool_sweep_usdc / pool_sweep_synth ──── excess
        or the treasury (vault_mint_pairs / vault_redeem_pairs as needed)
 ```
 
-`vault_mint_pairs`, `vault_redeem_pairs` and `vault_redeem_single` are CPIs into mint-redeem signed by the CLP PDA. The paired ones go through the ordinary `mint_paired` and `redeem_paired`, at NAV and with the same fee and price checks as any user. Each one must name the CLP's own market, and its cUSDC, L and S accounts must belong to the CLP PDA. Inventory can't be minted against another market or paid to a wallet.
+`vault_mint_pairs`, `vault_redeem_pairs` and `vault_redeem_single` are CPIs into mint-redeem signed by the CLP PDA. The paired ones go through the ordinary `mint_paired` and `redeem_paired`, at NAV and with the same fee and price checks as any user. `vault_redeem_pairs` burns exactly the amounts the CLP asks for, without the balanced-pair trim that user redemptions get. Each one must name the CLP's own market, and its cUSDC, L and S accounts must belong to the CLP PDA. Inventory can't be minted against another market or paid to a wallet.
 
 Each market keeps its collateral in its own vault, owned by its Market PDA, and keeps its own `total_collateral` ledger. Every outflow is limited to that market's liquid share, `total_collateral − deployed_to_yield`. QQQ, SPY and XAU shared a unified vault until 11 Oct 2026. After they moved out, every vault's balance equaled its market's ledger, and the program upgrade that day removed the unified vault. A cross-market rebalancer moves only collateral above the source market's own posted buffer target. `rebalance_collateral` on mint-redeem caps each move at that amount on-chain, so a larger request moves less and never takes the source below target.
 

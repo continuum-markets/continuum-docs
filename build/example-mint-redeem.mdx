@@ -164,7 +164,7 @@ async function main() {
   console.log(`mint_paired   ${mintSig}`);
   console.log(`  +${fmt(l1 - l0)} ${SYMBOL} L  +${fmt(s1 - s0)} ${SYMBOL} S`);
 
-  // 6. Redeem what was just minted. Both amounts must be > 0.
+  // 6. Redeem what was just minted. Both amounts must be > 0 and are maxima.
   const nominal = ((l1 - l0) * q.redeem.l) / E6 + ((s1 - s0) * q.redeem.s) / E6;
   console.log(`expect    ~${fmt(nominal - (nominal * q.redeem.feeBps) / 10_000n)} cUSDC back`);
   const redeemIx = await mr.methods
@@ -220,7 +220,7 @@ The estimates match the program exactly while the market is over-collateralized.
 
 ## Redeeming one leg
 
-There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. To exit a single leg, sell it through a committed order while the market is open, or on the bin book with `pool_swap` while its price is stale. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
+There is no single-leg redeem. `redeem_paired` requires `l_amount > 0` and `s_amount > 0`, and fails with `InvalidAmount` otherwise. The two amounts are maxima: the program burns the largest value-balanced pair inside them at the worst-case redeem NAVs, and the rest of the larger leg stays in your wallet. The script redeems a pair it just minted, so the trim is at most rounding. If the balanced pair has a zero leg, the call fails with `InvalidAmount` too. To exit a single leg, sell it through a committed order while the market is open, or on the bin book with `pool_swap` while its price is stale. You can also buy the other leg and redeem the pair. See [Trade flow](/flows/trade).
 
 ## Common errors
 

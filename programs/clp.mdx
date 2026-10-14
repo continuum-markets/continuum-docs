@@ -30,7 +30,7 @@ Traders' net position E is measured at NAV from on-chain balances:
 E = (L supply − CLP-held L) · l_nav − (S supply − CLP-held S) · s_nav
 ```
 
-CLP-held for a leg is the balance of the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. A paired mint splits the deposit by value between the two legs, so it never moves E. A committed buy of L, a book buy of L, a committed sell of S back to the CLP and a lopsided redemption that burns more S than L all raise E. The reverse trades lower it.
+CLP-held for a leg is the balance of the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. A paired mint splits the deposit by value between the two legs, so it never moves E. A committed buy of L, a book buy of L and a committed sell of S back to the CLP all raise E. The reverse trades lower it. Redemptions burn a balanced pair, so they move E by less than \$1.
 
 A change ΔE is allowed when the cap is 0 or when E + ΔE stays inside [min(−cap, E), max(cap, E)]. Nobody can push E further past the cap than it already is, and a trade that shrinks it always passes, even when a price move has carried E past the cap with no trade at all.
 
@@ -40,7 +40,7 @@ The program reads the inventory from four accounts pinned by address, so a calle
 |---|---|---|
 | `settle_swap` | The four inventory accounts, when `oi_cap > 0` | Fills up to the room left and refunds the rest. Under \$1 of room refunds the whole order |
 | `pool_swap` (also through the trading program's `swap_pool`) | The four inventory accounts, when `oi_cap > 0` | Reverts with `ExposureCapExceeded` (6045) |
-| `redeem_paired`, `request_redemption` | The `Clp` account, then the four inventory accounts, when the redemption's L and S values differ by more than \$1 | Reverts with `ExposureCapExceeded` (mint-redeem 6060) |
+| `redeem_paired`, `request_redemption` | None. Since 14 Oct 2026 they burn a balanced pair, so E moves by less than \$1 | Not capped. The guard is still in the code (mint-redeem 6060) |
 
 `commit_swap` is not checked, because nothing has moved yet: the cap applies when the order settles. A redemption signed by the market's own CLP (`vault_redeem_pairs`) isn't checked either, because burning CLP-held tokens lowers a supply and the CLP's holding of it together, so E doesn't move. Trades on the [P2P order book](/flows/order-book) are unaffected by the cap.
 
@@ -80,7 +80,7 @@ One per market. Its operating vault (`clp_vault`) is this PDA's cUSDC associated
 |---|---|---|
 | `market_id` | Pubkey | Bound Market PDA |
 | `total_fees_collected` | u64 | Fees moved in by `collect_fees` |
-| `oi_cap` / `current_oi` | u64 | `oi_cap` is the exposure cap in cUSDC atoms, 0 meaning uncapped. It bounds traders' net position on committed fills, `pool_swap` fills and lopsided redemptions (see [Exposure cap](#exposure-cap)). The keeper posts it from the nightly job. `current_oi` is a legacy mirror that nothing maintains and reads 0 |
+| `oi_cap` / `current_oi` | u64 | `oi_cap` is the exposure cap in cUSDC atoms, 0 meaning uncapped. It bounds traders' net position on committed fills, `pool_swap` fills (see [Exposure cap](#exposure-cap)). The keeper posts it from the nightly job. `current_oi` is a legacy mirror that nothing maintains and reads 0 |
 | `bump` | u8 | PDA bump |
 | `inventory_budget` | `InventoryBudget` | Soft and hard bounds on the volatile share q, plus drawdown limits |
 | `inventory_state` | `InventoryState` | Current q, drawdown, breach flags and peak value |

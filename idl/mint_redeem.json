@@ -9,6 +9,9 @@
   "instructions": [
     {
       "name": "add_collateral_vault",
+      "docs": [
+        "Add a new collateral vault (admin only)"
+      ],
       "discriminator": [
         142,
         7,
@@ -52,10 +55,16 @@
           ]
         },
         {
-          "name": "collateral_mint"
+          "name": "collateral_mint",
+          "docs": [
+            "The new collateral token mint to add"
+          ]
         },
         {
           "name": "collateral_vault",
+          "docs": [
+            "The vault token account for this collateral"
+          ],
           "writable": true
         }
       ],
@@ -76,6 +85,50 @@
     },
     {
       "name": "apply_corporate_action",
+      "docs": [
+        "Record a corporate action (split, reverse split, or any other pure",
+        "change of share UNITS) by folding its ratio into the market's cumulative",
+        "price adjustment.",
+        "",
+        "**What this does.** Nothing, immediately. It writes two integers and",
+        "touches no price, no supply, no collateral, no γ. Every stored value",
+        "stays exactly as it was, and every outstanding claim is worth exactly",
+        "what it was worth one slot earlier. What changes is the INTERPRETATION",
+        "of the NEXT raw oracle print: from the following `update_risk_state` on,",
+        "an incoming price is multiplied by `num/den` before it is stored.",
+        "",
+        "**Why that is exactly conserving.** A 2-for-1 split halves the price and",
+        "doubles the share count; it creates and destroys no value. So the",
+        "adjusted price `P_adj = P_raw · num/den` is CONTINUOUS across the event:",
+        "identical immediately before and immediately after. Because `l_nav`,",
+        "`K = initial_l_price · initial_s_price` and hence `s_nav` are all",
+        "functions of `P_adj` alone, every leg's NAV is unchanged too, and the",
+        "transfer between longs and shorts is zero by construction.",
+        "",
+        "That is the precise sense in which this is tractable and a spot",
+        "RE-ANCHOR is not. Both look like \"move the reference price\". But a",
+        "re-anchor changes the payoff SHAPE — it moves the vertex of the cosh",
+        "bowl, so the pair is worth something different afterwards, and it cannot",
+        "be made conserving without either moving value between the legs or",
+        "redenominating supply. A split changes only the units the shape is",
+        "measured in, which is why undoing it in the unit mapping costs nothing.",
+        "",
+        "**Operationally.** Ex-dates are published weeks ahead, so arm the ratio",
+        "before the ex-date open and there is no outage at all. Deliberately NOT",
+        "auto-detected: the 25% move guard exists to catch a compromised keeper,",
+        "and teaching it to recognise a split would hand that same keeper a way",
+        "to relabel a bad price as a corporate action.",
+        "",
+        "**Ordering matters below the guard threshold.** A post-action print is",
+        "rejected — and the market safely halts — only when `1 − den/num > 25%`,",
+        "i.e. ratios above about 1.333. Anything gentler (4:3, 5:4, a stock",
+        "dividend) is INDISTINGUISHABLE from a real price move and will be",
+        "absorbed as one if this lands late. There is no on-chain backstop for",
+        "that case; arming ahead of the ex-date is the control.",
+        "",
+        "Authority-gated, not keeper-gated: this is a governance act on the",
+        "market's definition, not part of the hot price loop."
+      ],
       "discriminator": [
         72,
         217,
@@ -136,7 +189,9 @@
         "Give back the unpaid part of a request and close it (owner only).",
         "Reads no `Market` and needs no keeper, so it works when the market is",
         "paused, the price is stale or the keeper is down. Returns the escrowed",
-        "L and S and all rent to the owner."
+        "L and S and all rent to the owner. Returns each escrow's ACTUAL balance",
+        "(the unpaid remainder plus any atoms someone sent it), so a donation can",
+        "never block the close or strand the request slot."
       ],
       "discriminator": [
         197,
@@ -453,6 +508,9 @@
     },
     {
       "name": "configure_risk_fees",
+      "docs": [
+        "Configure risk-based fee parameters (admin only)"
+      ],
       "discriminator": [
         108,
         30,
@@ -509,6 +567,9 @@
     },
     {
       "name": "configure_worst_case_quoting",
+      "docs": [
+        "Configure worst-case quoting parameters (admin only)"
+      ],
       "discriminator": [
         40,
         82,
@@ -581,6 +642,12 @@
     },
     {
       "name": "configure_yield_ceiling",
+      "docs": [
+        "Configure yield ceiling and enable/disable yield management (admin only).",
+        "The ceiling may reach 100%: all idle collateral lent and recalled just in time",
+        "(Rafael, 2026-10-12). It used to stop at 90%. The keeper's allocator still keeps",
+        "a small working float so routine redemptions never wait for a recall."
+      ],
       "discriminator": [
         101,
         122,
@@ -641,6 +708,11 @@
     },
     {
       "name": "create_token_metadata",
+      "docs": [
+        "Create Metaplex token metadata for a market's L or S mint.",
+        "Must be called by the market authority.",
+        "The market PDA is the mint authority and signs the CPI."
+      ],
       "discriminator": [
         221,
         80,
@@ -684,7 +756,11 @@
           ]
         },
         {
-          "name": "mint"
+          "name": "mint",
+          "docs": [
+            "The L or S mint to create metadata for.",
+            "Must be either market.long_mint or market.short_mint."
+          ]
         },
         {
           "name": "metadata",
@@ -715,6 +791,28 @@
     },
     {
       "name": "deploy_collateral_to_yield",
+      "docs": [
+        "Deploy a portion of idle collateral to a lending protocol (keeper only).",
+        "",
+        "This instruction moves USDC from the collateral vault to the keeper's",
+        "intermediary account. The keeper then deposits it into Kamino/MarginFi",
+        "in the next instruction of the same atomic transaction.",
+        "",
+        "AUDIT H2 (custody — REMAINING WORK, needs venue integration + governance):",
+        "funds transit a keeper-owned ATA with NO on-chain proof they reach a",
+        "venue; `deployed_to_yield` is a keeper-asserted scalar. The bound today is",
+        "`yield_ceiling_bps` (a fraction of THIS market's total_collateral). Full",
+        "fix (not doable without external CPI wiring / an ops decision):",
+        "1. CPI directly into a WHITELISTED venue so the deposit is proven",
+        "on-chain (or constrain the destination to an admin-approved",
+        "intermediary pubkey — needs a new Market field + realloc migration).",
+        "2. Move `configure_yield_ceiling` + this instruction's authority behind",
+        "a multisig/timelock (ops).",
+        "3. Per-tx / rolling-window cap (needs Market window state → realloc).",
+        "Compensating controls now: `mark_yield_impairment` (M2) socializes a",
+        "venue loss; the off-chain `yield-vault-reconciler` + `solvency-monitor`",
+        "scripts alert when venue-redeemable < deployed_to_yield."
+      ],
       "discriminator": [
         64,
         186,
@@ -752,14 +850,24 @@
         },
         {
           "name": "keeper",
+          "docs": [
+            "Must be the market's keeper_authority"
+          ],
           "signer": true
         },
         {
           "name": "collateral_vault",
+          "docs": [
+            "Collateral vault owned by the market PDA"
+          ],
           "writable": true
         },
         {
           "name": "keeper_usdc_account",
+          "docs": [
+            "Keeper's USDC intermediary account (destination before lending deposit).",
+            "Must be owned by the keeper signer."
+          ],
           "writable": true
         },
         {
@@ -864,6 +972,9 @@
     },
     {
       "name": "enable_multi_collateral",
+      "docs": [
+        "Enable multi-collateral mode for a market (admin only)"
+      ],
       "discriminator": [
         191,
         210,
@@ -911,6 +1022,13 @@
     },
     {
       "name": "fund_collateral",
+      "docs": [
+        "Admin top-up of a market's collateral (listing buffers, redistribution).",
+        "Transfers `amount` cUSDC from the authority's token account into",
+        "`market.collateral_vault` and credits `total_collateral`. Like",
+        "`donate_to_vault` there is no price-freshness gate: a deposit only",
+        "raises the ratio."
+      ],
       "discriminator": [
         55,
         123,
@@ -959,6 +1077,9 @@
         },
         {
           "name": "authority_collateral",
+          "docs": [
+            "The authority's cUSDC. SPL Token enforces that `authority` owns it."
+          ],
           "writable": true
         },
         {
@@ -975,6 +1096,14 @@
     },
     {
       "name": "fund_collateral_from",
+      "docs": [
+        "CPI-friendly twin of `fund_collateral`. The market authority still signs",
+        "(`has_one = authority`), but the cUSDC comes from `funder_collateral`,",
+        "a token account owned by a SEPARATE signer `funder`, which may be a PDA",
+        "signing through CPI (the CLP's GlobalClp backstopping a market from its",
+        "treasury). Credits `total_collateral` exactly like `fund_collateral` and",
+        "emits the same `CollateralFunded` event."
+      ],
       "discriminator": [
         205,
         129,
@@ -1012,6 +1141,9 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "Must equal `market.authority`."
+          ],
           "signer": true,
           "relations": [
             "market"
@@ -1019,6 +1151,9 @@
         },
         {
           "name": "funder",
+          "docs": [
+            "Owner of `funder_collateral`; may be a PDA signing through CPI."
+          ],
           "signer": true
         },
         {
@@ -1043,6 +1178,15 @@
     },
     {
       "name": "harvest_collateral_yield",
+      "docs": [
+        "Harvest net collateral yield INTO this market's collateral (keeper only).",
+        "",
+        "Call after recall_collateral_from_yield: principal goes back to the vault,",
+        "then this deposits the net interest (yield_amount) into the same vault and",
+        "credits it to `total_collateral`, so the yield raises this market's CR by",
+        "exactly that amount. Collateral yield is protocol-side; whatever ends up",
+        "above the buffer target still reaches the CLP through `withdraw_excess_to_clp`."
+      ],
       "discriminator": [
         202,
         35,
@@ -1084,10 +1228,17 @@
         },
         {
           "name": "keeper_usdc_account",
+          "docs": [
+            "Keeper's USDC source account (holds the net yield)"
+          ],
           "writable": true
         },
         {
           "name": "collateral_vault",
+          "docs": [
+            "The market's collateral vault: the yield funds this market's CR. Same slot",
+            "as the former `clp_vault`, so the wire layout is unchanged."
+          ],
           "writable": true
         },
         {
@@ -1104,6 +1255,10 @@
     },
     {
       "name": "initialize_market",
+      "docs": [
+        "Initialize a new synthetic asset market (admin only: the signer must be",
+        "this program's upgrade authority)."
+      ],
       "discriminator": [
         35,
         35,
@@ -1173,6 +1328,12 @@
         },
         {
           "name": "program",
+          "docs": [
+            "Admin gate: the signer must be this program's upgrade authority, so nobody",
+            "else can squat a future symbol's Market PDA and become its `authority`.",
+            "Appended LAST so pre-existing account indices stay stable for hand-built",
+            "encoders."
+          ],
           "address": "5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4"
         },
         {
@@ -1192,6 +1353,27 @@
     },
     {
       "name": "keeper_burn_single",
+      "docs": [
+        "Keeper-authorized single-side BURN. Removes one side from the",
+        "keeper's wallet WITHOUT paying out collateral from the vault.",
+        "",
+        "Purpose: residual cleanup for arb cycles where a `keeper_mint_single`",
+        "produced tokens that didn't fully fill on the DEX. The current",
+        "`keeper_redeem_single` path pays the keeper out at *current* NAV,",
+        "which (a) drains the vault when NAV has drifted upward since mint",
+        "and (b) hides the inventory cost as silent vault drift instead of",
+        "an explicit keeper-side P&L line.",
+        "",
+        "Burning the residual instead:",
+        "- vault keeps the original mint-time deposit (solvency-safe)",
+        "- total_l/s_supply decrements (asymmetry no worse than at mint)",
+        "- keeper team eats the cost of unsold inventory (visible in P&L)",
+        "",
+        "Does NOT decrement `total_collateral` — that field tracks cUSDC,",
+        "and no cUSDC is leaving the vault. Per-token collateralization",
+        "strictly improves: same numerator, smaller denominator (one fewer",
+        "token outstanding)."
+      ],
       "discriminator": [
         133,
         161,
@@ -1266,6 +1448,22 @@
     },
     {
       "name": "keeper_mint_single",
+      "docs": [
+        "Keeper-authorized single-side mint. Deposits collateral, mints ONLY one",
+        "side (L or S). No fees, no worst-case discount, no dev tax — the keeper",
+        "is the protocol's own arber and is trusted to:",
+        "1. Sign with `market.keeper_authority`",
+        "2. Always close any single-side position within the same arb cycle",
+        "(mint L_only → sell L → cUSDC) so net inventory is zero between ticks",
+        "",
+        "Uses the base TWAP price (or oracle in Normal). The keeper paying full",
+        "NAV for one side preserves overall solvency: collateral_vault grows by",
+        "exactly the NAV value of the new tokens. Where paired-mint required",
+        "matching supplies (L_supply == S_supply) for invariant convenience, the",
+        "per-token NAV-collateralization here gives us the same \"claim ≤",
+        "collateral\" guarantee at every NAV(t) — supplies just drift, which is",
+        "fine for transient keeper inventory."
+      ],
       "discriminator": [
         79,
         92,
@@ -1355,6 +1553,10 @@
     },
     {
       "name": "keeper_redeem_single",
+      "docs": [
+        "Keeper-authorized single-side redeem. Burns one side (L or S), returns",
+        "collateral at NAV. No fees, no worst-case adjustment."
+      ],
       "discriminator": [
         163,
         83,
@@ -1544,6 +1746,12 @@
     },
     {
       "name": "mint_paired",
+      "docs": [
+        "Mint paired L + S tokens by depositing collateral",
+        "This is the ONLY way to create new tokens - always mints both L and S",
+        "Invariant: L_value + S_value = collateral_amount (always)",
+        "Uses TWAP for pricing in non-Normal risk states for stability"
+      ],
       "discriminator": [
         230,
         60,
@@ -1629,6 +1837,25 @@
     },
     {
       "name": "permissionless_burn",
+      "docs": [
+        "Permissionless single-side burn — anyone can call to burn L or S",
+        "tokens from their own ATA, reducing `total_l_supply` /",
+        "`total_s_supply` accordingly. NO collateral payout.",
+        "",
+        "Used for:",
+        "1. Voluntary forfeiture (e.g. admin burning recovered tokens to",
+        "reduce supply asymmetry).",
+        "2. CLP-program CPI: `clp_burn_excess` calls this with the",
+        "CLP-PDA as the source-account owner / signer (via",
+        "`invoke_signed` with the CLP PDA seeds), letting the CLP",
+        "retire its own L/S inventory after a zombie-pool drain.",
+        "",
+        "SAFETY: this MUST never burn collateral. Accounts struct binds",
+        "`long_mint` and `short_mint` to `market.long_mint` /",
+        "`market.short_mint`, and the `source_account.mint` is validated",
+        "against the appropriate side mint at runtime. The collateral_mint",
+        "is never reachable via this code path."
+      ],
       "discriminator": [
         183,
         158,
@@ -1666,10 +1893,18 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "Owner of `source_account`. SPL Token enforces signer == owner on",
+            "the burn CPI, so a malicious caller cannot burn someone else's tokens."
+          ],
           "signer": true
         },
         {
           "name": "source_account",
+          "docs": [
+            "Token account whose tokens are being burned. Must be owned by",
+            "`authority` and hold the L or S mint matching `is_long`."
+          ],
           "writable": true
         },
         {
@@ -1698,6 +1933,17 @@
     },
     {
       "name": "realloc_market",
+      "docs": [
+        "Grow a Market account to the current struct size. MUST be run for every",
+        "live market immediately after any deploy that adds fields — until it is,",
+        "the account is too short to deserialize and EVERY other instruction on",
+        "that market fails.",
+        "",
+        "Validated by hand because the account is deliberately untyped (see",
+        "`ReallocMarket`): owner, discriminator, then `authority`, which is the",
+        "first field and therefore at a fixed offset that no field addition can",
+        "move. Idempotent — an already-grown account is left alone."
+      ],
       "discriminator": [
         175,
         105,
@@ -1711,6 +1957,14 @@
       "accounts": [
         {
           "name": "market",
+          "docs": [
+            "at a fixed offset). It CANNOT be `Account<'info, Market>`: Anchor",
+            "deserializes a typed account inside `try_accounts`, before any `realloc`",
+            "constraint runs, so an account that is too SMALL for the current struct",
+            "fails to deserialize and can never reach the very instruction that would",
+            "grow it. Typing this account is what would make the migration",
+            "impossible."
+          ],
           "writable": true
         },
         {
@@ -1727,6 +1981,28 @@
     },
     {
       "name": "reanchor_gamma",
+      "docs": [
+        "Renew the γ charging budget by folding the accumulated decay into the",
+        "short anchor. Zero-arg and authority-gated.",
+        "",
+        "`initial_s_price ← floor(initial_s_price · γ / 1e9)`, then `γ ← 1.0`.",
+        "Short NAV is `(initial_l · initial_s / P) · γ`, so moving γ into the",
+        "anchor and resetting it leaves every holder's claim IDENTICAL at every",
+        "price. Nobody is refunded and nothing is taken — burned budget stays",
+        "burned. What changes is that charging can continue: σ² funding never",
+        "terminates, so without renewal a persistently volatile market pins at",
+        "GAMMA_FLOOR and simply stops charging while the exposure carries on.",
+        "After this, the floor is a per-EPOCH fault bound rather than a lifetime",
+        "ceiling, which is what it was always meant to be.",
+        "",
+        "Deliberately NOT routed through `set_s_gamma_index`: that path's ratchet",
+        "rejects a raise by design, and a two-transaction fold would leave a live",
+        "on-chain window where the market is mispriced between the two writes.",
+        "",
+        "The epoch bump is what protects that window here — any decay post",
+        "computed against the old epoch fails its CAS instead of re-charging the",
+        "whole folded epoch."
+      ],
       "discriminator": [
         186,
         190,
@@ -1774,6 +2050,18 @@
     },
     {
       "name": "rebalance_collateral",
+      "docs": [
+        "Keeper-authorized CROSS-MARKET collateral move (the rebalance EXECUTION): transfer",
+        "up to `amount` cUSDC from `from_market`'s collateral vault directly to `to_market`'s —",
+        "moving EXCESS from an over-collateralized market to fund an under-collateralized one",
+        "FASTER, instead of waiting for fresh capital. The move is CLAMPED to what the source",
+        "can spare: collateral above its OWN dynamic target at the stored price (the planner's",
+        "\"never drain below own CR\" constraint, on-chain), capped by its liquid collateral.",
+        "The keeper plans at its own price, so a request a hair over that amount moves the",
+        "safe amount instead of reverting; only a source with nothing to spare fails. Both",
+        "markets must share the keeper authority. NAV = the source's keeper-posted TWAP",
+        "(freshness-gated). Mirror amounts come from collateral_rebalancer::plan_rebalance."
+      ],
       "discriminator": [
         224,
         133,
@@ -1811,6 +2099,10 @@
         },
         {
           "name": "to_market",
+          "docs": [
+            "Must differ from `from_market`: both copies are written back on exit and the",
+            "destination's (credited) copy lands last, so a self-move would mint ledger."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -1843,6 +2135,9 @@
         },
         {
           "name": "keeper",
+          "docs": [
+            "Shared keeper authority — must be both markets' keeper_authority."
+          ],
           "signer": true
         },
         {
@@ -1859,6 +2154,13 @@
     },
     {
       "name": "recall_collateral_from_yield",
+      "docs": [
+        "Recall collateral previously deployed to a lending protocol (keeper only).",
+        "",
+        "The keeper first withdraws from Kamino/MarginFi (returning principal to",
+        "keeper's ATA), then calls this instruction in the same transaction to",
+        "move the funds back into the collateral vault and update accounting."
+      ],
       "discriminator": [
         132,
         105,
@@ -1900,10 +2202,16 @@
         },
         {
           "name": "collateral_vault",
+          "docs": [
+            "Collateral vault (destination for recalled funds)"
+          ],
           "writable": true
         },
         {
           "name": "keeper_usdc_account",
+          "docs": [
+            "Keeper's USDC account (source — keeper has withdrawn from lending protocol)"
+          ],
           "writable": true
         },
         {
@@ -2033,6 +2341,23 @@
     },
     {
       "name": "redeem_paired",
+      "docs": [
+        "Redeem paired L + S tokens to withdraw collateral",
+        "User must provide both L and S tokens to redeem",
+        "The combined value of L + S = collateral returned",
+        "Uses TWAP for pricing in non-Normal risk states for stability",
+        "`l_amount` and `s_amount` are the most of each leg to burn: the",
+        "redemption burns the largest value-balanced pair inside them at the",
+        "worst-case redeem NAVs, and the rest of the larger leg stays in the",
+        "wallet (sell it through the trading path). Audit MR-2: a lopsided",
+        "paired redeem was an instant one-leg sale at the stored price. The",
+        "market's CLP redeeming its own inventory (`vault_redeem_pairs`) burns",
+        "exactly what it asks.",
+        "A balanced burn moves the market's net exposure by less than $1, so the",
+        "exposure accounts of `exposure::check_redemption` (the market's CLP",
+        "account, then the pool long and short synth vaults and the CLP's long",
+        "and short token accounts) are no longer needed; the check stays as a guard."
+      ],
       "discriminator": [
         224,
         17,
@@ -2126,6 +2451,26 @@
     },
     {
       "name": "redeem_single_for_vault",
+      "docs": [
+        "CLP-authorized single-side redeem from the CLP vault. Mirror of",
+        "`keeper_redeem_single` but:",
+        "- source ATAs are CLP-PDA-owned (the L/S inventory the keeper holds",
+        "for market-making, not the keeper-wallet ATAs);",
+        "- destination cUSDC is `clp_vault` (the per-market working-capital",
+        "ATA), not the keeper's USDC ATA;",
+        "- signer is the CLP PDA (validated by `seeds = [b\"clp\", market]`",
+        "under the canonical CLP program ID), entered via CPI from the",
+        "CLP program's `vault_redeem_single` wrapper.",
+        "",
+        "Solvency: identical buffer impact as paired redeem. Each L/S token",
+        "claims `L_NAV` / `S_NAV` USDC independently — burning N S tokens",
+        "drops total_claims by N×S_NAV and pays out N×S_NAV from",
+        "collateral_vault, so `buffer = collateral - total_claims` is",
+        "preserved exactly. See the discussion in the rebalancer design doc;",
+        "the over-collateralization buffer that exists pre-call still exists",
+        "post-call. We additionally floor at CR ≥ 100% (same as",
+        "`keeper_redeem_single`) — refuse to make an underwater vault worse."
+      ],
       "discriminator": [
         23,
         183,
@@ -2163,18 +2508,35 @@
         },
         {
           "name": "clp_pda",
+          "docs": [
+            "CLP PDA, signing via CPI with seeds [b\"clp\", market.key()].",
+            "Identity validated in the ix body — the body recomputes",
+            "`find_program_address([b\"clp\", market], <CLP_PROGRAM_ID>)` and",
+            "rejects any other key. The `Signer<'info>` type enforces that",
+            "the runtime saw a signature."
+          ],
           "signer": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP's USDC ATA — destination for the redemption payout. Owner",
+            "must be the CLP PDA (validated by Anchor against `clp_pda.key()`)."
+          ],
           "writable": true
         },
         {
           "name": "clp_long_account",
+          "docs": [
+            "CLP's L-token ATA — burn source when `is_long=true`."
+          ],
           "writable": true
         },
         {
           "name": "clp_short_account",
+          "docs": [
+            "CLP's S-token ATA — burn source when `is_long=false`."
+          ],
           "writable": true
         },
         {
@@ -2321,7 +2683,11 @@
         "into escrow token accounts owned by the request PDA; the keeper pays",
         "the request (in parts if need be) with `settle_redemption`, and the",
         "owner can `cancel_redemption` the unpaid rest at any time. Same active,",
-        "Stress, price-freshness and $10-minimum checks as `redeem_paired`."
+        "Stress, price-freshness and $10-minimum checks as `redeem_paired`.",
+        "Like `redeem_paired`, the amounts are maxima: only the largest",
+        "value-balanced pair inside them goes into escrow (audit MR-2), and the",
+        "rest stays with the owner. Settles burn the escrow pro rata, so the",
+        "request stays balanced. Remaining accounts as for `redeem_paired`."
       ],
       "discriminator": [
         14,
@@ -2508,6 +2874,14 @@
     },
     {
       "name": "set_buffer_target",
+      "docs": [
+        "Keeper posts the DYNAMIC overcollateralization buffer (bps over parity) for this",
+        "market: the per-market solvency target.",
+        "Sized off σ-regime + live inventory (keeper vol_model::dynamic_buffer). Clamped on-chain",
+        "to [MIN_BUFFER_BPS, MAX_BUFFER_BPS] so a bad write can't drop the target below the",
+        "solvency floor or balloon it absurdly. Called only when the target moves meaningfully",
+        "(the buffer drifts slowly), so it's off the hot TWAP path."
+      ],
       "discriminator": [
         223,
         244,
@@ -2558,6 +2932,36 @@
     },
     {
       "name": "set_s_gamma_index",
+      "docs": [
+        "Keeper posts the short-leg volatility-decay scalar γ (1e9 = 1.0). It may",
+        "only ever RATCHET DOWN — raising it would retroactively restore short",
+        "claims the protocol already banked as surplus, so an increase is",
+        "rejected. A genuine reset to 1.0 (a deliberate re-anchor settlement) is",
+        "an authority action and intentionally NOT reachable from this keeper path.",
+        "",
+        "Every abnormal write is REJECTED and logged rather than quietly reshaped.",
+        "The old code clamped its argument into range, so a single hot-key tx",
+        "asking for zero silently became a write to the floor — a −50% mark on",
+        "every short, indistinguishable in the logs from an ordinary post. The",
+        "bounds are now:",
+        "",
+        "- range: the argument must already be within `[GAMMA_FLOOR, GAMMA_ONE]`,",
+        "- ratchet: it may not exceed the current γ,",
+        "- per-tx: at most `GAMMA_MAX_STEP_1E9` of decay in one write,",
+        "- per-day: at most `GAMMA_MAX_DAY_DECAY_1E9` in any 24h bucket,",
+        "- epoch: `expected_epoch` must match, so a post computed before a",
+        "re-anchor cannot land after it and re-charge the folded epoch.",
+        "",
+        "Caps bound a fault's blast radius; they cannot catch a slow bleed of",
+        "individually-valid posts (which is exactly how OIL burned). Telemetry is",
+        "load-bearing for that class — `gamma_last_write_ts` exists so an auditor",
+        "can alarm on writer silence too.",
+        "",
+        "Arguments are wrapped in ONE struct deliberately: the v1.45 build",
+        "toolchain miscompiles per-argument borsh offsets on multi-arg",
+        "instructions (it read a fee from inside a pubkey), and a single struct",
+        "is the shape that survives it."
+      ],
       "discriminator": [
         128,
         218,
@@ -2833,6 +3237,9 @@
     },
     {
       "name": "update_collateral_vault",
+      "docs": [
+        "Update collateral vault configuration (admin only)"
+      ],
       "discriminator": [
         31,
         184,
@@ -2897,6 +3304,10 @@
     },
     {
       "name": "update_fee_recipient",
+      "docs": [
+        "Update the fee recipient for a market (admin only).",
+        "Set to the CLP vault PDA to route protocol fees to the LP vault."
+      ],
       "discriminator": [
         249,
         0,
@@ -2949,6 +3360,9 @@
     },
     {
       "name": "update_keeper_authority",
+      "docs": [
+        "Update the keeper authority for an existing market (admin only)."
+      ],
       "discriminator": [
         21,
         157,
@@ -3001,6 +3415,9 @@
     },
     {
       "name": "update_market",
+      "docs": [
+        "Update market parameters (admin only)"
+      ],
       "discriminator": [
         153,
         39,
@@ -3073,6 +3490,9 @@
     },
     {
       "name": "update_market_oracle",
+      "docs": [
+        "Update the oracle account/type for an existing market (admin only)."
+      ],
       "discriminator": [
         195,
         200,
@@ -3132,6 +3552,10 @@
     },
     {
       "name": "update_risk_state",
+      "docs": [
+        "Update risk state and TWAP from oracle (keeper only)",
+        "This should be called regularly by keepers after updating oracle observations"
+      ],
       "discriminator": [
         71,
         227,
@@ -3194,6 +3618,10 @@
     },
     {
       "name": "update_risk_state_v2",
+      "docs": [
+        "Timestamped keeper price. Revalidated at execution so a transaction built",
+        "before a split cannot land afterward with a pre-split raw print."
+      ],
       "discriminator": [
         222,
         108,
@@ -3260,6 +3688,24 @@
     },
     {
       "name": "withdraw_excess_to_clp",
+      "docs": [
+        "Withdraw EXCESS collateral from a market's `collateral_vault` to",
+        "the per-market CLP vault. Inverse of `donate_to_vault` — used to",
+        "rebalance idle equity from over-collateralized markets back to",
+        "the CLP, where it can be redeployed as Meteora liquidity, paid",
+        "out via `admin_withdraw`, etc.",
+        "",
+        "Admin-gated (signer == market.authority).",
+        "",
+        "SAFETY: enforces a minimum-collateralization floor at withdrawal",
+        "time. The post-withdrawal `total_collateral` must remain at or",
+        "above `liability_at_NAV × market.target_ratio_bps() / 10_000`, so the",
+        "vault stays at or above its own solvency target and the 100% line.",
+        "",
+        "If the live ratio is uncomputable (fresh market, zero supply), no",
+        "withdrawal is allowed — there's no liability denominator and no",
+        "need to drain anyway."
+      ],
       "discriminator": [
         208,
         14,
@@ -3304,14 +3750,30 @@
         },
         {
           "name": "collateral_vault",
+          "docs": [
+            "Market's collateral vault — source of the drain. Owned by the",
+            "Market PDA which signs the SPL transfer via PDA seeds."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP vault — destination ATA. Must be the canonical CLP vault for",
+            "this market (ATA owned by the CLP PDA derived from the market).",
+            "We don't deserialize the CLP account here — just enforce that",
+            "the destination's owner is the expected CLP PDA via constraint."
+          ],
           "writable": true
         },
         {
           "name": "clp_pda",
+          "docs": [
+            "CLP PDA — used as the seed/owner anchor for `clp_vault`. We don't",
+            "dereference it (could be uninitialized as far as this ix cares),",
+            "but we validate its derivation matches the canonical CLP PDA for",
+            "this market via the seeds constraint."
+          ],
           "pda": {
             "seeds": [
               {
@@ -3334,7 +3796,10 @@
           }
         },
         {
-          "name": "clp_program_id"
+          "name": "clp_program_id",
+          "docs": [
+            "scope `clp_pda`'s seed derivation."
+          ]
         },
         {
           "name": "token_program",
@@ -4031,6 +4496,9 @@
     },
     {
       "name": "CollateralFunded",
+      "docs": [
+        "Emitted when the authority tops up a market's collateral."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -4055,6 +4523,9 @@
     },
     {
       "name": "CollateralType",
+      "docs": [
+        "Collateral type identifier"
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -4078,19 +4549,32 @@
     },
     {
       "name": "CollateralVault",
+      "docs": [
+        "Individual collateral vault for a specific stablecoin",
+        "Each stablecoin has its own vault for blast-radius containment"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "mint",
+            "docs": [
+              "Mint address of this collateral token"
+            ],
             "type": "pubkey"
           },
           {
             "name": "vault",
+            "docs": [
+              "Vault token account address"
+            ],
             "type": "pubkey"
           },
           {
             "name": "collateral_type",
+            "docs": [
+              "Type of collateral (for provenance)"
+            ],
             "type": {
               "defined": {
                 "name": "CollateralType"
@@ -4099,14 +4583,23 @@
           },
           {
             "name": "total_deposited",
+            "docs": [
+              "Total amount deposited in this vault"
+            ],
             "type": "u64"
           },
           {
             "name": "is_active",
+            "docs": [
+              "Whether this vault is active for deposits"
+            ],
             "type": "bool"
           },
           {
             "name": "weight_bps",
+            "docs": [
+              "Weight for collateral (100 = 1:1, 95 = 0.95:1 for riskier stables)"
+            ],
             "type": "u16"
           }
         ]
@@ -4126,6 +4619,12 @@
     },
     {
       "name": "ConfigureRiskFeesParams",
+      "docs": [
+        "`configure_risk_fees` arguments, in their wire order. One struct, not 5 separate",
+        "arguments: the v1.45 SBPF-v2 toolchain garbles narrow arguments passed this",
+        "late (configure_swap dropped max_confidence_bps and collateral_floor_bps).",
+        "Same bytes on the wire, so existing callers are unaffected."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -4164,6 +4663,11 @@
     },
     {
       "name": "CorporateActionApplied",
+      "docs": [
+        "Emitted on every corporate action. The on-chain record of a units change —",
+        "the thing an auditor needs to reconcile a synth's price series against the",
+        "underlying's unadjusted one."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -4197,14 +4701,26 @@
           },
           {
             "name": "effective_ts",
+            "docs": [
+              "When the new pair becomes live. Equals `ts` for an immediate",
+              "application, the ex-date open for an armed one."
+            ],
             "type": "i64"
           },
           {
             "name": "armed",
+            "docs": [
+              "True if this was armed ahead of its ex-date rather than applied now."
+            ],
             "type": "bool"
           },
           {
             "name": "price_at_apply",
+            "docs": [
+              "The quoted price at the moment of application, which this instruction",
+              "does not modify. Present so the event alone shows the action was",
+              "price-neutral."
+            ],
             "type": "u64"
           },
           {
@@ -4216,19 +4732,42 @@
     },
     {
       "name": "CorporateActionParams",
+      "docs": [
+        "Arguments for `apply_corporate_action`, in ONE struct — same reason as",
+        "`SetGammaParams`: the v1.45 build toolchain miscompiles per-argument borsh",
+        "offsets on multi-arg instructions, and a single struct is the shape that",
+        "survives it. Wire format is identical."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "ratio_num",
+            "docs": [
+              "`new_shares` side of the action ratio. A 2-for-1 split is `num = 2`."
+            ],
             "type": "u64"
           },
           {
             "name": "ratio_den",
+            "docs": [
+              "`old_shares` side. A 1-for-10 reverse split is `num = 1, den = 10`."
+            ],
             "type": "u64"
           },
           {
             "name": "effective_ts",
+            "docs": [
+              "Unix ts from which the ratio applies — set it to the ex-date OPEN, the",
+              "first instant a venue quotes the post-action price.",
+              "",
+              "`0`, or any value at or before now, applies immediately: the recovery",
+              "path when an action was missed and the market has already halted.",
+              "A future value ARMS it, leaving pre-ex prints read exactly as they are",
+              "today. Arming without this gate is worse than doing nothing — the",
+              "adjustment would multiply a still-unsplit price and the 25% move guard",
+              "would reject every push from the moment of arming until the ex-date."
+            ],
             "type": "i64"
           }
         ]
@@ -4236,6 +4775,10 @@
     },
     {
       "name": "GammaReanchored",
+      "docs": [
+        "Emitted on every re-anchor. Deployment, not first invocation, is the",
+        "disclosure trigger — this is the on-chain record of an epoch boundary."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -4276,6 +4819,13 @@
     },
     {
       "name": "InitMarketParams",
+      "docs": [
+        "Args for `initialize_market`, passed as a single struct so the borsh",
+        "deserialize is ONE unit. The v1.45 SBF toolchain miscompiles the per-arg",
+        "field-offset assignment when these are 7 separate scalar args (it reads",
+        "`mint_fee_bps` from inside the keeper pubkey). The wire format is byte-for-byte",
+        "identical to the old 7-arg form, so off-chain callers are unaffected."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -4353,22 +4903,37 @@
           },
           {
             "name": "collateral_mint",
+            "docs": [
+              "Primary collateral mint (legacy single-collateral mode)"
+            ],
             "type": "pubkey"
           },
           {
             "name": "collateral_vault",
+            "docs": [
+              "Primary collateral vault (legacy)"
+            ],
             "type": "pubkey"
           },
           {
             "name": "multi_collateral_enabled",
+            "docs": [
+              "Whether multi-collateral mode is enabled"
+            ],
             "type": "bool"
           },
           {
             "name": "collateral_vault_count",
+            "docs": [
+              "Number of active collateral vaults"
+            ],
             "type": "u8"
           },
           {
             "name": "collateral_vaults",
+            "docs": [
+              "Collateral vaults for multi-stable support"
+            ],
             "type": {
               "vec": {
                 "defined": {
@@ -4379,30 +4944,56 @@
           },
           {
             "name": "initial_l_price",
+            "docs": [
+              "Initial Long token price (used for Short NAV calculation)"
+            ],
             "type": "u64"
           },
           {
             "name": "initial_s_price",
+            "docs": [
+              "Initial Short token price"
+            ],
             "type": "u64"
           },
           {
             "name": "mint_fee_bps",
+            "docs": [
+              "Mint fee in basis points (e.g., 10 = 0.1%)"
+            ],
             "type": "u16"
           },
           {
             "name": "redeem_fee_bps",
+            "docs": [
+              "Redeem fee in basis points"
+            ],
             "type": "u16"
           },
           {
             "name": "total_l_supply",
+            "docs": [
+              "Total supply of Long tokens. Paired mint/redeem keeps this equal to",
+              "`total_s_supply`; single-side keeper mint/redeem (`keeper_mint_single`,",
+              "see lib.rs) intentionally moves only one side, so the two supplies can",
+              "diverge, giving a first-order (directional) delta the γ decay does NOT charge."
+            ],
             "type": "u64"
           },
           {
             "name": "total_s_supply",
+            "docs": [
+              "Total supply of Short tokens. Equal to `total_l_supply` under paired",
+              "mint/redeem, but single-side keeper mint/redeem deliberately lets it",
+              "diverge (see `total_l_supply` above)."
+            ],
             "type": "u64"
           },
           {
             "name": "total_collateral",
+            "docs": [
+              "Total collateral locked (sum across all vaults)"
+            ],
             "type": "u64"
           },
           {
@@ -4415,6 +5006,9 @@
           },
           {
             "name": "risk_state",
+            "docs": [
+              "Current risk state (updated by keepers from oracle)"
+            ],
             "type": {
               "defined": {
                 "name": "RiskState"
@@ -4423,10 +5017,16 @@
           },
           {
             "name": "risk_state_updated_at",
+            "docs": [
+              "Last time risk state was updated"
+            ],
             "type": "i64"
           },
           {
             "name": "risk_fee_config",
+            "docs": [
+              "Risk-based fee configuration"
+            ],
             "type": {
               "defined": {
                 "name": "RiskFeeConfig"
@@ -4435,14 +5035,23 @@
           },
           {
             "name": "user_twap_price",
+            "docs": [
+              "TWAP price for user quoting (updated by keepers)"
+            ],
             "type": "u64"
           },
           {
             "name": "twap_updated_at",
+            "docs": [
+              "Last TWAP update time"
+            ],
             "type": "i64"
           },
           {
             "name": "worst_case_config",
+            "docs": [
+              "Configuration for worst-case quoting"
+            ],
             "type": {
               "defined": {
                 "name": "WorstCaseQuotingConfig"
@@ -4451,70 +5060,145 @@
           },
           {
             "name": "oracle_confidence",
+            "docs": [
+              "Oracle confidence interval (updated by keepers)"
+            ],
             "type": "u64"
           },
           {
             "name": "keeper_authority",
+            "docs": [
+              "Whitelisted keeper authority that is allowed to update risk state"
+            ],
             "type": "pubkey"
           },
           {
             "name": "dev_tax_pct",
+            "docs": [
+              "Dev tax percentage (updated by keeper based on CLP TVL tiers)"
+            ],
             "type": "u8"
           },
           {
             "name": "yield_ceiling_bps",
+            "docs": [
+              "Maximum fraction of total_collateral deployable to yield protocols (basis points).",
+              "Default: 6000 (60%). Remaining 40% stays liquid to cover redemptions."
+            ],
             "type": "u16"
           },
           {
             "name": "deployed_to_yield",
+            "docs": [
+              "Amount of collateral currently deployed to external lending protocols.",
+              "Invariant: deployed_to_yield <= total_collateral * yield_ceiling_bps / 10_000"
+            ],
             "type": "u64"
           },
           {
             "name": "total_yield_harvested",
+            "docs": [
+              "Cumulative yield harvested to CLP vault (never decrements, informational)."
+            ],
             "type": "u64"
           },
           {
             "name": "yield_enabled",
+            "docs": [
+              "Whether collateral yield deployment is enabled for this market."
+            ],
             "type": "bool"
           },
           {
             "name": "buffer_target_bps",
+            "docs": [
+              "Keeper-posted overcollateralization buffer (bps OVER parity), the dynamic",
+              "solvency target. Target ratio = 10_000 + buffer_target_bps, clamped to",
+              "[MIN_BUFFER_BPS, MAX_BUFFER_BPS]. 0 (legacy/unset) is treated as the default",
+              "200 (102%) by `target_ratio_bps()`, so old accounts behave as before until the",
+              "keeper posts a value. Sized from σ-regime + live inventory (vol_model::dynamic_buffer)."
+            ],
             "type": "u16"
           },
           {
             "name": "s_gamma_index",
+            "docs": [
+              "Keeper-posted decay scalar on the SHORT NAV, in 1e9 fixed point",
+              "(1_000_000_000 = 1.0 = no decay). The effective short NAV is",
+              "`(K / l_nav) · s_gamma_index / 1e9`. It only ever ratchets DOWN, by the",
+              "realized variance the short pair accrues, so holding the short across a",
+              "choppy path costs the decay, which banks as collateral surplus (the",
+              "long leg is never touched). `0` (legacy/unset) is read as 1e9 by",
+              "`short_gamma_index()`, so old accounts behave exactly as before until",
+              "the keeper posts a value. NOT a perp funding rate; there is no periodic",
+              "cash transfer; it is a structural mark on the short token's value, so the",
+              "1:1 paired round-trip and buy-and-hold mechanics are unchanged at a fixed γ."
+            ],
             "type": "u64"
           },
           {
             "name": "gamma_day_start_ts",
+            "docs": [
+              "Unix ts the current γ day-bucket opened. 0 = no bucket yet."
+            ],
             "type": "i64"
           },
           {
             "name": "gamma_day_decay_1e9",
+            "docs": [
+              "γ index units (1e9) decayed inside the current day-bucket. TELEMETRY",
+              "ONLY: tracked so an auditor can see the day's total, never enforced."
+            ],
             "type": "u64"
           },
           {
             "name": "gamma_last_write_ts",
+            "docs": [
+              "Unix ts of the last accepted γ write. Lets an auditor alarm on writer",
+              "SILENCE, the failure mode no cap can catch, because it looks like calm."
+            ],
             "type": "i64"
           },
           {
             "name": "gamma_epoch",
+            "docs": [
+              "Bumped by a re-anchor. Carried in `SetGammaParams` as a CAS so a decay",
+              "post computed against a pre-re-anchor γ can never land after the fold",
+              "and re-charge the whole epoch."
+            ],
             "type": "u32"
           },
           {
             "name": "reanchor_count",
+            "docs": [
+              "How many re-anchors this market has seen. 0 = never."
+            ],
             "type": "u32"
           },
           {
             "name": "genesis_s_price",
+            "docs": [
+              "`initial_s_price` as of genesis, before any re-anchor folded γ into it.",
+              "Backfilled lazily on the first re-anchor; 0 = never re-anchored, so the",
+              "live `initial_s_price` IS the genesis value."
+            ],
             "type": "u64"
           },
           {
             "name": "last_reanchor_ts",
+            "docs": [
+              "Unix ts of the last re-anchor. 0 = never."
+            ],
             "type": "i64"
           },
           {
             "name": "short_payoff_cap_c_1e9",
+            "docs": [
+              "Reserved for the capped short payoff `S = γ·min(K/P, C·K/P₀)` (1e9",
+              "fixed). The instruction ships in upgrade #2; the FIELD lands here so",
+              "that upgrade is instructions-only and needs no second realloc.",
+              "0 = unset = uncapped, i.e. exactly today's behavior."
+            ],
             "type": "u64"
           },
           {
@@ -4523,22 +5207,55 @@
           },
           {
             "name": "price_adjust_den",
+            "docs": [
+              "Denominator of the cumulative corporate-action ratio. See",
+              "`price_adjust_num`. 0 = unset = identity."
+            ],
             "type": "u64"
           },
           {
             "name": "price_adjust_pending_num",
+            "docs": [
+              "A corporate action ARMED AHEAD of its ex-date: the cumulative pair that",
+              "becomes live at `price_adjust_effective_ts`. Until then the current",
+              "`price_adjust_num/den` keeps applying.",
+              "",
+              "This exists because arming a ratio early is otherwise actively harmful,",
+              "not merely useless. The adjustment multiplies the NEXT raw print, and",
+              "before the ex-date that print is still PRE-split, so an early 2:1 would",
+              "double the stored price, the 25% move guard would reject every push, and",
+              "the market would halt from the moment of arming until the split actually",
+              "happened. Gating on a timestamp is what makes \"schedule it weeks ahead\"",
+              "a true statement instead of a longer outage."
+            ],
             "type": "u64"
           },
           {
             "name": "price_adjust_pending_den",
+            "docs": [
+              "Denominator of the pending pair. See `price_adjust_pending_num`."
+            ],
             "type": "u64"
           },
           {
             "name": "price_adjust_effective_ts",
+            "docs": [
+              "Unix ts from which the pending pair applies. 0 = nothing pending.",
+              "",
+              "Set it to the ex-date OPEN, the first instant a venue quotes the",
+              "post-action price. Misalignment is bounded and self-correcting for",
+              "ratios above ~1.333: a print on the wrong side of the boundary is",
+              "REJECTED by the 25% guard, not absorbed, so an early or late `ts` costs",
+              "rejected pushes rather than a mispriced book. Below ~1.333 nothing",
+              "rejects it and the alignment is the only control."
+            ],
             "type": "i64"
           },
           {
             "name": "price_adjust_last_effective_ts",
+            "docs": [
+              "Most recent activated units boundary, retained after promotion and rescheduling."
+            ],
             "type": "i64"
           }
         ]
@@ -4676,6 +5393,9 @@
           },
           {
             "name": "action",
+            "docs": [
+              "0 = paired mint; 1 = paired redeem."
+            ],
             "type": "u8"
           },
           {
@@ -4684,10 +5404,16 @@
           },
           {
             "name": "collateral_amount",
+            "docs": [
+              "Actual collateral paid by / returned to the user."
+            ],
             "type": "u64"
           },
           {
             "name": "gross_collateral_amount",
+            "docs": [
+              "Mint input / redeem payout before the explicit fee."
+            ],
             "type": "u64"
           },
           {
@@ -4954,27 +5680,46 @@
     },
     {
       "name": "RiskFeeConfig",
+      "docs": [
+        "Configuration for risk-based fee adjustments"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "proxy_fee_multiplier",
+            "docs": [
+              "Fee multiplier for Proxy Mode (100 = 1x, 200 = 2x)"
+            ],
             "type": "u16"
           },
           {
             "name": "stress_fee_multiplier",
+            "docs": [
+              "Fee multiplier for Stress mode (100 = 1x, 300 = 3x)",
+              "Also the starting point for Recovery Dutch auction (decays to 1.0x over 1 hour)"
+            ],
             "type": "u16"
           },
           {
             "name": "stress_mint_cap",
+            "docs": [
+              "Mint cap per transaction in Stress mode (0 = disabled)"
+            ],
             "type": "u64"
           },
           {
             "name": "allow_mint_in_stress",
+            "docs": [
+              "Whether to allow new mints in Stress mode"
+            ],
             "type": "bool"
           },
           {
             "name": "allow_redeem_in_stress",
+            "docs": [
+              "Whether to allow redeems in Stress mode"
+            ],
             "type": "bool"
           }
         ]
@@ -4982,6 +5727,9 @@
     },
     {
       "name": "RiskState",
+      "docs": [
+        "Risk state for graduated oracle gating (mirrors oracle program)"
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -5002,15 +5750,33 @@
     },
     {
       "name": "SetGammaParams",
+      "docs": [
+        "Arguments for `set_s_gamma_index`, in ONE struct.",
+        "",
+        "Not two loose arguments: the v1.45 build toolchain miscompiles per-argument",
+        "borsh offsets on multi-arg instructions (it once read a fee out of the middle",
+        "of a pubkey), and a single struct is the shape that survives it. The wire",
+        "format is identical either way, so this costs nothing."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "s_gamma_index",
+            "docs": [
+              "The new γ index (1e9). Must already be in `[GAMMA_FLOOR, GAMMA_ONE]` —",
+              "out-of-range is rejected, never clamped."
+            ],
             "type": "u64"
           },
           {
             "name": "expected_epoch",
+            "docs": [
+              "The `gamma_epoch` this post was computed against. A compare-and-swap:",
+              "the keeper snapshots γ at the start of a cycle and posts later, so",
+              "without this a re-anchor landing in that window would let a stale post",
+              "re-charge the entire folded epoch, and the ratchet would accept it."
+            ],
             "type": "u32"
           }
         ]
@@ -5034,23 +5800,39 @@
     },
     {
       "name": "WorstCaseQuotingConfig",
+      "docs": [
+        "Configuration for worst-case quoting",
+        "Protects protocol from informed traders exploiting confidence interval edges"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "enabled",
+            "docs": [
+              "Whether worst-case quoting is enabled"
+            ],
             "type": "bool"
           },
           {
             "name": "normal_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Normal state (100 = 1x, 150 = 1.5x)"
+            ],
             "type": "u16"
           },
           {
             "name": "proxy_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Proxy state"
+            ],
             "type": "u16"
           },
           {
             "name": "stress_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Stress state (also the starting point for Recovery Dutch auction)"
+            ],
             "type": "u16"
           }
         ]

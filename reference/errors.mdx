@@ -16,7 +16,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
 | 6000 | `0x1770` | `MarketNotActive` | `Market is not active` | `Market.is_active` is false. Wait for the operator to reactivate the market. |
-| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. It also covers a `rebalance_collateral` from a market to itself or between two markets that share a vault, and a wrong vault account on the collateral instructions. |
+| 6001 | `0x1771` | `InvalidAmount` | `Invalid amount` | A zero amount, a redeem with `l_amount` or `s_amount` at 0, a redeem whose balanced pair has a zero leg (for example one atom of L worth less than one base unit of S), more than the outstanding supply, or a token account whose mint doesn't match the market. Keeper price writes also raise it for a move over 25% or a Stress exit that skips Recovery. It also covers a `rebalance_collateral` from a market to itself or between two markets that share a vault, and a wrong vault account on the collateral instructions. |
 | 6002 | `0x1772` | `InsufficientCollateral` | `Insufficient collateral in vault` | A keeper single-side redeem would leave the market under 100%, or a withdrawal would take it below its target ratio. `rebalance_collateral` raises it when the source has nothing above its target, and `deploy_collateral_to_yield` when the vault holds less than the amount. User mint and redeem don't raise it. |
 | 6003 | `0x1773` | `InvalidOracle` | `Invalid oracle account` | At setup or on a Normal-state read: the oracle account isn't the market's `OracleConfig` PDA (`Continuum`) or doesn't parse as a Pyth feed. A wrong `oracle` on mint or redeem fails Anchor's address check (2012) instead. |
 | 6004 | `0x1774` | `UnsupportedOracleType` | `Unsupported oracle type` | `oracle_type` is `Switchboard`. Only `Pyth` and `Continuum` are accepted. |
@@ -34,7 +34,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6016 | `0x1780` | `InvalidWeight` | `Invalid weight - must be between 1 and 10000` | A collateral weight of 0 or above 10,000 bps. |
 | 6017 | `0x1781` | `CollateralAlreadyExists` | `Collateral type already exists` | `add_collateral_vault` with a mint that is already listed. |
 | 6018 | `0x1782` | `CollateralNotFound` | `Collateral type not found` | `update_collateral_vault` with a mint that isn't listed. |
-| 6019 | `0x1783` | `BelowMinimum` | `Amount below minimum ($10)` | A mint deposit under 10 cUSDC (`10_000_000` base units), or a redeem worth under 10 cUSDC at the quoted NAV. |
+| 6019 | `0x1783` | `BelowMinimum` | `Amount below minimum ($10)` | A mint deposit under 10 cUSDC (`10_000_000` base units), or a redeem whose balanced pair is worth under 10 cUSDC at the quoted NAV. |
 | 6020 | `0x1784` | `UnauthorizedKeeper` | `Unauthorized keeper` | The signer isn't `market.keeper_authority`, `redeem_single_for_vault` wasn't signed by the market's CLP PDA, or `realloc_market` wasn't signed by `market.authority`. |
 | 6021 | `0x1785` | `Unauthorized` | `Unauthorized: not the market authority` | `devTokenAccount` isn't owned by `market.feeRecipient`, or `permissionless_burn` isn't signed by the account owner. `fund_collateral` and `fund_collateral_from` raise it for a signer other than `market.authority`, and `fund_collateral_from` also when `funder` doesn't own `funder_collateral`. Other admin calls with the wrong signer usually fail with Anchor's `ConstraintHasOne` (2001) instead. |
 | 6022 | `0x1786` | `InsufficientLiquidCollateral` | `Insufficient liquid collateral; recall yield deployment first` | The payout is larger than this market's liquid share (`total_collateral - deployed_to_yield`) or the vault balance. `rebalance_collateral` raises it when the source has no liquid collateral. For a redeem, queue it with `request_redemption` (see [Redeem](/flows/redeem#when-the-vault-cannot-pay-yet)) or retry after the keeper recalls from lending. |
@@ -75,9 +75,9 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6057 | `0x17a9` | `AdvanceLenderLocked` | `The advance lender can change only while nothing is outstanding` | `configure_market_advance` with a new lender while an advance is outstanding. |
 | 6058 | `0x17aa` | `AdvanceOutstanding` | `A treasury advance is outstanding: write it off or repay it first` | `mark_yield_impairment` or `close_market_admin` while an advance is outstanding. |
 | 6059 | `0x17ab` | `InvalidAdvanceLender` | `The advance lender must be the CLP treasury vault (GlobalClp's cUSDC account)` | `configure_market_advance` with a lender that isn't the `GlobalClp` PDA's cUSDC account. |
-| 6060 | `0x17ac` | `ExposureCapExceeded` | `This would push the market's net exposure past its cap` | `redeem_paired` or `request_redemption` with L and S values more than \$1 apart that would move traders' net position further past `Clp.oi_cap`. Redeem both legs more evenly, or wait for room. A redemption that shrinks the net position always passes. |
+| 6060 | `0x17ac` | `ExposureCapExceeded` | `This would push the market's net exposure past its cap` | Since 14 Oct 2026 it comes only from `pool_swap` and `settle_swap`. `redeem_paired` and `request_redemption` burn a balanced pair that moves traders' net position by less than \$1, so they no longer raise it. The check stays in the redemption code as a guard. |
 | 6061 | `0x17ad` | `ExposureAccountMismatch` | `An exposure account is not the market's CLP, pool synth vault or CLP token account` | One of the exposure remaining accounts has the wrong address, owner or mint. Pass the market's `Clp` account, then the pool long and short synth vaults, then the CLP's long and short token accounts. |
-| 6062 | `0x17ae` | `ExposureAccountsMissing` | `A lopsided redemption must pass the exposure accounts: CLP, pool vaults, CLP token accounts` | A redemption more than \$1 lopsided without the five exposure remaining accounts. |
+| 6062 | `0x17ae` | `ExposureAccountsMissing` | `A lopsided redemption must pass the exposure accounts: CLP, pool vaults, CLP token accounts` | Since 14 Oct 2026 it comes only from `pool_swap` and `settle_swap`. Redemptions take no exposure remaining accounts. |
 
 ## clp
 
@@ -254,19 +254,19 @@ The market is in `Stress`, which blocks both mint and redeem on every live marke
 
 ### Redeem fails with `InvalidAmount` (6001)
 
-Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. Sell a lone leg with a committed order while the market is open, or on its bin book while its price is stale. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
+Both `l_amount` and `s_amount` must be above 0: there is no single-leg redeem. The program also fails with this code when the balanced pair it would burn has a zero leg, for example one atom of L whose value is worth less than one base unit of S. Offer a larger amount of the smaller leg. Sell a lone leg with a committed order while the market is open, or on its bin book while its price is stale. The same code also covers an amount above the outstanding supply and a token account whose mint doesn't match the market.
 
 ### `pool_swap` fails with `PoolClosedWhileLive` (6044)
 
 The market's price is live, and the bin books trade only while it is stale. Send a committed order (`commit_swap`) instead; it fills at the next price push. See [Trade](/flows/trade).
 
-### A `pool_swap` or redeem fails with `ExposureCapExceeded` (6045 or 6060)
+### A `pool_swap` fails with `ExposureCapExceeded` (6045)
 
-The market is full on that side. Its exposure cap limits how far traders' net position can go, and a trade that pushes it further past the cap reverts. Trades the other way always pass and open room, so a short makes room for a long and the reverse. A lopsided redemption is a trade too: redeeming more S than L counts as buying. Try a smaller amount, or wait. Committed orders don't fail this way; they fill what fits and refund the rest. See [Exposure cap](/concepts/solvency#6-exposure-cap).
+The market is full on that side. Its exposure cap limits how far traders' net position can go, and a trade that pushes it further past the cap reverts. Trades the other way always pass and open room, so a short makes room for a long and the reverse. Redemptions are not capped, because they burn a balanced pair. Try a smaller amount, or wait. Committed orders don't fail this way; they fill what fits and refund the rest. See [Exposure cap](/concepts/solvency#6-exposure-cap).
 
-### A trade or redeem fails with `ExposureAccountsMissing` (6046 or 6062)
+### A trade fails with `ExposureAccountsMissing` (6046)
 
-The market is capped, or the redemption is more than \$1 lopsided, and the transaction didn't pass the exposure accounts. For `pool_swap` and `settle_swap` they are the pool long and short synth vaults, then the CLP's long and short token accounts. For a redemption, the market's `Clp` account comes first. Passing them on an uncapped market is harmless. See [Exposure cap](/concepts/solvency#6-exposure-cap).
+The market is capped and the transaction didn't pass the exposure accounts. For `pool_swap` and `settle_swap` they are the pool long and short synth vaults, then the CLP's long and short token accounts. Passing them on an uncapped market is harmless. Redemptions need none of them. See [Exposure cap](/concepts/solvency#6-exposure-cap).
 
 ### Redeem fails with `InsufficientLiquidCollateral` (6022)
 
@@ -274,7 +274,7 @@ The payout is more than the market's liquid collateral. On mainnet most collater
 
 ### Mint or redeem fails with `BelowMinimum` (6019)
 
-A mint needs a deposit of at least 10 cUSDC (`10_000_000` base units). A redeem needs both legs together to be worth at least 10 cUSDC at the redeem NAVs.
+A mint needs a deposit of at least 10 cUSDC (`10_000_000` base units). A redeem needs the balanced pair it burns to be worth at least 10 cUSDC at the redeem NAVs. If you offer a lopsided amount, the pair is smaller than the offer.
 
 ### Mint or redeem fails with `Unauthorized` (6021)
 
