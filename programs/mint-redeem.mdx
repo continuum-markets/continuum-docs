@@ -151,7 +151,7 @@ The balanced burn closes audit finding MR-2. A lopsided paired redeem, for examp
 - The pair it burns must be worth at least 10 cUSDC, or it fails with `BelowMinimum`.
 - When it trims, it logs `Balanced pair: burning X L + Y S of the A L + B S offered; the rest stays with the redeemer`. The `PairedActionExecuted` event and the `Redeemed paired tokens` log report the amounts actually burned.
 - The CLP redeeming its own inventory through `vault_redeem_pairs` (the CLP PDA signs) is exempt. It burns exactly what it asks.
-- A balanced burn moves traders' net position by less than \$1, so redemptions take no exposure remaining accounts and can no longer fail with `ExposureCapExceeded` (6060) or `ExposureAccountsMissing` (6062). Those errors now come only from `pool_swap` and `settle_swap`. The redemption check is still in the code as a guard. See the [exposure cap](/concepts/solvency#6-exposure-cap).
+- A balanced burn moves traders' net position by less than \$1, so redemptions take no exposure remaining accounts and can no longer fail with `ExposureCapExceeded` (6060) or `ExposureAccountsMissing` (6062). These codes are raised only by the redemption check, so they can no longer occur in practice. They stay in the enum and the check stays in the code as a guard. The cap errors on the swap paths (`pool_swap`, `settle_swap`) belong to the CLP program, as 6045 and 6046. See the [exposure cap](/concepts/solvency#6-exposure-cap).
 
 The instruction's arguments and accounts did not change. Only the doc comments in the IDL did. The change shipped on devnet on 14 Oct 2026 (slot 511012606).
 
