@@ -57,7 +57,7 @@ The [short rebate](/concepts/short-rebate) pays cUSDC to S that is staked from y
 3. **Claim.** `claim_rebate` pays what the position has earned into the account's own cUSDC token account. The owner, the key or the keeper can sign it, and the money can't go anywhere else.
 4. **Unstake.** `unstake_rebate` moves S back to the account. Only the owner or the trading key can sign it, and the keeper never can.
 
-Staked S earns exactly while it is staked, because staking and unstaking each settle first. Staked S is out of the account's token account, so it isn't there to sell or to place an order against until you unstake it. The rate can be 0, and it depends on the market's collateral yield and on how long traders are net long, so read `RebateMarket.rate_bps` from chain. Instruction and account details are on the [trading program](/programs/trading) page.
+Staked S earns exactly while it is staked, because staking and unstaking each settle first. There is no lockup and no penalty for unstaking early, and earnings stay claimable after an unstake. Staked S is out of the account's token account, so it isn't there to sell or to place an order against until you unstake it. The app unstakes what a sale or withdrawal needs in the same transaction. The rate can be 0, and it depends on the market's collateral yield and on how long traders are net long, so read `RebateMarket.rate_bps` from chain. Instruction and account details are on the [trading program](/programs/trading) page.
 
 ## Where a market order goes
 

@@ -13,7 +13,7 @@ Every live market has a rebate. MSTR is closed and has none.
 
 Only S that is staked from a trading account earns. [`stake_rebate`](/programs/trading#stake_rebate) moves S from the account's token account into a vault owned by the account's rebate position, and only [`unstake_rebate`](/programs/trading#unstake_rebate) moves it back. Both settle what the position has earned first.
 
-This means S earns exactly while it is staked. The same S can't be counted in two places, because it leaves the first account's token account when it is staked. A rebate that only read a balance could be gamed by moving tokens between accounts around a snapshot.
+This means S earns exactly while it is staked. There is no lockup and no penalty for leaving early: an unstake is immediate, and what the position earned up to that moment stays claimable. The same S can't be counted in two places, because it leaves the first account's token account when it is staked. A rebate that only read a balance could be gamed by moving tokens between accounts around a snapshot.
 
 The CLP's own inventory is never in a trading account, so it never earns.
 
