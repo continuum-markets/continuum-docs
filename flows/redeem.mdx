@@ -100,6 +100,17 @@ If you hold both legs, in any ratio, one `redeem_paired` burns the largest balan
 
 For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee was 27 bps as of 10 Oct 2026. A committed sale pays the commit spread, 18 bps on QQQ that day, one leg at a time. The bin books trade only while mint and redeem are frozen; there the first bins of a QQQ book sit one 20 bps core step from the book's centre, which the keeper shifts with the CLP's inventory, and larger sales walk into wider bins.
 
+### Close position
+
+In the app, **Close position** makes that comparison for you. It is under the market chart in the Balances tab, on each row of Portfolio, and in Pairs as "Close all of it". It prices two routes for everything you hold of the market, in your wallet and in your trading account:
+
+- **Redeem, then sell the rest.** Redeem the largest balanced pair your wallet holds, at the posted price less the redeem fee, then sell what is left in Trade.
+- **Sell both in Trade.** Sell each leg as a committed order, at the next official price less the commit spread.
+
+Whatever the pair leaves over is sold in both routes, so the choice comes down to redeeming the pair or selling it. The plan picks the route that pays more and redeems on a tie, because a redemption pays at once, in one transaction. It also redeems when the CLP does not hold enough cUSDC to pay for the whole sale, since `settle_swap` refuses a sale it cannot cover and the order comes back. It offers only selling while redeeming is paused, or when a redemption that size would be a [queued request](#when-the-vault-cannot-pay-yet). A token worth under one cent stays where it is.
+
+The redemption runs in the panel. Each sale opens in the Trade ticket with the amount filled in, so it uses your trading account, its setup and its order status, and the panel follows each committed sale until it fills or comes back. Trade takes one committed order at a time, so a second sale waits for the first to fill. Redeemed cUSDC goes to your wallet, and sale proceeds go to your trading account.
+
 ## Limits
 
 There is no fixed size cap, and the market's [exposure cap](#exposure-cap) does not apply to redemptions. A redeem can't burn more than the market's outstanding supply of either leg (`InvalidAmount`). The payout plus `dev_tax` must fit within the market's liquid collateral, `total_collateral` minus `deployed_to_yield`, and within the vault's token balance (`InsufficientLiquidCollateral`). When it doesn't, [queue a redemption request](#when-the-vault-cannot-pay-yet) instead. The program doesn't check your balances; burning more than you hold fails inside SPL Token.
