@@ -1,6 +1,6 @@
 ---
 title: Peg maintenance
-description: Why the venues stay near NAV, what bounds a stale book, and the legacy arbitrage loop that is off by default.
+description: Why the venues stay near NAV, what bounds a stale book, and why the keeper runs no arbitrage loop.
 ---
 
 ## Why the venues stay near NAV
@@ -24,8 +24,8 @@ While prices are pushing, the books don't fill, so a gap inside one keeper cycle
 
 Capping depth this way is what makes the books safe on volatile assets, where an uncapped venue quoting at NAV could be drained.
 
-## The legacy arbitrage loop
+## Arbitrage
 
-The keeper runs no arbitrage loop by default. The arbitrage scanner, the boot-time sweep of leftover L and S in the keeper wallet, and the liquidity seeder belong to the legacy Meteora layer, which runs only with `LEGACY_METEORA_ENABLED=true` (default `false`).
+The keeper runs no arbitrage loop. Its arbitrage scanner, the boot-time sweep of leftover L and S in the keeper wallet and the liquidity seeder belonged to an external-venue layer that has been removed.
 
 Anyone can still trade against a drifted book without a keeper key: buy a leg on its book, buy the other leg on its own book, and redeem the pair with `redeem_paired`. Near the reposition gate that trade rarely clears the fee hurdle.

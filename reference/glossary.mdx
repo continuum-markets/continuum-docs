@@ -115,7 +115,7 @@ description: Continuum-specific terms in one place.
 
 **`redeem_paired`** - User-facing instruction. Burns the largest value-balanced pair inside two maximum amounts (both above zero), leaves the rest of the larger leg with the caller, and returns cUSDC at NAV less the redeem fee. The pair burned must be worth at least 10 cUSDC. → [Redeem flow](/flows/redeem).
 
-**Registry** - The on-chain symbol-to-market index (`Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau`). It is deployed and initialized, but it holds no markets and nothing reads it yet. Its only venue type is `MeteoraDlmm`. → [Registry program](/programs/registry).
+**Registry** - The on-chain symbol-to-market index (`Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau`). It is deployed and initialized, but it holds no markets and nothing reads it yet. Its only venue type is `BinBook`. → [Registry program](/programs/registry).
 
 **`risk_state`** - `Normal`, `ProxyMode`, `Stress` or `Recovery`, stored on `Market` and written by the keeper with `update_risk_state_v2`. Devnet markets are always in `ProxyMode`. Fee and confidence multipliers: 1×, 1.5×, 3×, and 3× falling to 1× over 1 hour. → [Risk states](/concepts/risk-states).
 

@@ -3692,7 +3692,7 @@
         "Withdraw EXCESS collateral from a market's `collateral_vault` to",
         "the per-market CLP vault. Inverse of `donate_to_vault` — used to",
         "rebalance idle equity from over-collateralized markets back to",
-        "the CLP, where it can be redeployed as Meteora liquidity, paid",
+        "the CLP, where it can be redeployed as bin-book liquidity, paid",
         "out via `admin_withdraw`, etc.",
         "",
         "Admin-gated (signer == market.authority).",

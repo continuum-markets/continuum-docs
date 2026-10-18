@@ -193,7 +193,6 @@ The allocator's limits come from the stress assumptions below and the treasury b
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LEGACY_METEORA_ENABLED` | `false` | The legacy Meteora layer: DLMM position manager, depth balancer, LP-fee claimer, arbitrage scanner with its boot-time sweep, and liquidity seeder. |
 | `COLLATERAL_YIELD_ENABLED` | `false` | Lending collateral. It acts only on mainnet USDC, and the market also needs `yield_enabled` and a non-zero `yield_ceiling_bps`. |
 
 ## Primary and standby
@@ -251,7 +250,7 @@ If the underlying market is closed, this is free float by design, and the first 
 
 ### Leftover L or S in the keeper wallet
 
-The boot-time sweep that cleared it belongs to the legacy layer and is off by default. Redeem matched amounts with `redeem_paired`, or a single leg with `keeper_redeem_single`, signed by the keeper wallet.
+The keeper no longer sweeps it at boot. Redeem matched amounts with `redeem_paired`, or a single leg with `keeper_redeem_single`, signed by the keeper wallet.
 
 ## See also
 

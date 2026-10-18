@@ -50,7 +50,7 @@ Holding is not free on both legs, though. The short leg carries a [volatility de
 
 While a market's price is live, the books don't fill: trades go through committed orders, which fill at NAV ± the committed spread. The keeper re-centres each leg's bin book near NAV whenever its centre drifts past the reposition gate, 20 bps by default. Each book is lean, and an outside trader who lifts a stale bin pays the real slippage of the bin ladder. Turning a cheap leg into cUSDC through the protocol means buying the other leg too and redeeming the pair, which pays the redeem fee. → [Peg maintenance](/keeper/arb-paths).
 
-The keeper's old arbitrage loop belonged to the legacy Meteora layer, which is off by default. Anyone can trade a book that has drifted from NAV; no keeper key is needed. → [Arb bot](/build/composability#2-arb-bot).
+The keeper has no arbitrage loop. Anyone can trade a book that has drifted from NAV; no keeper key is needed. → [Arb bot](/build/composability#2-arb-bot).
 
 ## What if the keeper goes down?
 

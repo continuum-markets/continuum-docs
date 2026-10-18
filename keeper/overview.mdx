@@ -5,7 +5,7 @@ description: The protocol's off-chain operator. It pushes prices, runs the bin b
 
 The keeper is an off-chain Rust service that the protocol runs. It pushes a reference price for each market, manages the 26 bin books, settles committed orders, moves inventory, and posts per-market parameters such as fees and the γ index. Its source code and binary are not published; these pages describe how the protocol's keeper behaves and how it is configured.
 
-Most loops have an environment switch, but not all. γ posting has no switch of its own and stops only if the whole book manager is turned off. Lending collateral, which happens only on mainnet, and the legacy Meteora layer, with its arbitrage loop, ship turned off. See [Keeper configuration](/keeper/running) for variables and defaults.
+Most loops have an environment switch, but not all. γ posting has no switch of its own and stops only if the whole book manager is turned off. Lending collateral, which happens only on mainnet, ships turned off. See [Keeper configuration](/keeper/running) for variables and defaults.
 
 ## What it runs
 

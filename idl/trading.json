@@ -2763,8 +2763,8 @@
         "Seeds: `[b\"clp\", market_id]`",
         "",
         "After the global vault migration, this account no longer holds LP capital.",
-        "It tracks market-specific operational state: inventory risk, yield deployments,",
-        "and Meteora position ownership."
+        "It tracks market-specific operational state: inventory risk, yield deployments",
+        "and vault pair-minting counters."
       ],
       "type": {
         "kind": "struct",
@@ -2870,27 +2870,20 @@
             "type": "u64"
           },
           {
-            "name": "total_meteora_fees_earned",
+            "name": "retired_venue_state",
             "docs": [
-              "Cumulative Meteora LP fees earned by the vault (informational)."
+              "RETIRED. 136 bytes that once held a fee counter (u64) and four account",
+              "addresses (Pubkeys) for a liquidity venue the protocol no longer uses.",
+              "Live accounts may still hold that stale data. Nothing reads or writes",
+              "these bytes; they keep every later field at its offset. Zero them, or",
+              "migrate them, before giving them any new meaning."
             ],
-            "type": "u64"
-          },
-          {
-            "name": "meteora_long_pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "meteora_short_pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "meteora_long_position",
-            "type": "pubkey"
-          },
-          {
-            "name": "meteora_short_position",
-            "type": "pubkey"
+            "type": {
+              "array": [
+                "u8",
+                136
+              ]
+            }
           },
           {
             "name": "allocated_from_global",
@@ -3807,9 +3800,8 @@
         "`x·y=k` curve and no permissionless LPs: each bin holds a fixed reserve at a",
         "fixed price (constant-sum within a bin), and the ladder is POSTED by the",
         "keeper rather than emerging from deposits. It is a discrete-bin liquidity",
-        "book (Trader Joe \"Liquidity Book\" / Meteora DLMM family; `clmm.rs` calls",
-        "its own math \"DLMM-style\"), with a single quoter. The old names are kept for",
-        "config compatibility; docs say \"bin book\"."
+        "book (the Trader Joe \"Liquidity Book\" family), with a single quoter. The",
+        "old names are kept for config compatibility; docs say \"bin book\"."
       ],
       "type": {
         "kind": "struct",

@@ -10,7 +10,7 @@ Devnet ID: Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau
 ```
 
 <Note>
-  As of 10 Oct 2026 the `RegistryState` PDA (`ED8joCbjr7hnWPgmiGspQ2LNpUJGfjobZYqEHD1PWyE1`) has `market_count = 0`, and no `MarketEntry` accounts exist. The only venue type is `MeteoraDlmm`, so the registry can't yet describe the native bin books that every market trades on.
+  As of 10 Oct 2026 the `RegistryState` PDA (`ED8joCbjr7hnWPgmiGspQ2LNpUJGfjobZYqEHD1PWyE1`) has `market_count = 0`, and no `MarketEntry` accounts exist. The only venue type is `BinBook`, so the registry can't yet describe the native bin books that every market trades on.
 </Note>
 
 ## Accounts
@@ -39,7 +39,7 @@ seeds = [b"market", symbol_bytes]
 |---|---|---|
 | `symbol` | `[u8; 16]` | Uppercase ticker, zero-padded |
 | `long_mint` / `short_mint` | Pubkey | L and S mints |
-| `venue` | `Venue` | Venue tag. The only variant is `MeteoraDlmm` |
+| `venue` | `Venue` | Venue tag. The only variant is `BinBook` |
 | `long_pool` / `short_pool` | Pubkey | Per-side pool addresses |
 | `long_position` / `short_position` | Pubkey | Liquidity position addresses (default pubkey if none) |
 | `is_active` | bool | Set to `true` by `register_market`. No program reads it |

@@ -4,7 +4,7 @@
     "name": "registry",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Continuum Market Registry \u2013 on-chain index of L/S pool addresses"
+    "description": "Continuum Market Registry – on-chain index of L/S pool addresses"
   },
   "instructions": [
     {
@@ -401,7 +401,7 @@
         "kind": "enum",
         "variants": [
           {
-            "name": "MeteoraDlmm"
+            "name": "BinBook"
           }
         ]
       }

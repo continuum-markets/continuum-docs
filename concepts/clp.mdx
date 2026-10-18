@@ -28,7 +28,7 @@ The keeper's env vars carry a `CLMM_` prefix and its pricing module is `clmm.rs`
 | Who supplies it | Many permissionless LPs choosing their own ranges | One quoter: the protocol is the sole LP |
 | How the shape is set | Emerges from LP deposits | Posted by the keeper (`set_pool_shape`) at each reposition |
 
-Mechanically it is a **discrete-bin liquidity book**, the same family as Trader Joe's Liquidity Book and Meteora's DLMM (the "D" is for *discrete*), which is what the program's `clmm.rs` header means by "DLMM-style". Ask bin `i` sits `i + 1` steps above the centre and bid bin `i` sits `i + 1` steps below. Each step multiplies the price by `1 + step/1e4`, using the core step for the first `core_bins` steps and the wing step beyond. A bin holds a reserve and fills at its own price until it runs out.
+Mechanically it is a **discrete-bin liquidity book**, the Liquidity Book family, where price moves in discrete bins. Ask bin `i` sits `i + 1` steps above the centre and bid bin `i` sits `i + 1` steps below. Each step multiplies the price by `1 + step/1e4`, using the core step for the first `core_bins` steps and the wing step beyond. A bin holds a reserve and fills at its own price until it runs out.
 
 It differs from those too, by being *less* of an AMM. The whole book lives inline in one `Pool` account with no per-bin accounts, and the keeper **posts** the ladder; deposits don't shape it. There is no bonding curve. The most accurate description is a **keeper-quoted bin book**: an on-chain market maker whose quotes are settled by an AMM-style swap instruction.
 

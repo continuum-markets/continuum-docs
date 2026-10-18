@@ -9,6 +9,9 @@
   "instructions": [
     {
       "name": "absorb_loss",
+      "docs": [
+        "Use protocol buffer for loss absorption"
+      ],
       "discriminator": [
         42,
         46,
@@ -72,6 +75,9 @@
     },
     {
       "name": "add_yield_to_buffer",
+      "docs": [
+        "Add yield to the global protocol buffer (from yield harvesting)"
+      ],
       "discriminator": [
         139,
         221,
@@ -135,6 +141,11 @@
     },
     {
       "name": "admin_fund",
+      "docs": [
+        "Admin deposits USDC into the global vault to seed markets.",
+        "Replaces the prior user-facing `global_deposit`. No shares are minted — the",
+        "protocol is the sole LP, capital is operator-funded."
+      ],
       "discriminator": [
         29,
         89,
@@ -171,6 +182,9 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "Admin authority — must match `global_clp.authority`."
+          ],
           "signer": true,
           "relations": [
             "global_clp"
@@ -178,10 +192,16 @@
         },
         {
           "name": "admin_collateral",
+          "docs": [
+            "Admin's USDC source account."
+          ],
           "writable": true
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global USDC vault: ATA(global_clp_pda, usdc_mint)"
+          ],
           "writable": true
         },
         {
@@ -198,6 +218,15 @@
     },
     {
       "name": "admin_withdraw",
+      "docs": [
+        "Admin withdraws idle cUSDC from the global vault to the treasury",
+        "destination, rate-limited by the `TreasuryPolicy` token bucket.",
+        "",
+        "Only idle balance can be pulled — capital already allocated to markets",
+        "must first be recalled via `return_to_global`. Blocked while frozen.",
+        "The allowance accrues at `rate_per_sec` up to `burst`; a withdrawal may",
+        "not exceed it, and spends it. The destination is fixed by the policy."
+      ],
       "discriminator": [
         160,
         166,
@@ -234,6 +263,9 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "Admin authority — must match `global_clp.authority`."
+          ],
           "signer": true,
           "relations": [
             "global_clp"
@@ -269,10 +301,16 @@
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global cUSDC vault, owned by the GlobalClp PDA."
+          ],
           "writable": true
         },
         {
           "name": "destination",
+          "docs": [
+            "The policy's destination; nothing else can receive a withdrawal."
+          ],
           "writable": true
         },
         {
@@ -404,6 +442,9 @@
     },
     {
       "name": "allocate_to_market",
+      "docs": [
+        "Transfer USDC from the global vault to a per-market operating vault (keeper)."
+      ],
       "discriminator": [
         185,
         217,
@@ -468,10 +509,17 @@
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global USDC vault: must be owned by the GlobalClp PDA."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "Per-market operating vault: owned by this market's Clp PDA and of the",
+            "global vault's mint, so neither direction can pay a foreign account."
+          ],
           "writable": true
         },
         {
@@ -488,6 +536,10 @@
     },
     {
       "name": "apply_treasury_limits",
+      "docs": [
+        "Apply the pending treasury change once its delay has passed.",
+        "Permissionless: any signer may crank it."
+      ],
       "discriminator": [
         50,
         179,
@@ -529,6 +581,9 @@
         },
         {
           "name": "caller",
+          "docs": [
+            "Anyone: applying a change that has waited out its delay is a crank."
+          ],
           "signer": true
         }
       ],
@@ -536,6 +591,14 @@
     },
     {
       "name": "backstop_market",
+      "docs": [
+        "Move treasury cUSDC from the global vault straight into a market's",
+        "collateral, crediting its `total_collateral`, via mint-redeem's",
+        "`fund_collateral_from` with the GlobalClp PDA as the funder. The signer",
+        "must be global_clp.authority AND market.authority (mint-redeem's",
+        "`has_one`). Not rate-limited and allowed while frozen: the funds stay",
+        "protocol-owned, landing in the market's own collateral vault."
+      ],
       "discriminator": [
         154,
         169,
@@ -571,6 +634,9 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "global_clp.authority, which must also be market.authority."
+          ],
           "signer": true,
           "relations": [
             "global_clp"
@@ -606,6 +672,15 @@
     },
     {
       "name": "cancel_swap",
+      "docs": [
+        "Refund an expired order to its owner, escrow and rent included. Allowed",
+        "STRICTLY after `expires_at` (settle owns <=, cancel owns >: no gap, no",
+        "overlap). Permissionless since 11 Oct 2026: the order is already dead and",
+        "every token goes to its owner, so a crank (the keeper) may send it.",
+        "Deliberately checks NOTHING else, no frozen/enabled/oracle/is_active:",
+        "escrowed funds are always recoverable after the TTL regardless of",
+        "protocol state."
+      ],
       "discriminator": [
         88,
         174,
@@ -619,6 +694,11 @@
       "accounts": [
         {
           "name": "user",
+          "docs": [
+            "The order's owner: receives the refund and all rent. It need not sign:",
+            "the handler only acts on an EXPIRED order and pays only the owner, so",
+            "anyone (the keeper, as a crank) can clear a dead order."
+          ],
           "writable": true
         },
         {
@@ -679,6 +759,9 @@
         },
         {
           "name": "user_in",
+          "docs": [
+            "Refund destination (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -690,6 +773,9 @@
     },
     {
       "name": "cancel_treasury_limits",
+      "docs": [
+        "Drop the pending treasury change (global_clp.authority or guardian)."
+      ],
       "discriminator": [
         78,
         197,
@@ -760,6 +846,9 @@
     },
     {
       "name": "check_inventory_restrictions",
+      "docs": [
+        "Check if operations should be restricted based on inventory state"
+      ],
       "discriminator": [
         158,
         45,
@@ -796,51 +885,21 @@
       "returns": "bool"
     },
     {
-      "name": "clear_meteora_positions",
-      "discriminator": [
-        151,
-        227,
-        219,
-        145,
-        219,
-        36,
-        235,
-        202
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "clp_burn_excess",
+      "docs": [
+        "Burn ASYMMETRIC excess L or S inventory held by the CLP PDA without",
+        "receiving collateral. Used to retire zombie-pool recoveries — when",
+        "`drain-zombie-positions` lands tokens in CLP's L/S ATAs that would",
+        "otherwise sit there forever (since paired-redeem requires equal",
+        "L+S quantities and asymmetric residue can't be paired-redeemed).",
+        "",
+        "SAFETY (mirrors keeper_burn_single's hardening):",
+        "- Admin-gated via `has_one = authority` on Clp.",
+        "- The CPI'd `permissionless_burn` ix has its own L/S mint",
+        "address-binding, so even if the wrong mints were passed at",
+        "this layer the inner ix would reject them.",
+        "- No cUSDC transfer in either layer."
+      ],
       "discriminator": [
         177,
         137,
@@ -882,14 +941,26 @@
         },
         {
           "name": "market",
+          "docs": [
+            "mint-redeem Market PDA — supply field gets decremented via CPI.",
+            "Bind to clp.market_id so a different market's `Market` can't be",
+            "substituted to corrupt cross-market `total_l/s_supply` ledgers."
+          ],
           "writable": true
         },
         {
           "name": "clp_long_account",
+          "docs": [
+            "CLP's long token ATA. Owner must be the CLP PDA, mint pinned to",
+            "the market's long_mint (see comment on ClpBurnExcess)."
+          ],
           "writable": true
         },
         {
           "name": "clp_short_account",
+          "docs": [
+            "CLP's short token ATA — same shape as clp_long_account."
+          ],
           "writable": true
         },
         {
@@ -921,185 +992,14 @@
       ]
     },
     {
-      "name": "clp_claim_lp_fees",
-      "discriminator": [
-        50,
-        229,
-        76,
-        173,
-        151,
-        219,
-        37,
-        217
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        },
-        {
-          "name": "position",
-          "writable": true
-        },
-        {
-          "name": "lb_pair",
-          "writable": true
-        },
-        {
-          "name": "clp_token_x",
-          "writable": true
-        },
-        {
-          "name": "clp_vault",
-          "writable": true
-        },
-        {
-          "name": "reserve_x",
-          "writable": true
-        },
-        {
-          "name": "reserve_y",
-          "writable": true
-        },
-        {
-          "name": "token_x_mint"
-        },
-        {
-          "name": "token_y_mint"
-        },
-        {
-          "name": "bin_array_lower",
-          "writable": true
-        },
-        {
-          "name": "bin_array_upper",
-          "writable": true
-        },
-        {
-          "name": "event_authority"
-        },
-        {
-          "name": "meteora_program",
-          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
-        },
-        {
-          "name": "memo_program",
-          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "side",
-          "type": "u8"
-        },
-        {
-          "name": "lower_bin",
-          "type": "i32"
-        },
-        {
-          "name": "upper_bin",
-          "type": "i32"
-        }
-      ]
-    },
-    {
-      "name": "clp_close_meteora_position",
-      "discriminator": [
-        219,
-        144,
-        33,
-        160,
-        1,
-        149,
-        171,
-        26
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        },
-        {
-          "name": "position",
-          "writable": true
-        },
-        {
-          "name": "event_authority"
-        },
-        {
-          "name": "meteora_program",
-          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
-        }
-      ],
-      "args": [
-        {
-          "name": "side",
-          "type": "u8"
-        },
-        {
-          "name": "lower_bin",
-          "type": "i32"
-        },
-        {
-          "name": "upper_bin",
-          "type": "i32"
-        }
-      ]
-    },
-    {
       "name": "clp_fund_pool_synth",
+      "docs": [
+        "Move synth from the CLP's L/S ATA into a pool's ask vault (the refill leg",
+        "after `vault_mint_pairs`). The inventory was already counted as deployed at",
+        "mint time (`vault_l/s_deployed`), so no counters change — this just stages",
+        "it into the pool book for the next `set_pool_shape`. Keeper/admin-gated via",
+        "`has_one = authority` on Clp; the CLP PDA signs the outbound transfer."
+      ],
       "discriminator": [
         247,
         87,
@@ -1139,14 +1039,23 @@
           ]
         },
         {
-          "name": "pool"
+          "name": "pool",
+          "docs": [
+            "Pool whose ask vault receives the synth (market binding checked in handler)."
+          ]
         },
         {
           "name": "clp_synth_account",
+          "docs": [
+            "CLP-owned synth ATA, source (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "pool_synth_vault",
+          "docs": [
+            "Pool-owned synth vault, destination (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -1163,6 +1072,13 @@
     },
     {
       "name": "clp_fund_pool_usdc",
+      "docs": [
+        "Move cUSDC from the market's CLP vault into a pool's bid vault: the",
+        "bid-side refill. Sell flow spends a book's bid cUSDC and turns it into",
+        "synth; `pool_sweep_synth` returns the synth, and this puts the cUSDC",
+        "back. Keeper/admin-gated via `has_one = authority` on Clp; the CLP PDA",
+        "signs the outbound transfer."
+      ],
       "discriminator": [
         110,
         120,
@@ -1202,14 +1118,23 @@
           ]
         },
         {
-          "name": "pool"
+          "name": "pool",
+          "docs": [
+            "Pool whose bid vault receives the cUSDC (market binding checked in handler)."
+          ]
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP-owned per-market cUSDC vault, source (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "pool_usdc_vault",
+          "docs": [
+            "Pool-owned cUSDC vault, destination (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -1225,358 +1150,16 @@
       ]
     },
     {
-      "name": "clp_init_bin_array",
-      "discriminator": [
-        37,
-        151,
-        230,
-        245,
-        218,
-        66,
-        17,
-        247
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "lb_pair"
-        },
-        {
-          "name": "bin_array",
-          "writable": true
-        },
-        {
-          "name": "meteora_program",
-          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "index",
-          "type": "i64"
-        }
-      ]
-    },
-    {
-      "name": "clp_open_meteora_position",
-      "discriminator": [
-        115,
-        222,
-        205,
-        31,
-        5,
-        197,
-        213,
-        234
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        },
-        {
-          "name": "new_position",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "lb_pair",
-          "writable": true
-        },
-        {
-          "name": "clp_token_x",
-          "writable": true
-        },
-        {
-          "name": "clp_vault",
-          "writable": true
-        },
-        {
-          "name": "reserve_x",
-          "writable": true
-        },
-        {
-          "name": "reserve_y",
-          "writable": true
-        },
-        {
-          "name": "token_x_mint"
-        },
-        {
-          "name": "token_y_mint"
-        },
-        {
-          "name": "bin_array_lower",
-          "writable": true
-        },
-        {
-          "name": "bin_array_upper",
-          "writable": true
-        },
-        {
-          "name": "event_authority"
-        },
-        {
-          "name": "meteora_program",
-          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "side",
-          "type": "u8"
-        },
-        {
-          "name": "amount_x",
-          "type": "u64"
-        },
-        {
-          "name": "amount_y",
-          "type": "u64"
-        },
-        {
-          "name": "active_id",
-          "type": "i32"
-        },
-        {
-          "name": "target_bin",
-          "type": "i32"
-        },
-        {
-          "name": "bin_radius",
-          "type": "i32"
-        }
-      ]
-    },
-    {
-      "name": "clp_remove_meteora_liquidity",
-      "discriminator": [
-        40,
-        132,
-        0,
-        76,
-        180,
-        106,
-        94,
-        213
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        },
-        {
-          "name": "position",
-          "writable": true
-        },
-        {
-          "name": "lb_pair",
-          "writable": true
-        },
-        {
-          "name": "clp_token_x",
-          "writable": true
-        },
-        {
-          "name": "clp_vault",
-          "writable": true
-        },
-        {
-          "name": "reserve_x",
-          "writable": true
-        },
-        {
-          "name": "reserve_y",
-          "writable": true
-        },
-        {
-          "name": "token_x_mint"
-        },
-        {
-          "name": "token_y_mint"
-        },
-        {
-          "name": "bin_array_lower",
-          "writable": true
-        },
-        {
-          "name": "bin_array_upper",
-          "writable": true
-        },
-        {
-          "name": "event_authority"
-        },
-        {
-          "name": "meteora_program",
-          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
-        },
-        {
-          "name": "memo_program",
-          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "side",
-          "type": "u8"
-        },
-        {
-          "name": "lower_bin",
-          "type": "i32"
-        },
-        {
-          "name": "upper_bin",
-          "type": "i32"
-        }
-      ]
-    },
-    {
-      "name": "clp_set_meteora_position",
-      "discriminator": [
-        86,
-        233,
-        15,
-        105,
-        16,
-        189,
-        28,
-        227
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        },
-        {
-          "name": "position"
-        }
-      ],
-      "args": [
-        {
-          "name": "side",
-          "type": "u8"
-        }
-      ]
-    },
-    {
       "name": "clp_swap",
+      "docs": [
+        "Retired 11 Oct 2026. The v2 oracle-pegged instant swap filled at the",
+        "last pushed NAV, a stale quote between pushes, and nothing could hold it",
+        "to the hours when that price is fresh. Trades now go through committed",
+        "orders (`commit_swap` / `settle_swap`, filled at the next push) while a",
+        "market is open, and the bin books or the Manifest order book while it is",
+        "closed. The accounts are kept so existing clients still decode; every",
+        "call fails with `SwapDisabled`."
+      ],
       "discriminator": [
         158,
         241,
@@ -1594,14 +1177,23 @@
         },
         {
           "name": "user_usdc",
+          "docs": [
+            "User's cUSDC token account."
+          ],
           "writable": true
         },
         {
           "name": "user_synth",
+          "docs": [
+            "User's synth token account for the chosen side (mint validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "clp",
+          "docs": [
+            "Per-market CLP PDA — seeds bind it to `market`."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -1622,14 +1214,23 @@
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP's cUSDC operating vault (owner == clp PDA, validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "clp_synth",
+          "docs": [
+            "CLP's synth inventory for the chosen side (owner == clp PDA, mint validated)."
+          ],
           "writable": true
         },
         {
-          "name": "market"
+          "name": "market",
+          "docs": [
+            "The mint-redeem Market PDA — source of NAV + solvency fields (read-only)."
+          ]
         },
         {
           "name": "token_program",
@@ -1656,126 +1257,10 @@
       ]
     },
     {
-      "name": "clp_topup_meteora_position",
-      "discriminator": [
-        85,
-        152,
-        157,
-        15,
-        153,
-        64,
-        34,
-        196
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        },
-        {
-          "name": "position",
-          "writable": true
-        },
-        {
-          "name": "lb_pair",
-          "writable": true
-        },
-        {
-          "name": "clp_token_x",
-          "writable": true
-        },
-        {
-          "name": "clp_vault",
-          "writable": true
-        },
-        {
-          "name": "reserve_x",
-          "writable": true
-        },
-        {
-          "name": "reserve_y",
-          "writable": true
-        },
-        {
-          "name": "token_x_mint"
-        },
-        {
-          "name": "token_y_mint"
-        },
-        {
-          "name": "bin_array_lower",
-          "writable": true
-        },
-        {
-          "name": "bin_array_upper",
-          "writable": true
-        },
-        {
-          "name": "event_authority"
-        },
-        {
-          "name": "meteora_program",
-          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "side",
-          "type": "u8"
-        },
-        {
-          "name": "amount_x",
-          "type": "u64"
-        },
-        {
-          "name": "amount_y",
-          "type": "u64"
-        },
-        {
-          "name": "active_id",
-          "type": "i32"
-        },
-        {
-          "name": "lower_bin",
-          "type": "i32"
-        },
-        {
-          "name": "upper_bin",
-          "type": "i32"
-        }
-      ]
-    },
-    {
       "name": "collect_fees",
+      "docs": [
+        "Collect trading fees (called by protocol)"
+      ],
       "discriminator": [
         164,
         152,
@@ -1834,6 +1319,11 @@
     },
     {
       "name": "commit_swap",
+      "docs": [
+        "Escrow `amount_in` (cUSDC for buys / synth for sells) into an Order-owned",
+        "token account. Settlement happens via the permissionless `settle_swap`",
+        "at the next oracle push; `cancel_swap` refunds after the TTL."
+      ],
       "discriminator": [
         122,
         177,
@@ -1847,14 +1337,23 @@
       "accounts": [
         {
           "name": "user",
+          "docs": [
+            "Pays rent for the order + escrow (both refunded on any terminal path)."
+          ],
           "writable": true,
           "signer": true
         },
         {
-          "name": "market"
+          "name": "market",
+          "docs": [
+            "The mint-redeem Market PDA (read-only; binds side mints)."
+          ]
         },
         {
           "name": "clp",
+          "docs": [
+            "Per-market CLP PDA (read-only here; fail-fast guard checks)."
+          ],
           "pda": {
             "seeds": [
               {
@@ -1903,10 +1402,16 @@
           }
         },
         {
-          "name": "in_mint"
+          "name": "in_mint",
+          "docs": [
+            "Mint of the escrowed (input) leg — validated against side/direction in the handler."
+          ]
         },
         {
           "name": "escrow",
+          "docs": [
+            "Escrow for the committed funds, owned by the order PDA."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -1930,13 +1435,23 @@
         },
         {
           "name": "user_in",
+          "docs": [
+            "User's source token account (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
-          "name": "user_out"
+          "name": "user_out",
+          "docs": [
+            "User's PAYOUT token account — must exist at commit so settlement can't",
+            "strand the order on a missing ATA (owner/mint validated in handler)."
+          ]
         },
         {
-          "name": "clp_vault"
+          "name": "clp_vault",
+          "docs": [
+            "CLP's cUSDC vault — read-only anchor for the cUSDC mint (owner checked in handler)."
+          ]
         },
         {
           "name": "token_program",
@@ -1972,6 +1487,9 @@
     },
     {
       "name": "configure_inventory_budget",
+      "docs": [
+        "Configure inventory budget thresholds (admin only)"
+      ],
       "discriminator": [
         98,
         155,
@@ -2025,6 +1543,9 @@
     },
     {
       "name": "configure_liquidity_seeder",
+      "docs": [
+        "Configure the liquidity seeder threshold on the global vault (admin only)."
+      ],
       "discriminator": [
         185,
         126,
@@ -2077,60 +1598,13 @@
       ]
     },
     {
-      "name": "configure_meteora_pools",
-      "discriminator": [
-        56,
-        37,
-        190,
-        242,
-        179,
-        101,
-        202,
-        241
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "clp"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "long_pool",
-          "type": "pubkey"
-        },
-        {
-          "name": "short_pool",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
       "name": "configure_pool_geom",
+      "docs": [
+        "Configure the 2-zone bin geometry (r30/r31): fine `core_bins` near NAV at the",
+        "pool's `step_bps`, then `wing_step_bps` for the outer wings (the float band).",
+        "`wing_step_bps == 0` resets to the uniform ladder. Validated: wing ≥ core and",
+        "core_bins ≤ num_bins."
+      ],
       "discriminator": [
         238,
         250,
@@ -2164,6 +1638,11 @@
     },
     {
       "name": "configure_revenue_attribution",
+      "docs": [
+        "Update the registered keeper authorities (admin only). Counters and",
+        "`started_at` are untouched — this only re-points the classifier (e.g.",
+        "keeper key rotation, temporary test keypairs)."
+      ],
       "discriminator": [
         127,
         170,
@@ -2250,6 +1729,11 @@
     },
     {
       "name": "configure_swap",
+      "docs": [
+        "Configure the v2 native oracle-pegged swap guards (admin only). Each",
+        "`None` arg leaves that field unchanged. `enabled=true` turns the native",
+        "swap path on; `frozen=true` is the hard kill switch."
+      ],
       "discriminator": [
         158,
         62,
@@ -2303,6 +1787,9 @@
     },
     {
       "name": "configure_yield_strategy",
+      "docs": [
+        "Configure yield strategy (admin only)"
+      ],
       "discriminator": [
         28,
         15,
@@ -2356,6 +1843,10 @@
     },
     {
       "name": "deposit_profit",
+      "docs": [
+        "Deposit arb or spread profit from keeper.",
+        "Takes a TVL-based continuous flow tax to dev wallet; rest goes to global vault."
+      ],
       "discriminator": [
         128,
         94,
@@ -2400,6 +1891,10 @@
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global vault receives the CLP portion of profit. It must be the treasury's own",
+            "account: the profit counters below count only money that reached it."
+          ],
           "writable": true
         },
         {
@@ -2412,6 +1907,10 @@
         },
         {
           "name": "revenue_attribution",
+          "docs": [
+            "Appended LAST — keeps prior indices stable for the keeper's hand-built",
+            "account list."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -2456,6 +1955,9 @@
     },
     {
       "name": "freeze_treasury",
+      "docs": [
+        "Freeze treasury withdrawals (global_clp.authority or guardian)."
+      ],
       "discriminator": [
         11,
         162,
@@ -2526,6 +2028,9 @@
     },
     {
       "name": "get_yield_status",
+      "docs": [
+        "Get current yield deployment status, gated by live oracle market state."
+      ],
       "discriminator": [
         232,
         117,
@@ -2565,6 +2070,9 @@
     },
     {
       "name": "init_pool",
+      "docs": [
+        "Create the per-(market, side) pool. Admin-only (pinned to global_clp)."
+      ],
       "discriminator": [
         116,
         233,
@@ -2591,6 +2099,9 @@
         },
         {
           "name": "global_clp",
+          "docs": [
+            "Pins pool creation to the global admin."
+          ],
           "pda": {
             "seeds": [
               {
@@ -2641,6 +2152,11 @@
     },
     {
       "name": "init_revenue_attribution",
+      "docs": [
+        "One-time setup of the RevenueAttribution singleton (admin only). Must",
+        "run immediately after the program upgrade that added it — pool_swap",
+        "requires the PDA to exist. Counters start at zero; `started_at` = now."
+      ],
       "discriminator": [
         67,
         1,
@@ -2686,6 +2202,9 @@
         },
         {
           "name": "global_clp",
+          "docs": [
+            "Pins setup to the global admin."
+          ],
           "pda": {
             "seeds": [
               {
@@ -2732,6 +2251,10 @@
     },
     {
       "name": "init_treasury_policy",
+      "docs": [
+        "One-time setup of the treasury withdrawal policy (global_clp.authority,",
+        "which also pays). Allowance starts at 0 and accrues from now."
+      ],
       "discriminator": [
         146,
         234,
@@ -2767,6 +2290,9 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "global_clp.authority; pays for the policy account."
+          ],
           "writable": true,
           "signer": true,
           "relations": [
@@ -2805,7 +2331,10 @@
           "name": "global_vault"
         },
         {
-          "name": "destination"
+          "name": "destination",
+          "docs": [
+            "Must be `params.destination` and hold the global vault's mint."
+          ]
         },
         {
           "name": "system_program",
@@ -2905,6 +2434,9 @@
     },
     {
       "name": "initialize_clp",
+      "docs": [
+        "Initialize clp fund for a market"
+      ],
       "discriminator": [
         248,
         61,
@@ -2965,6 +2497,9 @@
     },
     {
       "name": "initialize_global_clp",
+      "docs": [
+        "One-time setup: create the GlobalClp account and global USDC vault."
+      ],
       "discriminator": [
         61,
         55,
@@ -3021,6 +2556,14 @@
     },
     {
       "name": "pool_swap",
+      "docs": [
+        "Swap against the pool book. direction: 0 = buy synth (pay cUSDC), 1 = sell",
+        "synth (receive cUSDC). Walks the bins (real slippage), enforces `min_out`.",
+        "Remaining accounts when the market is capped (`oi_cap > 0`): the pool long",
+        "and short synth vaults, then the CLP's long and short token accounts",
+        "(mint_redeem::exposure::inventory_keys). A fill that would push traders'",
+        "net position past the cap reverts."
+      ],
       "discriminator": [
         44,
         238,
@@ -3050,6 +2593,10 @@
         },
         {
           "name": "clp",
+          "docs": [
+            "Per-market CLP — carries the swap_guards + rolling-window notional-cap",
+            "state (audit H3). Bound to the pool's market via seeds."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -3083,6 +2630,10 @@
         },
         {
           "name": "revenue_attribution",
+          "docs": [
+            "Keeper-vs-external revenue split. Appended LAST so pre-existing account",
+            "indices stay stable for hand-built encoders."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -3114,7 +2665,11 @@
           }
         },
         {
-          "name": "market"
+          "name": "market",
+          "docs": [
+            "The pool's market, read for its price age: the book trades only while",
+            "the market floats. Appended after revenue_attribution for the same reason."
+          ]
         }
       ],
       "args": [
@@ -3130,6 +2685,14 @@
     },
     {
       "name": "pool_sweep_synth",
+      "docs": [
+        "Sweep excess SYNTH out of a pool's ask vault back into the CLP's synth ATA",
+        "(the reverse of the refill leg). Ask depth beyond ~the bid side's value is",
+        "pure arb bait (r36c: toxic loss scales with deployed depth, revenue is",
+        "demand-capped) and reads as fake exit capacity; trimmed synth returns to",
+        "CLP custody where it serves committed-order provisioning instead.",
+        "Keeper/admin-gated via `has_one = authority`; the pool PDA signs."
+      ],
       "discriminator": [
         191,
         104,
@@ -3169,14 +2732,23 @@
           ]
         },
         {
-          "name": "pool"
+          "name": "pool",
+          "docs": [
+            "Pool whose ask vault is being trimmed (market binding checked in handler)."
+          ]
         },
         {
           "name": "pool_synth_vault",
+          "docs": [
+            "Pool-owned synth vault, source (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "clp_synth_account",
+          "docs": [
+            "CLP-owned synth ATA, destination (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -3193,6 +2765,14 @@
     },
     {
       "name": "pool_sweep_usdc",
+      "docs": [
+        "Sweep accumulated cUSDC out of a pool's bid vault back into the per-market",
+        "CLP vault. One-directional buy flow converts a pool's ask inventory into",
+        "cUSDC that piles up in `usdc_vault`; the keeper sweeps it here so",
+        "`vault_mint_pairs` can recycle it into fresh L+S inventory (elastic refill).",
+        "Keeper/admin-gated via `has_one = authority` on Clp; the pool PDA signs the",
+        "outbound transfer."
+      ],
       "discriminator": [
         247,
         102,
@@ -3232,14 +2812,23 @@
           ]
         },
         {
-          "name": "pool"
+          "name": "pool",
+          "docs": [
+            "Pool whose bid vault is being swept (market binding checked in handler)."
+          ]
         },
         {
           "name": "pool_usdc_vault",
+          "docs": [
+            "Pool-owned cUSDC vault (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP-owned per-market cUSDC vault (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -3256,6 +2845,10 @@
     },
     {
       "name": "realloc_clp",
+      "docs": [
+        "Realloc CLP account to fit new fields added after initial deployment.",
+        "Must be called once per CLP before any liquidity seeding instructions."
+      ],
       "discriminator": [
         173,
         234,
@@ -3269,10 +2862,18 @@
       "accounts": [
         {
           "name": "clp",
+          "docs": [
+            "the old (pre-upgrade) account can be extended to the new size."
+          ],
           "writable": true
         },
         {
           "name": "global_clp",
+          "docs": [
+            "GlobalClp pins the trusted authority. We can't `has_one = authority`",
+            "against `clp` because it's `AccountInfo` (intentional — the old",
+            "schema may not deserialize), so we anchor authentication here."
+          ],
           "pda": {
             "seeds": [
               {
@@ -3310,6 +2911,14 @@
     },
     {
       "name": "realloc_pool",
+      "docs": [
+        "Keeper reposition: set the active price (≈ NAV) and the per-bin shape.",
+        "Grow an existing Pool account to fit the 2-zone fields (wing_step_bps, core_bins)",
+        "added after initial deployment. RAW realloc on an UncheckedAccount — we do NOT",
+        "deserialize the new struct from the short account (that fails 3003); instead we",
+        "validate owner + the authority prefix (Pool.authority is bytes 8..40), fund the rent",
+        "delta, then grow with zero-fill (new fields → 0 → bin_geom() = uniform, backward compat)."
+      ],
       "discriminator": [
         114,
         128,
@@ -3323,6 +2932,9 @@
       "accounts": [
         {
           "name": "pool",
+          "docs": [
+            "deserialize the grown struct from a still-short account (that fails AccountDidNotDeserialize)."
+          ],
           "writable": true
         },
         {
@@ -3339,6 +2951,10 @@
     },
     {
       "name": "record_deployment",
+      "docs": [
+        "Record a yield deployment (called after keeper deploys to protocol).",
+        "Reads market state directly from the oracle account to gate deployment limits."
+      ],
       "discriminator": [
         167,
         199,
@@ -3379,7 +2995,10 @@
           ]
         },
         {
-          "name": "oracle_config"
+          "name": "oracle_config",
+          "docs": [
+            "market_state (Active/Passive) is read at byte offset ORACLE_MARKET_STATE_OFFSET."
+          ]
         }
       ],
       "args": [
@@ -3399,6 +3018,9 @@
     },
     {
       "name": "record_harvest",
+      "docs": [
+        "Record yield harvest — updates per-market deployment and global protocol buffer."
+      ],
       "discriminator": [
         156,
         167,
@@ -3479,6 +3101,9 @@
     },
     {
       "name": "record_withdrawal",
+      "docs": [
+        "Record a yield withdrawal (called after keeper withdraws from protocol)"
+      ],
       "discriminator": [
         171,
         163,
@@ -3536,6 +3161,9 @@
     },
     {
       "name": "return_to_global",
+      "docs": [
+        "Return USDC from a per-market vault back to the global vault (keeper)."
+      ],
       "discriminator": [
         210,
         151,
@@ -3600,10 +3228,17 @@
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global USDC vault: must be owned by the GlobalClp PDA."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "Per-market operating vault: owned by this market's Clp PDA and of the",
+            "global vault's mint, so neither direction can pay a foreign account."
+          ],
           "writable": true
         },
         {
@@ -3620,6 +3255,11 @@
     },
     {
       "name": "set_commit_spread",
+      "docs": [
+        "Post the vol-scaled committed-order half-spread (bps). Keeper-driven from",
+        "the same vol model as the book; `settle_swap` floors it at COMMIT_SPREAD_BPS.",
+        "Authority-gated (clp.authority) like the other swap config. Cheap/frequent."
+      ],
       "discriminator": [
         126,
         83,
@@ -3669,6 +3309,10 @@
     },
     {
       "name": "set_pool_shape",
+      "docs": [
+        "`asks`/`bids` must each sum to ≤ the pool's synth/cUSDC vault balance.",
+        "This is also the rebalance-to-NAV (LVR capture by repricing the book)."
+      ],
       "discriminator": [
         219,
         126,
@@ -3686,10 +3330,16 @@
         },
         {
           "name": "synth_vault",
+          "docs": [
+            "CLP-owned synth vault (owner == pool, validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "usdc_vault",
+          "docs": [
+            "CLP-owned cUSDC vault (owner == pool, validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -3718,6 +3368,11 @@
     },
     {
       "name": "set_treasury_guardian",
+      "docs": [
+        "Rotate the guardian (current guardian only, immediate). A pending",
+        "change that kept the old guardian follows the rotation, so applying it",
+        "later cannot silently restore the key that was just rotated out."
+      ],
       "discriminator": [
         80,
         221,
@@ -3774,6 +3429,14 @@
     },
     {
       "name": "set_treasury_limits",
+      "docs": [
+        "Change the treasury limits (global_clp.authority). Accrues first. If",
+        "every field is equal or tighter (rate and burst not higher, delay not",
+        "shorter, destination and guardian unchanged) it applies at once, clamps",
+        "the allowance to the new burst and clears any pending change. Otherwise",
+        "all five fields become the pending change, applicable after the CURRENT",
+        "`delay_secs`; this overwrites any earlier pending change."
+      ],
       "discriminator": [
         170,
         147,
@@ -3846,7 +3509,10 @@
           "name": "global_vault"
         },
         {
-          "name": "destination"
+          "name": "destination",
+          "docs": [
+            "Must be `params.destination` and hold the global vault's mint."
+          ]
         }
       ],
       "args": [
@@ -3862,6 +3528,27 @@
     },
     {
       "name": "settle_swap",
+      "docs": [
+        "Permissionless settlement crank. Fills the order at NAV(now) ±",
+        "COMMIT_SPREAD_BPS — valid only when `market.twap_updated_at` is STRICTLY",
+        "newer than the commit (the no-latency-arb property) and the oracle is",
+        "healthy. min_out miss → full refund (terminal), so orders can't",
+        "revert-loop. Inventory shortfall → revert (stays pending; the keeper",
+        "provisions and retries). All rent returns to the order's user.",
+        "",
+        "MAINNET PREREQUISITE (AUDIT C1 — BLOCKER, needs Pyth feed integration +",
+        "cutover decision): today the fill price and the freshness timestamp are",
+        "BOTH keeper-written (`user_twap_price` / `twap_updated_at`), so a",
+        "compromised/lagging keeper can post a favorable price and settle against",
+        "it with no independent anchor. Before any mainnet deploy, settlement must",
+        "read Pyth directly at this code point and enforce",
+        "`pyth.publish_time > order.created_at` (replacing `is_settle_fresh` on the",
+        "keeper timestamp) plus a confidence/staleness gate — keeping keeper-TWAP",
+        "only as an explicit governance-gated ProxyMode fallback. This is the same",
+        "freshness anchor `pool_swap` needs for its Normal-mode staleness freeze",
+        "(H3 added the rolling-window notional cap already; the freeze waits on",
+        "this). Sequence it behind a shadow-run of Pyth vs keeper-TWAP per market."
+      ],
       "discriminator": [
         3,
         130,
@@ -3875,6 +3562,9 @@
       "accounts": [
         {
           "name": "cranker",
+          "docs": [
+            "Permissionless cranker — pays the tx fee, receives nothing."
+          ],
           "signer": true
         },
         {
@@ -3939,6 +3629,9 @@
         },
         {
           "name": "clp",
+          "docs": [
+            "Per-market CLP PDA (mut: swap_prev_price advances on an accepted fill)."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -3973,10 +3666,16 @@
         },
         {
           "name": "user_out",
+          "docs": [
+            "User's payout account (owner/mint validated in handler)."
+          ],
           "writable": true
         },
         {
           "name": "user_in",
+          "docs": [
+            "User's input-mint account — refund target on a min_out miss (validated in handler)."
+          ],
           "writable": true
         },
         {
@@ -3989,8 +3688,12 @@
     {
       "name": "treasury_lend",
       "docs": [
-        "Lend part of the treasury. Spends the withdrawal allowance exactly like `admin_withdraw`,",
-        "and is refused while the treasury is frozen."
+        "Lend part of the treasury. The cUSDC moves to the authority's own account,",
+        "which deposits it into the venue in the same transaction, as market",
+        "collateral's `deploy_collateral_to_yield` does. It spends the withdrawal",
+        "allowance exactly like `admin_withdraw`, so lending can never move money out",
+        "of the treasury faster than the policy allows, and it is refused while the",
+        "guardian has the treasury frozen."
       ],
       "discriminator": [
         203,
@@ -4065,6 +3768,9 @@
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global cUSDC vault, owned by the GlobalClp PDA."
+          ],
           "writable": true
         },
         {
@@ -4121,8 +3827,11 @@
     {
       "name": "treasury_recall",
       "docs": [
-        "Bring lent treasury money back: `principal` of `amount` repays `venue`, the rest is interest.",
-        "Restores the allowance the returned principal spent, up to the burst. Allowed while frozen."
+        "Bring lent treasury money back. The authority's account returns `amount`;",
+        "`principal` of it repays what was lent at `venue` and the rest is interest.",
+        "The returned principal restores the allowance its lend spent, up to the",
+        "bucket's burst, so net outflow never exceeds the policy. Allowed while frozen:",
+        "money coming home is never blocked."
       ],
       "discriminator": [
         244,
@@ -4197,6 +3906,9 @@
         },
         {
           "name": "global_vault",
+          "docs": [
+            "Global cUSDC vault, owned by the GlobalClp PDA."
+          ],
           "writable": true
         },
         {
@@ -4252,6 +3964,9 @@
     },
     {
       "name": "unfreeze_treasury",
+      "docs": [
+        "Unfreeze treasury withdrawals (guardian only)."
+      ],
       "discriminator": [
         71,
         1,
@@ -4303,6 +4018,9 @@
     },
     {
       "name": "update_inventory",
+      "docs": [
+        "Update inventory state (called by keepers after price updates)"
+      ],
       "discriminator": [
         90,
         203,
@@ -4337,6 +4055,9 @@
         },
         {
           "name": "authority",
+          "docs": [
+            "Authority/Admin updating inventory state"
+          ],
           "signer": true,
           "relations": [
             "clp"
@@ -4356,6 +4077,9 @@
     },
     {
       "name": "update_oi",
+      "docs": [
+        "Update OI (open interest) tracking"
+      ],
       "discriminator": [
         96,
         13,
@@ -4402,6 +4126,9 @@
     },
     {
       "name": "update_oi_cap",
+      "docs": [
+        "Update OI cap (governance only)"
+      ],
       "discriminator": [
         49,
         57,
@@ -4448,6 +4175,14 @@
     },
     {
       "name": "vault_mint_pairs",
+      "docs": [
+        "Use CLP vault USDC to mint L+S pairs via mint-redeem CPI.",
+        "",
+        "The CLP PDA acts as the \"user\" in the mint_paired CPI, consuming USDC",
+        "from the clp_vault and receiving L and S tokens into CLP-owned ATAs.",
+        "The resulting tokens are CLP inventory, which the keeper can move into",
+        "the native bin-book pools."
+      ],
       "discriminator": [
         184,
         39,
@@ -4482,6 +4217,9 @@
         },
         {
           "name": "global_clp",
+          "docs": [
+            "Global vault — tracks total_deposits and market_allocations"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -4512,38 +4250,68 @@
         },
         {
           "name": "market",
+          "docs": [
+            "mint-redeem Market PDA: must be this CLP's own market, so a vault op",
+            "can never mint or redeem against another market's ledger."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP vault: the cUSDC source for minting and the payout account for both",
+            "redeems. Owned by the CLP PDA and of the market's collateral mint."
+          ],
           "writable": true
         },
         {
           "name": "market_collateral_vault",
+          "docs": [
+            "Market's collateral vault (destination inside mint-redeem)"
+          ],
           "writable": true
         },
         {
           "name": "long_mint",
+          "docs": [
+            "Long token mint"
+          ],
           "writable": true
         },
         {
           "name": "short_mint",
+          "docs": [
+            "Short token mint"
+          ],
           "writable": true
         },
         {
           "name": "clp_long_account",
+          "docs": [
+            "CLP's long token account: receives minted L, is the L burn source.",
+            "Owned by the CLP PDA, so minted inventory can never land in a wallet."
+          ],
           "writable": true
         },
         {
           "name": "clp_short_account",
+          "docs": [
+            "CLP's short token account: same rules as `clp_long_account`."
+          ],
           "writable": true
         },
         {
           "name": "dev_token_account",
+          "docs": [
+            "dev_token_account required by mint_paired (must be owned by market.fee_recipient)"
+          ],
           "writable": true
         },
         {
-          "name": "oracle"
+          "name": "oracle",
+          "docs": [
+            "Oracle account (passed through to mint-redeem)"
+          ]
         },
         {
           "name": "mint_redeem_program",
@@ -4566,115 +4334,16 @@
       ]
     },
     {
-      "name": "vault_record_liquidity_recall",
-      "discriminator": [
-        4,
-        180,
-        12,
-        28,
-        236,
-        15,
-        31,
-        199
-      ],
-      "accounts": [
-        {
-          "name": "clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  108,
-                  112
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "clp.market_id",
-                "account": "Clp"
-              }
-            ]
-          }
-        },
-        {
-          "name": "global_clp",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  103,
-                  108,
-                  111,
-                  98,
-                  97,
-                  108,
-                  95,
-                  99,
-                  108,
-                  112
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "global_clp"
-          ]
-        },
-        {
-          "name": "revenue_attribution",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  114,
-                  101,
-                  118,
-                  101,
-                  110,
-                  117,
-                  101,
-                  95,
-                  97,
-                  116,
-                  116,
-                  114,
-                  105,
-                  98,
-                  117,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              }
-            ]
-          }
-        }
-      ],
-      "args": [
-        {
-          "name": "params",
-          "type": {
-            "defined": {
-              "name": "VaultRecordLiquidityRecallParams"
-            }
-          }
-        }
-      ]
-    },
-    {
       "name": "vault_redeem_pairs",
+      "docs": [
+        "Redeem L+S tokens held by the CLP PDA back to USDC (keeper-only, recall path).",
+        "",
+        "Called during withdrawal-driven recall:",
+        "vault_redeem_pairs → return_to_global",
+        "",
+        "The CLP PDA signs the CPI to mint-redeem as the \"user\", burning L+S tokens",
+        "from its ATAs and receiving USDC back into clp_vault."
+      ],
       "discriminator": [
         120,
         4,
@@ -4709,6 +4378,9 @@
         },
         {
           "name": "global_clp",
+          "docs": [
+            "Global vault — tracks total_deposits and market_allocations"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -4739,38 +4411,68 @@
         },
         {
           "name": "market",
+          "docs": [
+            "mint-redeem Market PDA: must be this CLP's own market, so a vault op",
+            "can never mint or redeem against another market's ledger."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP vault: the cUSDC source for minting and the payout account for both",
+            "redeems. Owned by the CLP PDA and of the market's collateral mint."
+          ],
           "writable": true
         },
         {
           "name": "market_collateral_vault",
+          "docs": [
+            "Market's collateral vault (destination inside mint-redeem)"
+          ],
           "writable": true
         },
         {
           "name": "long_mint",
+          "docs": [
+            "Long token mint"
+          ],
           "writable": true
         },
         {
           "name": "short_mint",
+          "docs": [
+            "Short token mint"
+          ],
           "writable": true
         },
         {
           "name": "clp_long_account",
+          "docs": [
+            "CLP's long token account: receives minted L, is the L burn source.",
+            "Owned by the CLP PDA, so minted inventory can never land in a wallet."
+          ],
           "writable": true
         },
         {
           "name": "clp_short_account",
+          "docs": [
+            "CLP's short token account: same rules as `clp_long_account`."
+          ],
           "writable": true
         },
         {
           "name": "dev_token_account",
+          "docs": [
+            "dev_token_account required by mint_paired (must be owned by market.fee_recipient)"
+          ],
           "writable": true
         },
         {
-          "name": "oracle"
+          "name": "oracle",
+          "docs": [
+            "Oracle account (passed through to mint-redeem)"
+          ]
         },
         {
           "name": "mint_redeem_program",
@@ -4798,6 +4500,21 @@
     },
     {
       "name": "vault_redeem_single",
+      "docs": [
+        "Redeem one side (L or S) held by the CLP PDA back to cUSDC at NAV.",
+        "Asymmetric counterpart to `vault_redeem_pairs` — used by the keeper's",
+        "`pool_depth_balancer` to convert one side's excess deployed inventory",
+        "into cUSDC, which can then be re-minted as paired L+S via",
+        "`vault_mint_pairs` and redeployed into the thin pool.",
+        "",
+        "Solvency: identical buffer impact as paired redeem. The on-chain",
+        "`redeem_single_for_vault` ix enforces a CR ≥ 100% floor post-redeem,",
+        "so an underwater vault refuses the operation.",
+        "",
+        "Authority: gated on `clp.authority` via `has_one` (the CLP authority",
+        "keypair, not the keeper main wallet) so only the protocol operator",
+        "can initiate the cross-side rebalance."
+      ],
       "discriminator": [
         223,
         28,
@@ -4832,6 +4549,9 @@
         },
         {
           "name": "global_clp",
+          "docs": [
+            "Global vault — tracks total_deposits and market_allocations"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -4862,38 +4582,68 @@
         },
         {
           "name": "market",
+          "docs": [
+            "mint-redeem Market PDA: must be this CLP's own market, so a vault op",
+            "can never mint or redeem against another market's ledger."
+          ],
           "writable": true
         },
         {
           "name": "clp_vault",
+          "docs": [
+            "CLP vault: the cUSDC source for minting and the payout account for both",
+            "redeems. Owned by the CLP PDA and of the market's collateral mint."
+          ],
           "writable": true
         },
         {
           "name": "market_collateral_vault",
+          "docs": [
+            "Market's collateral vault (destination inside mint-redeem)"
+          ],
           "writable": true
         },
         {
           "name": "long_mint",
+          "docs": [
+            "Long token mint"
+          ],
           "writable": true
         },
         {
           "name": "short_mint",
+          "docs": [
+            "Short token mint"
+          ],
           "writable": true
         },
         {
           "name": "clp_long_account",
+          "docs": [
+            "CLP's long token account: receives minted L, is the L burn source.",
+            "Owned by the CLP PDA, so minted inventory can never land in a wallet."
+          ],
           "writable": true
         },
         {
           "name": "clp_short_account",
+          "docs": [
+            "CLP's short token account: same rules as `clp_long_account`."
+          ],
           "writable": true
         },
         {
           "name": "dev_token_account",
+          "docs": [
+            "dev_token_account required by mint_paired (must be owned by market.fee_recipient)"
+          ],
           "writable": true
         },
         {
-          "name": "oracle"
+          "name": "oracle",
+          "docs": [
+            "Oracle account (passed through to mint-redeem)"
+          ]
         },
         {
           "name": "mint_redeem_program",
@@ -5381,13 +5131,13 @@
     },
     {
       "code": 6031,
-      "name": "InvalidPool",
-      "msg": "Pool address does not match configured Meteora pool"
+      "name": "Retired6031",
+      "msg": "Retired error code"
     },
     {
       "code": 6032,
-      "name": "PoolNotConfigured",
-      "msg": "Meteora pool not configured; run configure_meteora_pools first"
+      "name": "Retired6032",
+      "msg": "Retired error code"
     },
     {
       "code": 6033,
@@ -5397,7 +5147,7 @@
     {
       "code": 6034,
       "name": "InvalidPosition",
-      "msg": "Position address does not match stored Meteora position"
+      "msg": "Account does not match the expected CLP-owned account"
     },
     {
       "code": 6035,
@@ -5463,6 +5213,15 @@
   "types": [
     {
       "name": "Clp",
+      "docs": [
+        "Per-market CLP operational account.",
+        "",
+        "Seeds: `[b\"clp\", market_id]`",
+        "",
+        "After the global vault migration, this account no longer holds LP capital.",
+        "It tracks market-specific operational state: inventory risk, yield deployments",
+        "and vault pair-minting counters."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -5512,10 +5271,16 @@
           },
           {
             "name": "oracle_config",
+            "docs": [
+              "Oracle program config account for this market."
+            ],
             "type": "pubkey"
           },
           {
             "name": "deployment_count",
+            "docs": [
+              "Number of active yield deployments"
+            ],
             "type": "u8"
           },
           {
@@ -5530,6 +5295,9 @@
           },
           {
             "name": "total_deployed",
+            "docs": [
+              "Total amount currently deployed for yield"
+            ],
             "type": "u64"
           },
           {
@@ -5538,42 +5306,54 @@
           },
           {
             "name": "vault_l_deployed",
+            "docs": [
+              "L tokens currently outstanding from vault minting."
+            ],
             "type": "u64"
           },
           {
             "name": "vault_s_deployed",
+            "docs": [
+              "S tokens currently outstanding from vault minting."
+            ],
             "type": "u64"
           },
           {
             "name": "total_vault_pairs_minted",
+            "docs": [
+              "Cumulative USDC used for vault pair minting (informational)."
+            ],
             "type": "u64"
           },
           {
-            "name": "total_meteora_fees_earned",
-            "type": "u64"
-          },
-          {
-            "name": "meteora_long_pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "meteora_short_pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "meteora_long_position",
-            "type": "pubkey"
-          },
-          {
-            "name": "meteora_short_position",
-            "type": "pubkey"
+            "name": "retired_venue_state",
+            "docs": [
+              "RETIRED. 136 bytes that once held a fee counter (u64) and four account",
+              "addresses (Pubkeys) for a liquidity venue the protocol no longer uses.",
+              "Live accounts may still hold that stale data. Nothing reads or writes",
+              "these bytes; they keep every later field at its offset. Zero them, or",
+              "migrate them, before giving them any new meaning."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                136
+              ]
+            }
           },
           {
             "name": "allocated_from_global",
+            "docs": [
+              "USDC currently allocated to this market's operating vault from GlobalClp.",
+              "Incremented by allocate_to_market; decremented by vault_mint_pairs."
+            ],
             "type": "u64"
           },
           {
             "name": "swap_guards",
+            "docs": [
+              "Swap guards / circuit-breaker config. Default (zeroed) = disabled."
+            ],
             "type": {
               "defined": {
                 "name": "SwapGuardsState"
@@ -5582,6 +5362,9 @@
           },
           {
             "name": "swap_window_start",
+            "docs": [
+              "Rolling notional-cap window: start time and cUSDC used so far."
+            ],
             "type": "i64"
           },
           {
@@ -5590,10 +5373,20 @@
           },
           {
             "name": "swap_prev_price",
+            "docs": [
+              "Last NAV accepted by a swap (for the deviation breaker; 0 = none yet)."
+            ],
             "type": "u64"
           },
           {
             "name": "commit_spread_bps",
+            "docs": [
+              "Keeper-posted committed-order half-spread (bps), driven by the same vol",
+              "model as the book. `settle_swap` uses max(this, COMMIT_SPREAD_BPS) so it",
+              "never quotes thinner than the 10bps floor. 0 (unset/legacy) → floor.",
+              "This is the lever that prices the protocol's short-convexity exposure on",
+              "large committed fills (r38: flips a 20x asset from 99% bust → 0%)."
+            ],
             "type": "u16"
           }
         ]
@@ -5601,6 +5394,9 @@
     },
     {
       "name": "CollateralType",
+      "docs": [
+        "Collateral type identifier"
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -5624,19 +5420,32 @@
     },
     {
       "name": "CollateralVault",
+      "docs": [
+        "Individual collateral vault for a specific stablecoin",
+        "Each stablecoin has its own vault for blast-radius containment"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "mint",
+            "docs": [
+              "Mint address of this collateral token"
+            ],
             "type": "pubkey"
           },
           {
             "name": "vault",
+            "docs": [
+              "Vault token account address"
+            ],
             "type": "pubkey"
           },
           {
             "name": "collateral_type",
+            "docs": [
+              "Type of collateral (for provenance)"
+            ],
             "type": {
               "defined": {
                 "name": "CollateralType"
@@ -5645,14 +5454,23 @@
           },
           {
             "name": "total_deposited",
+            "docs": [
+              "Total amount deposited in this vault"
+            ],
             "type": "u64"
           },
           {
             "name": "is_active",
+            "docs": [
+              "Whether this vault is active for deposits"
+            ],
             "type": "bool"
           },
           {
             "name": "weight_bps",
+            "docs": [
+              "Weight for collateral (100 = 1:1, 95 = 0.95:1 for riskier stables)"
+            ],
             "type": "u16"
           }
         ]
@@ -5660,6 +5478,12 @@
     },
     {
       "name": "ConfigureInventoryBudgetParams",
+      "docs": [
+        "`configure_inventory_budget` arguments, in their wire order. One struct, not 7 separate",
+        "arguments: the v1.45 SBPF-v2 toolchain garbles narrow arguments passed this",
+        "late (configure_swap dropped max_confidence_bps and collateral_floor_bps).",
+        "Same bytes on the wire, so existing callers are unaffected."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -5710,6 +5534,12 @@
     },
     {
       "name": "ConfigureSwapParams",
+      "docs": [
+        "`configure_swap` arguments, in their wire order. One struct, not 9 separate",
+        "arguments: the v1.45 SBPF-v2 toolchain garbles narrow arguments passed this",
+        "late (configure_swap dropped max_confidence_bps and collateral_floor_bps).",
+        "Same bytes on the wire, so existing callers are unaffected."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -5772,6 +5602,12 @@
     },
     {
       "name": "ConfigureYieldStrategyParams",
+      "docs": [
+        "`configure_yield_strategy` arguments, in their wire order. One struct, not 8 separate",
+        "arguments: the v1.45 SBPF-v2 toolchain garbles narrow arguments passed this",
+        "late (configure_swap dropped max_confidence_bps and collateral_floor_bps).",
+        "Same bytes on the wire, so existing callers are unaffected."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -5828,6 +5664,10 @@
     },
     {
       "name": "DepositProfitParams",
+      "docs": [
+        "Args for `deposit_profit`. `source` is a PROFIT_SOURCE_* tag recorded in",
+        "RevenueAttribution.deposit_by_source; the flow is keeper flow regardless."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -5844,23 +5684,49 @@
     },
     {
       "name": "GlobalClp",
+      "docs": [
+        "Global CLP vault — the single LP pool shared across all markets.",
+        "",
+        "Seeds: `[b\"global_clp\"]`",
+        "",
+        "All LP deposits go here. The keeper allocates capital to per-market operating",
+        "vaults via `allocate_to_market`. Per-market `Clp` accounts handle operational",
+        "state (inventory, yield) but no longer hold LP capital."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "total_deposits",
+            "docs": [
+              "Cumulative USDC funded by admin (net of admin_withdraw). Used for TVL-tier dev tax."
+            ],
             "type": "u64"
           },
           {
             "name": "last_admin_fund_at",
+            "docs": [
+              "Unix timestamp of the most recent `admin_fund`. Repurposed from a",
+              "formerly-unused `total_shares` slot — same byte width (u64 holds an",
+              "i64-bit pattern fine for our positive-timestamp use), so no realloc",
+              "is required. Informational since `admin_withdraw` moved to the",
+              "`TreasuryPolicy` token bucket (it used to drive a 1h cooldown).",
+              "0 = never funded (legacy accounts)."
+            ],
             "type": "u64"
           },
           {
             "name": "total_fees_accumulated",
+            "docs": [
+              "Cumulative fees and yield collected by the protocol-owned vault."
+            ],
             "type": "u64"
           },
           {
             "name": "market_allocations",
+            "docs": [
+              "Per-market USDC allocation tracking (informational for dashboard)."
+            ],
             "type": {
               "vec": {
                 "defined": {
@@ -5871,6 +5737,9 @@
           },
           {
             "name": "protocol_buffer",
+            "docs": [
+              "Global protocol buffer (yield accumulation, loss absorption)."
+            ],
             "type": {
               "defined": {
                 "name": "ProtocolBuffer"
@@ -5879,14 +5748,24 @@
           },
           {
             "name": "liquidity_seed_threshold",
+            "docs": [
+              "Global idle USDC threshold above which keeper starts allocating to markets.",
+              "Default: 1_000_000_000 ($1000 USDC, 6 decimals)."
+            ],
             "type": "u64"
           },
           {
             "name": "authority",
+            "docs": [
+              "Admin authority. Required signer for admin_fund, admin_withdraw, and all keeper-authorized instructions."
+            ],
             "type": "pubkey"
           },
           {
             "name": "admin_wallet",
+            "docs": [
+              "Admin wallet to receive TVL-tiered performance fees."
+            ],
             "type": "pubkey"
           },
           {
@@ -5898,35 +5777,60 @@
     },
     {
       "name": "InventoryBudget",
+      "docs": [
+        "Inventory risk budget configuration",
+        "q = fraction of treasury in volatile token"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "soft_lower_bps",
+            "docs": [
+              "Soft lower bound for volatile fraction (basis points, e.g., 1000 = 10%)"
+            ],
             "type": "u16"
           },
           {
             "name": "soft_upper_bps",
+            "docs": [
+              "Soft upper bound for volatile fraction (basis points, e.g., 2500 = 25%)"
+            ],
             "type": "u16"
           },
           {
             "name": "hard_lower_bps",
+            "docs": [
+              "Hard lower bound - emergency action if breached (basis points, e.g., 500 = 5%)"
+            ],
             "type": "u16"
           },
           {
             "name": "hard_upper_bps",
+            "docs": [
+              "Hard upper bound - emergency action if breached (basis points, e.g., 3500 = 35%)"
+            ],
             "type": "u16"
           },
           {
             "name": "max_drawdown_bps",
+            "docs": [
+              "Maximum allowed drawdown (basis points, e.g., 2000 = 20%)"
+            ],
             "type": "u16"
           },
           {
             "name": "target_drawdown_bps",
+            "docs": [
+              "Target operating drawdown (basis points, e.g., 1200 = 12%)"
+            ],
             "type": "u16"
           },
           {
             "name": "enforce_hard_bounds",
+            "docs": [
+              "Whether to enforce hard bounds (can pause operations)"
+            ],
             "type": "bool"
           }
         ]
@@ -5934,39 +5838,66 @@
     },
     {
       "name": "InventoryState",
+      "docs": [
+        "Current inventory state tracking"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "volatile_value",
+            "docs": [
+              "Current volatile token value in treasury (in USDC terms)"
+            ],
             "type": "u64"
           },
           {
             "name": "stable_value",
+            "docs": [
+              "Current stable token value in treasury"
+            ],
             "type": "u64"
           },
           {
             "name": "current_q_bps",
+            "docs": [
+              "Current q ratio (volatile / total) in basis points"
+            ],
             "type": "u16"
           },
           {
             "name": "peak_value",
+            "docs": [
+              "Peak treasury value (for drawdown calculation)"
+            ],
             "type": "u64"
           },
           {
             "name": "current_drawdown_bps",
+            "docs": [
+              "Current drawdown from peak (basis points)"
+            ],
             "type": "u16"
           },
           {
             "name": "soft_breach",
+            "docs": [
+              "Whether we're in soft bound breach"
+            ],
             "type": "bool"
           },
           {
             "name": "hard_breach",
+            "docs": [
+              "Whether we're in hard bound breach (emergency)"
+            ],
             "type": "bool"
           },
           {
             "name": "last_update",
+            "docs": [
+              "Last update timestamp"
+            ],
             "type": "i64"
           }
         ]
@@ -6011,22 +5942,37 @@
           },
           {
             "name": "collateral_mint",
+            "docs": [
+              "Primary collateral mint (legacy single-collateral mode)"
+            ],
             "type": "pubkey"
           },
           {
             "name": "collateral_vault",
+            "docs": [
+              "Primary collateral vault (legacy)"
+            ],
             "type": "pubkey"
           },
           {
             "name": "multi_collateral_enabled",
+            "docs": [
+              "Whether multi-collateral mode is enabled"
+            ],
             "type": "bool"
           },
           {
             "name": "collateral_vault_count",
+            "docs": [
+              "Number of active collateral vaults"
+            ],
             "type": "u8"
           },
           {
             "name": "collateral_vaults",
+            "docs": [
+              "Collateral vaults for multi-stable support"
+            ],
             "type": {
               "vec": {
                 "defined": {
@@ -6037,30 +5983,56 @@
           },
           {
             "name": "initial_l_price",
+            "docs": [
+              "Initial Long token price (used for Short NAV calculation)"
+            ],
             "type": "u64"
           },
           {
             "name": "initial_s_price",
+            "docs": [
+              "Initial Short token price"
+            ],
             "type": "u64"
           },
           {
             "name": "mint_fee_bps",
+            "docs": [
+              "Mint fee in basis points (e.g., 10 = 0.1%)"
+            ],
             "type": "u16"
           },
           {
             "name": "redeem_fee_bps",
+            "docs": [
+              "Redeem fee in basis points"
+            ],
             "type": "u16"
           },
           {
             "name": "total_l_supply",
+            "docs": [
+              "Total supply of Long tokens. Paired mint/redeem keeps this equal to",
+              "`total_s_supply`; single-side keeper mint/redeem (`keeper_mint_single`,",
+              "see lib.rs) intentionally moves only one side, so the two supplies can",
+              "diverge, giving a first-order (directional) delta the γ decay does NOT charge."
+            ],
             "type": "u64"
           },
           {
             "name": "total_s_supply",
+            "docs": [
+              "Total supply of Short tokens. Equal to `total_l_supply` under paired",
+              "mint/redeem, but single-side keeper mint/redeem deliberately lets it",
+              "diverge (see `total_l_supply` above)."
+            ],
             "type": "u64"
           },
           {
             "name": "total_collateral",
+            "docs": [
+              "Total collateral locked (sum across all vaults)"
+            ],
             "type": "u64"
           },
           {
@@ -6073,6 +6045,9 @@
           },
           {
             "name": "risk_state",
+            "docs": [
+              "Current risk state (updated by keepers from oracle)"
+            ],
             "type": {
               "defined": {
                 "name": "RiskState"
@@ -6081,10 +6056,16 @@
           },
           {
             "name": "risk_state_updated_at",
+            "docs": [
+              "Last time risk state was updated"
+            ],
             "type": "i64"
           },
           {
             "name": "risk_fee_config",
+            "docs": [
+              "Risk-based fee configuration"
+            ],
             "type": {
               "defined": {
                 "name": "RiskFeeConfig"
@@ -6093,14 +6074,23 @@
           },
           {
             "name": "user_twap_price",
+            "docs": [
+              "TWAP price for user quoting (updated by keepers)"
+            ],
             "type": "u64"
           },
           {
             "name": "twap_updated_at",
+            "docs": [
+              "Last TWAP update time"
+            ],
             "type": "i64"
           },
           {
             "name": "worst_case_config",
+            "docs": [
+              "Configuration for worst-case quoting"
+            ],
             "type": {
               "defined": {
                 "name": "WorstCaseQuotingConfig"
@@ -6109,70 +6099,145 @@
           },
           {
             "name": "oracle_confidence",
+            "docs": [
+              "Oracle confidence interval (updated by keepers)"
+            ],
             "type": "u64"
           },
           {
             "name": "keeper_authority",
+            "docs": [
+              "Whitelisted keeper authority that is allowed to update risk state"
+            ],
             "type": "pubkey"
           },
           {
             "name": "dev_tax_pct",
+            "docs": [
+              "Dev tax percentage (updated by keeper based on CLP TVL tiers)"
+            ],
             "type": "u8"
           },
           {
             "name": "yield_ceiling_bps",
+            "docs": [
+              "Maximum fraction of total_collateral deployable to yield protocols (basis points).",
+              "Default: 6000 (60%). Remaining 40% stays liquid to cover redemptions."
+            ],
             "type": "u16"
           },
           {
             "name": "deployed_to_yield",
+            "docs": [
+              "Amount of collateral currently deployed to external lending protocols.",
+              "Invariant: deployed_to_yield <= total_collateral * yield_ceiling_bps / 10_000"
+            ],
             "type": "u64"
           },
           {
             "name": "total_yield_harvested",
+            "docs": [
+              "Cumulative yield harvested to CLP vault (never decrements, informational)."
+            ],
             "type": "u64"
           },
           {
             "name": "yield_enabled",
+            "docs": [
+              "Whether collateral yield deployment is enabled for this market."
+            ],
             "type": "bool"
           },
           {
             "name": "buffer_target_bps",
+            "docs": [
+              "Keeper-posted overcollateralization buffer (bps OVER parity), the dynamic",
+              "solvency target. Target ratio = 10_000 + buffer_target_bps, clamped to",
+              "[MIN_BUFFER_BPS, MAX_BUFFER_BPS]. 0 (legacy/unset) is treated as the default",
+              "200 (102%) by `target_ratio_bps()`, so old accounts behave as before until the",
+              "keeper posts a value. Sized from σ-regime + live inventory (vol_model::dynamic_buffer)."
+            ],
             "type": "u16"
           },
           {
             "name": "s_gamma_index",
+            "docs": [
+              "Keeper-posted decay scalar on the SHORT NAV, in 1e9 fixed point",
+              "(1_000_000_000 = 1.0 = no decay). The effective short NAV is",
+              "`(K / l_nav) · s_gamma_index / 1e9`. It only ever ratchets DOWN, by the",
+              "realized variance the short pair accrues, so holding the short across a",
+              "choppy path costs the decay, which banks as collateral surplus (the",
+              "long leg is never touched). `0` (legacy/unset) is read as 1e9 by",
+              "`short_gamma_index()`, so old accounts behave exactly as before until",
+              "the keeper posts a value. NOT a perp funding rate; there is no periodic",
+              "cash transfer; it is a structural mark on the short token's value, so the",
+              "1:1 paired round-trip and buy-and-hold mechanics are unchanged at a fixed γ."
+            ],
             "type": "u64"
           },
           {
             "name": "gamma_day_start_ts",
+            "docs": [
+              "Unix ts the current γ day-bucket opened. 0 = no bucket yet."
+            ],
             "type": "i64"
           },
           {
             "name": "gamma_day_decay_1e9",
+            "docs": [
+              "γ index units (1e9) decayed inside the current day-bucket. TELEMETRY",
+              "ONLY: tracked so an auditor can see the day's total, never enforced."
+            ],
             "type": "u64"
           },
           {
             "name": "gamma_last_write_ts",
+            "docs": [
+              "Unix ts of the last accepted γ write. Lets an auditor alarm on writer",
+              "SILENCE, the failure mode no cap can catch, because it looks like calm."
+            ],
             "type": "i64"
           },
           {
             "name": "gamma_epoch",
+            "docs": [
+              "Bumped by a re-anchor. Carried in `SetGammaParams` as a CAS so a decay",
+              "post computed against a pre-re-anchor γ can never land after the fold",
+              "and re-charge the whole epoch."
+            ],
             "type": "u32"
           },
           {
             "name": "reanchor_count",
+            "docs": [
+              "How many re-anchors this market has seen. 0 = never."
+            ],
             "type": "u32"
           },
           {
             "name": "genesis_s_price",
+            "docs": [
+              "`initial_s_price` as of genesis, before any re-anchor folded γ into it.",
+              "Backfilled lazily on the first re-anchor; 0 = never re-anchored, so the",
+              "live `initial_s_price` IS the genesis value."
+            ],
             "type": "u64"
           },
           {
             "name": "last_reanchor_ts",
+            "docs": [
+              "Unix ts of the last re-anchor. 0 = never."
+            ],
             "type": "i64"
           },
           {
             "name": "short_payoff_cap_c_1e9",
+            "docs": [
+              "Reserved for the capped short payoff `S = γ·min(K/P, C·K/P₀)` (1e9",
+              "fixed). The instruction ships in upgrade #2; the FIELD lands here so",
+              "that upgrade is instructions-only and needs no second realloc.",
+              "0 = unset = uncapped, i.e. exactly today's behavior."
+            ],
             "type": "u64"
           },
           {
@@ -6181,22 +6246,55 @@
           },
           {
             "name": "price_adjust_den",
+            "docs": [
+              "Denominator of the cumulative corporate-action ratio. See",
+              "`price_adjust_num`. 0 = unset = identity."
+            ],
             "type": "u64"
           },
           {
             "name": "price_adjust_pending_num",
+            "docs": [
+              "A corporate action ARMED AHEAD of its ex-date: the cumulative pair that",
+              "becomes live at `price_adjust_effective_ts`. Until then the current",
+              "`price_adjust_num/den` keeps applying.",
+              "",
+              "This exists because arming a ratio early is otherwise actively harmful,",
+              "not merely useless. The adjustment multiplies the NEXT raw print, and",
+              "before the ex-date that print is still PRE-split, so an early 2:1 would",
+              "double the stored price, the 25% move guard would reject every push, and",
+              "the market would halt from the moment of arming until the split actually",
+              "happened. Gating on a timestamp is what makes \"schedule it weeks ahead\"",
+              "a true statement instead of a longer outage."
+            ],
             "type": "u64"
           },
           {
             "name": "price_adjust_pending_den",
+            "docs": [
+              "Denominator of the pending pair. See `price_adjust_pending_num`."
+            ],
             "type": "u64"
           },
           {
             "name": "price_adjust_effective_ts",
+            "docs": [
+              "Unix ts from which the pending pair applies. 0 = nothing pending.",
+              "",
+              "Set it to the ex-date OPEN, the first instant a venue quotes the",
+              "post-action price. Misalignment is bounded and self-correcting for",
+              "ratios above ~1.333: a print on the wrong side of the boundary is",
+              "REJECTED by the 25% guard, not absorbed, so an early or late `ts` costs",
+              "rejected pushes rather than a mispriced book. Below ~1.333 nothing",
+              "rejects it and the alignment is the only control."
+            ],
             "type": "i64"
           },
           {
             "name": "price_adjust_last_effective_ts",
+            "docs": [
+              "Most recent activated units boundary, retained after promotion and rescheduling."
+            ],
             "type": "i64"
           }
         ]
@@ -6228,15 +6326,25 @@
     },
     {
       "name": "MarketAllocation",
+      "docs": [
+        "Per-market allocation record inside GlobalClp."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "market_id",
+            "docs": [
+              "The mint-redeem Market PDA for this market."
+            ],
             "type": "pubkey"
           },
           {
             "name": "allocated_usdc",
+            "docs": [
+              "USDC currently allocated to this market's operating vault.",
+              "Incremented by allocate_to_market; decremented by vault_mint_pairs."
+            ],
             "type": "u64"
           }
         ]
@@ -6285,6 +6393,17 @@
     },
     {
       "name": "Order",
+      "docs": [
+        "A commit-then-settle order: the user escrowed `amount_in` at `created_at` and the",
+        "fill executes at the FIRST oracle push strictly after that (price set after the",
+        "commitment → latency arb impossible → large sizes safe at NAV ± COMMIT_SPREAD_BPS).",
+        "",
+        "LAYOUT IS LOAD-BEARING for the keeper's getProgramAccounts memcmp filters:",
+        "user @ 8 (after discriminator) · market @ 40 · status @ 74",
+        "Only `Pending(0)` is ever persisted — every terminal path (settle, refund, cancel)",
+        "CLOSES the account (rent → user), which makes repeated settle attempts idempotent",
+        "(the loser fails at account load). `status` is kept as a byte for forward compat."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -6522,6 +6641,21 @@
     },
     {
       "name": "Pool",
+      "docs": [
+        "v2 native DISCRETE-BIN quote book for ONE synth side (long or short) vs",
+        "cUSDC. `asks`/`bids` are per-bin reserves around `base_price_1e6` (≈ side",
+        "NAV), priced at `base·r^±k` with `r = 1 + step_bps/1e4`. Swaps walk the bins",
+        "(real slippage); the keeper repositions to NAV with a skewed shape via",
+        "`set_pool_shape`. See `clmm.rs`.",
+        "",
+        "NAMING: despite the `CLMM_*` env vars and the `clmm.rs` filename, this is",
+        "NOT a Uniswap-v3-style concentrated-liquidity AMM. There is no continuous",
+        "`x·y=k` curve and no permissionless LPs: each bin holds a fixed reserve at a",
+        "fixed price (constant-sum within a bin), and the ladder is POSTED by the",
+        "keeper rather than emerging from deposits. It is a discrete-bin liquidity",
+        "book (the Trader Joe \"Liquidity Book\" family), with a single quoter. The",
+        "old names are kept for config compatibility; docs say \"bin book\"."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -6604,6 +6738,12 @@
     },
     {
       "name": "PoolSwapParams",
+      "docs": [
+        "Args for `pool_swap`, as a single struct so the borsh deserialize is ONE",
+        "unit — the v1.45 SBF toolchain miscompiles per-arg field-offset assignment",
+        "for multi-scalar-arg instructions (see mint-redeem's InitMarketParams).",
+        "Wire format is byte-for-byte identical to the old 3-arg form."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -6624,27 +6764,45 @@
     },
     {
       "name": "ProtocolBuffer",
+      "docs": [
+        "Protocol buffer for yield accumulation and loss absorption (shared, lives on GlobalClp)"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "yield_accumulated",
+            "docs": [
+              "Total accumulated from yield harvesting"
+            ],
             "type": "u64"
           },
           {
             "name": "losses_absorbed",
+            "docs": [
+              "Total used for loss absorption"
+            ],
             "type": "u64"
           },
           {
             "name": "current_balance",
+            "docs": [
+              "Current buffer balance"
+            ],
             "type": "u64"
           },
           {
             "name": "target_size_bps",
+            "docs": [
+              "Target buffer size (as % of total deposits, basis points)"
+            ],
             "type": "u16"
           },
           {
             "name": "above_target",
+            "docs": [
+              "Whether buffer is above target"
+            ],
             "type": "bool"
           }
         ]
@@ -6652,27 +6810,60 @@
     },
     {
       "name": "RevenueAttribution",
+      "docs": [
+        "Splits protocol revenue into keeper self-flow vs external-user flow.",
+        "",
+        "Seeds: `[b\"revenue_attribution\"]` — global singleton, initialized once by",
+        "the admin AFTER the program upgrade (pool_swap requires it to exist).",
+        "",
+        "`global_clp.total_fees_accumulated` stays untouched as the legacy bucket;",
+        "these counters start at zero from `started_at`, so pre-existing revenue is",
+        "simply unattributed. A pool_swap's revenue is its spread capture vs",
+        "`base_price_1e6` (every ask fill is strictly above base, every bid fill",
+        "strictly below — see clmm.rs — so the capture is non-negative), classified",
+        "by whether the swap signer is a registered keeper authority. ALL",
+        "deposit_profit and liquidity-recall flow is keeper flow by construction",
+        "(keeper-attested amounts), regardless of source tag."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "fees_external",
+            "docs": [
+              "Spread capture (cUSDC atoms) from pool_swap by non-keeper signers.",
+              "The ONLY counter that may feed a headline \"trading APR\"."
+            ],
             "type": "u64"
           },
           {
             "name": "fees_keeper",
+            "docs": [
+              "Spread capture from keeper-signed pool_swap + deposit_profit (net of",
+              "dev tax)."
+            ],
             "type": "u64"
           },
           {
             "name": "volume_external",
+            "docs": [
+              "cUSDC notional of non-keeper pool_swap volume (informational)."
+            ],
             "type": "u64"
           },
           {
             "name": "volume_keeper",
+            "docs": [
+              "cUSDC notional of keeper pool_swap volume (informational)."
+            ],
             "type": "u64"
           },
           {
             "name": "deposit_by_source",
+            "docs": [
+              "deposit_profit net amounts by source tag: [arb, recycled_lp_fees,",
+              "yield_harvest, other]. Indexed by the PROFIT_SOURCE_* constants."
+            ],
             "type": {
               "array": [
                 "u64",
@@ -6682,10 +6873,20 @@
           },
           {
             "name": "started_at",
+            "docs": [
+              "When attribution began — the honest annualization denominator for",
+              "fees_external (protocol inception would understate a young counter)."
+            ],
             "type": "i64"
           },
           {
             "name": "keeper_authorities",
+            "docs": [
+              "Signers classified as keeper flow. Default pubkeys are inert (a",
+              "default-key signer can't exist). clp.authority is ALSO treated as",
+              "keeper in pool_swap, so this list is for the operational keeper",
+              "wallet(s) and test keypairs."
+            ],
             "type": {
               "array": [
                 "pubkey",
@@ -6699,6 +6900,9 @@
           },
           {
             "name": "reserved",
+            "docs": [
+              "Headroom for future counters WITHOUT realloc (v1.45 realloc landmine)."
+            ],
             "type": {
               "array": [
                 "u8",
@@ -6711,11 +6915,18 @@
     },
     {
       "name": "RevenueAttributionParams",
+      "docs": [
+        "Args for init/configure of the RevenueAttribution singleton."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "keeper_authorities",
+            "docs": [
+              "Signers to classify as keeper flow in pool_swap. Default pubkeys are",
+              "inert slots."
+            ],
             "type": {
               "array": [
                 "pubkey",
@@ -6728,27 +6939,46 @@
     },
     {
       "name": "RiskFeeConfig",
+      "docs": [
+        "Configuration for risk-based fee adjustments"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "proxy_fee_multiplier",
+            "docs": [
+              "Fee multiplier for Proxy Mode (100 = 1x, 200 = 2x)"
+            ],
             "type": "u16"
           },
           {
             "name": "stress_fee_multiplier",
+            "docs": [
+              "Fee multiplier for Stress mode (100 = 1x, 300 = 3x)",
+              "Also the starting point for Recovery Dutch auction (decays to 1.0x over 1 hour)"
+            ],
             "type": "u16"
           },
           {
             "name": "stress_mint_cap",
+            "docs": [
+              "Mint cap per transaction in Stress mode (0 = disabled)"
+            ],
             "type": "u64"
           },
           {
             "name": "allow_mint_in_stress",
+            "docs": [
+              "Whether to allow new mints in Stress mode"
+            ],
             "type": "bool"
           },
           {
             "name": "allow_redeem_in_stress",
+            "docs": [
+              "Whether to allow redeems in Stress mode"
+            ],
             "type": "bool"
           }
         ]
@@ -6756,6 +6986,9 @@
     },
     {
       "name": "RiskState",
+      "docs": [
+        "Risk state for graduated oracle gating (mirrors oracle program)"
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -6776,6 +7009,10 @@
     },
     {
       "name": "SwapExecuted",
+      "docs": [
+        "One successful economic swap. Existing Order* events describe its lifecycle.",
+        "All amounts use the protocol's fixed six-decimal collateral/synth units."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -6797,10 +7034,16 @@
           },
           {
             "name": "order",
+            "docs": [
+              "Default pubkey for instant/pool swaps."
+            ],
             "type": "pubkey"
           },
           {
             "name": "route",
+            "docs": [
+              "0 = instant CLP, 1 = pool, 2 = committed settlement."
+            ],
             "type": "u8"
           },
           {
@@ -6833,10 +7076,16 @@
           },
           {
             "name": "reference_price",
+            "docs": [
+              "NAV for CLP routes; the book's base price for pool execution."
+            ],
             "type": "u64"
           },
           {
             "name": "spread_capture",
+            "docs": [
+              "Execution spread versus reference, NOT withdrawn/realized net revenue."
+            ],
             "type": "u64"
           }
         ]
@@ -6844,43 +7093,76 @@
     },
     {
       "name": "SwapGuardsState",
+      "docs": [
+        "v2 native oracle-pegged swap guards (persisted on `Clp`). Mirrors the pure",
+        "`swap::SwapGuards` used by the math/breaker logic; `to_guards()` converts.",
+        "All-zero default (`enabled=false`) keeps swaps OFF until `configure_swap` is",
+        "called — safe for accounts realloc'd into the new layout."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "enabled",
+            "docs": [
+              "Master on/off for the native swap path."
+            ],
             "type": "bool"
           },
           {
             "name": "frozen",
+            "docs": [
+              "Hard kill switch (admin or auto-set on oracle degradation)."
+            ],
             "type": "bool"
           },
           {
             "name": "spread_bps",
+            "docs": [
+              "LP edge applied to NAV, bps."
+            ],
             "type": "u16"
           },
           {
             "name": "max_staleness_secs",
+            "docs": [
+              "Reject if the NAV/TWAP is older than this many seconds."
+            ],
             "type": "i64"
           },
           {
             "name": "max_confidence_bps",
+            "docs": [
+              "Reject if oracle confidence exceeds this (bps of price)."
+            ],
             "type": "u16"
           },
           {
             "name": "max_deviation_bps",
+            "docs": [
+              "Reject if NAV moved more than this vs the last accepted price (bps)."
+            ],
             "type": "u16"
           },
           {
             "name": "window_cap_usd",
+            "docs": [
+              "Rolling-window notional cap (cUSDC, 6-dec); 0 = uncapped."
+            ],
             "type": "u64"
           },
           {
             "name": "window_secs",
+            "docs": [
+              "Rolling-window length (seconds)."
+            ],
             "type": "i64"
           },
           {
             "name": "collateral_floor_bps",
+            "docs": [
+              "Minimum collateralization (bps) that must hold AFTER a swap."
+            ],
             "type": "u16"
           }
         ]
@@ -6950,6 +7232,9 @@
     },
     {
       "name": "TreasuryLimitsApplied",
+      "docs": [
+        "Limits took effect: at once (`immediate`, a tightening) or after the delay."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -7010,6 +7295,9 @@
     },
     {
       "name": "TreasuryLimitsParams",
+      "docs": [
+        "Args for `set_treasury_limits` (one struct: the v1.45 multi-arg landmine)."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -7038,6 +7326,14 @@
     },
     {
       "name": "TreasuryLimitsProposed",
+      "docs": [
+        "A loosening change was stored as pending. Alert on this: `loosened` names",
+        "the fields that loosen (bits `TreasuryPolicy::LOOSEN_*`: 1 rate up, 2 burst",
+        "up, 4 delay shorter, 8 new destination, 16 new guardian), `pending_at` is",
+        "when anyone may apply it, and `replaced_pending` is set when it overwrote",
+        "an earlier pending change (restarting the clock). The guardian vetoes with",
+        "`cancel_treasury_limits`."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -7082,31 +7378,61 @@
     },
     {
       "name": "TreasuryPolicy",
+      "docs": [
+        "Treasury withdrawal policy for `admin_withdraw` (singleton PDA, seeds",
+        "`[b\"treasury_policy\"]`). Replaces the AdminWithdrawWindow cap, which was",
+        "10% of a `total_deposits` counter that is 0 on devnet (so the cap was 0).",
+        "",
+        "Withdrawals draw on a token bucket: `allowance` accrues at `rate_per_sec`",
+        "up to `burst`, and each withdrawal spends it. Funds may only go to",
+        "`destination`. A change that tightens every limit applies at once; any",
+        "loosening waits `delay_secs` (the delay in force when it was proposed) as",
+        "a pending change that the guardian can cancel. The guardian (a separate",
+        "key) can also freeze withdrawals, and only the guardian can unfreeze."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "guardian",
+            "docs": [
+              "Can freeze, unfreeze, cancel pending changes and rotate itself."
+            ],
             "type": "pubkey"
           },
           {
             "name": "destination",
+            "docs": [
+              "The only cUSDC token account `admin_withdraw` pays."
+            ],
             "type": "pubkey"
           },
           {
             "name": "rate_per_sec",
+            "docs": [
+              "Allowance accrual, collateral atoms per second."
+            ],
             "type": "u64"
           },
           {
             "name": "burst",
+            "docs": [
+              "Bucket capacity: the most that can ever be withdrawn at once."
+            ],
             "type": "u64"
           },
           {
             "name": "delay_secs",
+            "docs": [
+              "Delay before a LOOSENING change can be applied, seconds."
+            ],
             "type": "i64"
           },
           {
             "name": "allowance",
+            "docs": [
+              "Currently withdrawable, as of `last_accrual_at`."
+            ],
             "type": "u64"
           },
           {
@@ -7139,6 +7465,9 @@
           },
           {
             "name": "pending_at",
+            "docs": [
+              "When the pending change becomes applicable; 0 = no pending change."
+            ],
             "type": "i64"
           },
           {
@@ -7182,6 +7511,9 @@
     },
     {
       "name": "TreasuryPolicyParams",
+      "docs": [
+        "Args for `init_treasury_policy` (one struct: the v1.45 multi-arg landmine)."
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -7264,7 +7596,10 @@
     {
       "name": "TreasuryYield",
       "docs": [
-        "The treasury's lending ledger, seeds `[b\"treasury_yield\"]`."
+        "The treasury's lending ledger, seeds `[b\"treasury_yield\"]`. The cUSDC itself sits",
+        "in the authority's venue receipts, the pattern market collateral already uses",
+        "(mint-redeem `deploy_collateral_to_yield`); this records what the treasury is",
+        "owed at each venue, indexed by `YieldProtocol` discriminant."
       ],
       "type": {
         "kind": "struct",
@@ -7307,44 +7642,40 @@
       }
     },
     {
-      "name": "VaultRecordLiquidityRecallParams",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "l_amount",
-            "type": "u64"
-          },
-          {
-            "name": "s_amount",
-            "type": "u64"
-          },
-          {
-            "name": "fees_earned",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
       "name": "WorstCaseQuotingConfig",
+      "docs": [
+        "Configuration for worst-case quoting",
+        "Protects protocol from informed traders exploiting confidence interval edges"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "enabled",
+            "docs": [
+              "Whether worst-case quoting is enabled"
+            ],
             "type": "bool"
           },
           {
             "name": "normal_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Normal state (100 = 1x, 150 = 1.5x)"
+            ],
             "type": "u16"
           },
           {
             "name": "proxy_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Proxy state"
+            ],
             "type": "u16"
           },
           {
             "name": "stress_confidence_multiplier",
+            "docs": [
+              "Confidence multiplier in Stress state (also the starting point for Recovery Dutch auction)"
+            ],
             "type": "u16"
           }
         ]
@@ -7352,11 +7683,17 @@
     },
     {
       "name": "YieldDeployment",
+      "docs": [
+        "Yield deployment to a specific protocol"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "protocol",
+            "docs": [
+              "Protocol where yield is deployed"
+            ],
             "type": {
               "defined": {
                 "name": "YieldProtocol"
@@ -7365,22 +7702,37 @@
           },
           {
             "name": "amount_deployed",
+            "docs": [
+              "Amount deployed"
+            ],
             "type": "u64"
           },
           {
             "name": "deployed_at",
+            "docs": [
+              "Timestamp of deployment"
+            ],
             "type": "i64"
           },
           {
             "name": "last_harvest",
+            "docs": [
+              "Last yield harvest time"
+            ],
             "type": "i64"
           },
           {
             "name": "total_yield_earned",
+            "docs": [
+              "Total yield earned from this deployment"
+            ],
             "type": "u64"
           },
           {
             "name": "is_active",
+            "docs": [
+              "Whether this deployment is active"
+            ],
             "type": "bool"
           }
         ]
@@ -7388,6 +7740,17 @@
     },
     {
       "name": "YieldProtocol",
+      "docs": [
+        "Yield protocol identifier",
+        "",
+        "Tag only — the on-chain CLP program treats every variant identically",
+        "(just records the deployment in `yield_deployments[]`). The actual",
+        "deposit/withdraw CPI is composed off-chain by the keeper, which means",
+        "adding a new venue here does NOT require any further program changes,",
+        "only a keeper-side adapter. Append-only for backwards-compat with",
+        "existing on-chain `YieldDeployment` records that store the discriminant",
+        "byte: never reorder."
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -7411,11 +7774,18 @@
     },
     {
       "name": "YieldStrategyConfig",
+      "docs": [
+        "Yield strategy configuration"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "normal_deployment_bps",
+            "docs": [
+              "Maximum % of idle collateral to deploy for yield (basis points)",
+              "Dynamic based on risk state"
+            ],
             "type": "u16"
           },
           {
@@ -7432,18 +7802,30 @@
           },
           {
             "name": "min_liquid_reserve",
+            "docs": [
+              "Absolute minimum reserve to keep liquid (in USDC, 6 decimals)"
+            ],
             "type": "u64"
           },
           {
             "name": "min_liquid_reserve_bps",
+            "docs": [
+              "Target liquid reserve as a share of TVL"
+            ],
             "type": "u16"
           },
           {
             "name": "oi_liquidity_buffer_bps",
+            "docs": [
+              "Extra reserve linked to live open interest"
+            ],
             "type": "u16"
           },
           {
             "name": "enabled",
+            "docs": [
+              "Whether yield strategy is enabled"
+            ],
             "type": "bool"
           }
         ]
@@ -7451,4 +7833,3 @@
     }
   ]
 }
-

@@ -90,8 +90,7 @@ One per market. Its operating vault (`clp_vault`) is this PDA's cUSDC associated
 | `authority` | Pubkey | Signer for this market's CLP instructions |
 | `vault_l_deployed` / `vault_s_deployed` | u64 | L and S outstanding from CLP minting |
 | `total_vault_pairs_minted` | u64 | Lifetime cUSDC spent by `vault_mint_pairs` |
-| `total_meteora_fees_earned` | u64 | Legacy Meteora LP fees |
-| `meteora_long_pool`, `meteora_short_pool`, `meteora_long_position`, `meteora_short_position` | Pubkey | Legacy Meteora addresses |
+| `retired_venue_state` | `[u8; 136]` | Reserved bytes from a retired venue. Nothing reads or writes them, and every later offset is unchanged |
 | `allocated_from_global` | u64 | cUSDC allocated from the global vault |
 | `swap_guards` | `SwapGuardsState` | Guards for committed orders (below) |
 | `swap_window_start` / `swap_window_used` | i64 / u64 | Rolling notional-cap window for `pool_swap` |
@@ -224,7 +223,7 @@ Devnet has no lending venues, so its ledger stays at zero. A 1 cUSDC lend and re
 seeds = [b"revenue_attribution"]
 ```
 
-One per cluster (`A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` on devnet). It splits protocol revenue into keeper flow and external flow. `deposit_profit` and `vault_record_liquidity_recall` take it as their last account, and `pool_swap` takes it just before the market. Amounts are cUSDC base units.
+One per cluster (`A8mK2pnagabEcnkSiWieEZyQjjNWFYm1Z91dUVMXe6a4` on devnet). It splits protocol revenue into keeper flow and external flow. `deposit_profit` takes it as its last account, and `pool_swap` takes it just before the market. Amounts are cUSDC base units.
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -376,10 +375,6 @@ Move cUSDC between the global vault and a market's CLP vault, updating `allocate
 
 Moves fees into the market's CLP vault and adds them to `total_fees_collected`.
 
-#### `vault_record_liquidity_recall(params: VaultRecordLiquidityRecallParams)` (`global_clp.authority`)
-
-Bookkeeping for a legacy Meteora recall; it moves no tokens. `VaultRecordLiquidityRecallParams { l_amount, s_amount, fees_earned }`. It subtracts the amounts from `vault_l_deployed` and `vault_s_deployed` (`InsufficientDeployment` if they're larger). It adds `fees_earned` to `total_meteora_fees_earned`, `total_fees_accumulated`, the protocol buffer and `RevenueAttribution.fees_keeper`. `revenue_attribution` is the last account.
-
 ### Treasury
 
 The global vault is the protocol treasury. `admin_withdraw` pays cUSDC out of the protocol, within the limits in `TreasuryPolicy`. `treasury_lend` sends idle cUSDC to a lending venue within the same limits, and `treasury_recall` brings it back. `backstop_market` moves cUSDC into a market's collateral and has no limit, because the funds stay inside the protocol. The policy, `backstop_market` and the instructions that manage the policy were added on 11 Oct 2026, the three lending instructions on 12 Oct 2026, and `advance_to_market` on 13 Oct 2026.
@@ -471,10 +466,6 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 
 `record_deployment` and `record_withdrawal` (`clp.authority`) and `record_harvest` (`global_clp.authority`) track deployments to lending venues. Since 12 Oct 2026 `record_deployment` refuses only when yield is off (`YieldStrategyDisabled`) or the market isn't Active (`ExceedsMaxDeployment`). It used to also cap a market's lending at a share of its CLP's own capital, a few hundred dollars per market after the stock cuts. A market's lending is now bounded by its `yield_ceiling_bps` in mint-redeem and by the keeper's venue caps. `add_yield_to_buffer` and `absorb_loss` (`global_clp.authority`) maintain the global protocol buffer. Yield is off by default (`yield_strategy.enabled = false`).
 
-### Legacy Meteora instructions
-
-`configure_meteora_pools`, `clear_meteora_positions`, `clp_set_meteora_position`, `clp_init_bin_array`, `clp_open_meteora_position`, `clp_topup_meteora_position`, `clp_remove_meteora_liquidity`, `clp_claim_lp_fees` and `clp_close_meteora_position` managed the v1 Meteora positions. They are legacy: every market now trades on native bin books. `InvalidPool`, `PoolNotConfigured` and most `InvalidPosition` errors come only from these instructions. `clp_remove_meteora_liquidity` and `clp_claim_lp_fees` pay only token accounts owned by the `Clp` PDA (`InvalidVault`).
-
 ## Events
 
 `commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded` (and `OrderCapped` as well when the exposure cap cut a fill short), and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet`, `MarketBackstopped` and `MarketAdvanced`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
@@ -538,10 +529,10 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6028 | `InsufficientDeployment` | Withdrawal or recall larger than what is deployed |
 | 6029 | `DeploymentTooHigh` | `configure_yield_strategy` share out of range |
 | 6030 | `OracleReadError` | `OracleConfig` too short to read |
-| 6031 | `InvalidPool` | Legacy Meteora instructions only |
-| 6032 | `PoolNotConfigured` | Legacy Meteora instructions only |
+| 6031 | `Retired6031` | Retired error code. Nothing returns it |
+| 6032 | `Retired6032` | Retired error code. Nothing returns it |
 | 6033 | `AdminWithdrawCapExceeded` | No longer returned. It reported the old 24 h cap, which `TreasuryPolicy` replaced on 11 Oct 2026 |
-| 6034 | `InvalidPosition` | Legacy Meteora position mismatch, or a wrong account in `clp_burn_excess` |
+| 6034 | `InvalidPosition` | A CLP account passed to `clp_burn_excess` doesn't match the expected CLP-owned account |
 | 6035 | `InvalidAccountData` | Unused |
 | 6036 | `InvalidVault` | A token account isn't the protocol-owned account expected: the wrong owner or mint for the global vault, a CLP vault or the CLP's L and S accounts |
 | 6037 | `TreasuryFrozen` | `admin_withdraw` or `treasury_lend` while the treasury is frozen |

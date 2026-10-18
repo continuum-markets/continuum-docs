@@ -46,10 +46,10 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6028 | `0x178c` | `GammaOutOfRange` | `s_gamma_index is outside [GAMMA_FLOOR, GAMMA_ONE]; out-of-range writes are rejected, not clamped` | `set_s_gamma_index` outside 0.5 to 1.0 (`500_000_000` to `1_000_000_000`). Out-of-range values are rejected, not clamped. |
 | 6029 | `0x178d` | `GammaStepTooLarge` | `unused (γ per-transaction rate cap removed)` | Reserved placeholder. The per-transaction γ cap was removed and this code is never raised; it stays so later codes don't shift. |
 | 6030 | `0x178e` | `GammaDailyCapExceeded` | `unused (γ per-day rate cap removed)` | Reserved placeholder. The per-day γ cap was removed and this code is never raised; it stays so later codes don't shift. |
-| 6031 | `0x178f` | `GammaEpochMismatch` | `γ epoch mismatch: this post was computed against a different epoch (a re-anchor landed in between)` | `expected_epoch` doesn't match `gamma_epoch`: a re-anchor landed after the keeper computed the write. |
-| 6032 | `0x1790` | `InvalidMarketAccount` | `Account is not a Market owned by this program (bad owner, discriminator, or length)` | `realloc_market` on an account that isn't a mint-redeem `Market` (wrong owner, too short, or wrong discriminator). |
+| 6031 | `0x178f` | `Retired6031` | `Retired error code` | Retired. Nothing returns it. The code stays so later codes keep their numbers. |
+| 6032 | `0x1790` | `Retired6032` | `Retired error code` | Retired. Nothing returns it. The code stays so later codes keep their numbers. |
 | 6033 | `0x1791` | `ReanchorNoDecay` | `Nothing to re-anchor: γ is already 1.0 (or unset)` | `reanchor_gamma` while γ is already 1.0 (or unset). |
-| 6034 | `0x1792` | `ReanchorTooSoon` | `Re-anchor is inside the minimum interval since the last one` | `reanchor_gamma` less than 14 days after the previous one. |
+| 6034 | `0x1792` | `InvalidPosition` | `Account does not match the expected CLP-owned account` | A wrong market, token account or mint passed to `clp_burn_excess`. |
 | 6035 | `0x1793` | `ReanchorPrecisionFloor` | `Re-anchor would leave the short anchor without enough precision to price against` | The folded `initial_s_price` would drop below 1,000 (0.001 cUSDC) or below 1/10,000 of its genesis value. |
 | 6036 | `0x1794` | `ReanchorNotValueConserving` | `Re-anchor failed its value-conservation invariant and was rejected` | The fold would change `initial_l_price × initial_s_price × γ` by more than rounding. |
 | 6037 | `0x1795` | `ReanchorBadState` | `Market is in a degenerate state (zero anchor) and cannot be re-anchored` | `initial_l_price` or `initial_s_price` is 0. |
@@ -83,7 +83,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 
 Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
 
-Codes 6003 to 6016 and 6044 to 6046 are swap errors from `pool_swap` and the committed-order instructions. `clp_swap`, retired on 11 Oct 2026, always fails with 6003. 6031 and 6032 come only from the legacy Meteora instructions, which the live bin books don't use.
+Codes 6003 to 6016 and 6044 to 6046 are swap errors from `pool_swap` and the committed-order instructions. `clp_swap`, retired on 11 Oct 2026, always fails with 6003. 6031 and 6032 are retired and nothing returns them.
 
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
@@ -118,12 +118,12 @@ Codes 6003 to 6016 and 6044 to 6046 are swap errors from `pool_swap` and the com
 | 6028 | `0x178c` | `InsufficientDeployment` | `Insufficient deployment balance` | A withdrawal or recall larger than the recorded deployment. |
 | 6029 | `0x178d` | `DeploymentTooHigh` | `Deployment percentage too high` | `configure_yield_strategy` with a deployment share out of range. |
 | 6030 | `0x178e` | `OracleReadError` | `Could not read oracle account data` | The `oracle_config` account passed to a yield instruction is too short to read. |
-| 6031 | `0x178f` | `InvalidPool` | `Pool address does not match configured Meteora pool` | Legacy Meteora instructions only: the pool isn't the configured Meteora pool. |
-| 6032 | `0x1790` | `PoolNotConfigured` | `Meteora pool not configured; run configure_meteora_pools first` | Legacy Meteora instructions only: `configure_meteora_pools` hasn't run. |
+| 6031 | `0x178f` | `Retired6031` | `Retired error code` | Retired. Nothing returns it. The code stays so later codes keep their numbers. |
+| 6032 | `0x1790` | `Retired6032` | `Retired error code` | Retired. Nothing returns it. The code stays so later codes keep their numbers. |
 | 6033 | `0x1791` | `AdminWithdrawCapExceeded` | `Admin withdrawal would exceed the 24h cap of $100K; wait for window to roll or rotate authority if attack is suspected` | No longer returned. It reported the old 24 h cap on `admin_withdraw`, which the `TreasuryPolicy` token bucket replaced on 11 Oct 2026. The code stays so later codes keep their numbers. |
-| 6034 | `0x1792` | `InvalidPosition` | `Position address does not match stored Meteora position` | A legacy Meteora position mismatch, or a wrong market, token account or mint passed to `clp_burn_excess`. |
+| 6034 | `0x1792` | `InvalidPosition` | `Account does not match the expected CLP-owned account` | A wrong market, token account or mint passed to `clp_burn_excess`. |
 | 6035 | `0x1793` | `InvalidAccountData` | `Account data too small for operation` | Never raised. |
-| 6036 | `0x1794` | `InvalidVault` | `Token account is not the expected protocol-owned vault` | A token account has the wrong owner or mint: the global vault must be owned by the `GlobalClp` PDA, and a market's CLP vault and its L and S accounts by that market's `Clp` PDA. `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `allocate_to_market`, `return_to_global`, the treasury instructions and the legacy Meteora payouts check it. |
+| 6036 | `0x1794` | `InvalidVault` | `Token account is not the expected protocol-owned vault` | A token account has the wrong owner or mint: the global vault must be owned by the `GlobalClp` PDA, and a market's CLP vault and its L and S accounts by that market's `Clp` PDA. `vault_mint_pairs`, `vault_redeem_pairs`, `vault_redeem_single`, `allocate_to_market`, `return_to_global` and the treasury instructions check it. |
 | 6037 | `0x1795` | `TreasuryFrozen` | `Treasury withdrawals are frozen` | `admin_withdraw` while the treasury is frozen. Only the guardian can unfreeze it. |
 | 6038 | `0x1796` | `TreasuryAllowanceExceeded` | `Withdrawal exceeds the accrued treasury allowance` | `admin_withdraw` above the allowance. Wait for it to refill at `rate_per_sec`, up to `burst`. |
 | 6039 | `0x1797` | `InvalidTreasuryParams` | `Invalid treasury limits: rate and burst must be > 0, delay within 0..=30 days, guardian set` | `init_treasury_policy` or `set_treasury_limits` with a rate or burst of 0, a delay outside 0 to 30 days or no guardian, or `set_treasury_guardian` with the default pubkey. |
