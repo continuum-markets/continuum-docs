@@ -9,7 +9,7 @@ The CLP program holds the protocol's market-making capital and runs both trading
 Devnet ID: 8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES
 ```
 
-Anyone can call `pool_swap`, `commit_swap` and `settle_swap`, and anyone can send `cancel_swap` once an order has expired. `clp_swap` is retired and always fails. The sections below give the signer every other instruction requires, usually `global_clp.authority`, the market's `clp.authority` or the pool's `pool.authority`.
+Anyone can call `pool_swap` and `commit_swap`, anyone can send `cancel_swap` once an order has expired, and anyone can send `claim` for a held order. Only the keeper can send `settle_swap`. `clp_swap` is retired and always fails. The sections below give the signer every other instruction requires, usually `global_clp.authority`, the market's `clp.authority` or the pool's `pool.authority`.
 
 ## The two venues
 
@@ -150,7 +150,7 @@ order:  seeds = [b"order", user, market, nonce_le_u64]
 escrow: seeds = [b"escrow", order]      // token account owned by the order PDA
 ```
 
-Each order records what the user escrowed and when, and the fill uses a price pushed after `created_at`. The account is 117 bytes, with every field at a fixed offset.
+Each order records what the user escrowed and when, and the fill uses a price pushed after `created_at`. The account is 213 bytes, with every field at a fixed offset. Orders committed before the CLP-5 upgrade are 117 bytes, have no recorded accounts and still work.
 
 | Field | Offset | Type | Purpose |
 |---|---|---|---|
@@ -158,15 +158,18 @@ Each order records what the user escrowed and when, and the fill uses a price pu
 | `market` | 40 | Pubkey | Bound market |
 | `side` | 72 | u8 | 0 = long, 1 = short |
 | `direction` | 73 | u8 | 0 = buy synth, 1 = sell synth |
-| `status` | 74 | u8 | 0 = pending, the only stored state |
+| `status` | 74 | u8 | 0 = pending, 1 = held (tokens wait for `claim`) |
 | `bump` / `escrow_bump` | 75 / 76 | u8 | PDA bumps |
 | `amount_in` | 77 | u64 | Escrowed base units (cUSDC for buys, synth for sells) |
 | `min_out` | 85 | u64 | Slippage floor; a miss at settle refunds instead of reverting |
 | `created_at` | 93 | i64 | Commit time; settle needs `twap_updated_at > created_at` |
 | `expires_at` | 101 | i64 | `created_at + 180`; settle owns ≤, cancel owns > |
 | `nonce` | 109 | u64 | Client-chosen seed |
+| `user_out` | 117 | Pubkey | The payout account given at commit. Settle pays only here, or into the claim account when this one can't receive |
+| `user_in` | 149 | Pubkey | The source account given at commit, where refunds and leftovers go |
+| `claim_payer` | 181 | Pubkey | Who paid the claim account's rent (the settling keeper) and gets it back at `claim`; default while no claim account exists |
 
-A client can find a wallet's orders with `getProgramAccounts` memcmp filters on `user` (offset 8) or `market` (offset 40). The keeper finds every pending order in one call, filtered on the 117-byte size, the `Order` discriminator and `status = 0` at offset 74. Every terminal path (fill, refund, cancel) empties the escrow, closes both the order and the escrow, and returns all rent to the user, so a second settle attempt fails at account load. Since 13 Oct 2026, tokens anyone sends to an escrow after the commit go back to the owner with the rest, so they can't stop it closing.
+A client can find a wallet's orders with `getProgramAccounts` memcmp filters on `user` (offset 8) or `market` (offset 40). The keeper finds every pending order in one call, filtered on the `Order` discriminator and `status = 0` at offset 74, over both sizes (117 and 213 bytes). Every terminal path (fill, refund, cancel) empties the escrow, closes both the order and the escrow, and returns all rent to the user, so a second settle attempt fails at account load. The exception is a held order (status 1), which stays open until `claim`. Since 13 Oct 2026, tokens anyone sends to an escrow after the commit go back to the owner with the rest, so they can't stop it closing.
 
 ### `TreasuryPolicy` PDA
 
@@ -246,7 +249,7 @@ A fill's spread capture is its distance from the book centre: cUSDC paid minus s
 
 `PoolSwapParams { direction: u8, amount_in: u64, min_out: u64 }`. Direction 0 buys synth with cUSDC, and 1 sells synth for cUSDC. A buy walks the ask bins up from `base·r`; a sell walks the bid bins down from `base/r`. The handler decrements reserves in place, so the stored book always matches the vault balances, and partial bin fills round in the pool's favour. If the book runs out first, the swap fills what it can and takes only what it used. There is no swap fee.
 
-The pool must be enabled and not frozen (`SwapDisabled`), and `base_price_1e6` must be nonzero (`OracleStale`). The market must be floating: its `risk_state` isn't `Normal` and its `twap_updated_at` is more than 300 s old, the age at which mint and redeem freeze (`PoolClosedWhileLive` otherwise). Something must fill (`InsufficientFunds`), the output must reach `min_out` (`SlippageExceeded`), and the fill must fit the `Clp` window cap (`WindowCapExceeded`). `pool_swap` doesn't read `swap_guards.enabled`, `frozen` or the oracle guards: it trades on the book as posted. Off-hours the keeper keeps a demand-sized free-float book, with a guard that can only pull bins on the stale side. Until 11 Oct 2026 the books traded at any hour.
+The pool must be enabled and not frozen (`SwapDisabled`), and `base_price_1e6` must be nonzero (`OracleStale`). The market must be floating: its `risk_state` isn't `Normal` and its `twap_updated_at` is more than 300 s old, the age at which mint and redeem freeze (`PoolClosedWhileLive` otherwise). The book must have been posted after the float began: `pool.shape_updated_at` must be more than 300 s after `twap_updated_at`, else `PoolShapePredatesFloat`. Something must fill (`InsufficientFunds`), the output must reach `min_out` (`SlippageExceeded`), and the fill must fit the `Clp` window cap (`WindowCapExceeded`). `pool_swap` doesn't read `swap_guards.enabled`, `frozen` or the oracle guards: it trades on the book as posted. Off-hours the keeper keeps a demand-sized free-float book, with a guard that can only pull bins on the stale side. Until 11 Oct 2026 the books traded at any hour.
 
 Accounts, in order:
 
@@ -275,9 +278,9 @@ Retired on 11 Oct 2026. It was the instant swap against CLP inventory at NAV ± 
 
 Opens a committed order. It escrows `amount_in` (cUSDC for buys, synth for sells) and sets `expires_at = now + 180`. The user pays rent for the order and escrow accounts and gets it back on every terminal path. The payout account (`user_out`) must already exist, so settlement can't stall on it. It checks `market.is_active` (`MarketInactive`), `swap_guards.enabled` (`SwapDisabled`) and `frozen` (`SwapFrozen`). Accounts: `user`, `market`, `clp`, `order`, `in_mint`, `escrow`, `user_in`, `user_out`, `clp_vault`, `token_program`, `system_program`. Emits `OrderCommitted`.
 
-#### `settle_swap()` (anyone)
+#### `settle_swap()` (`clp.authority` or `market.keeper_authority`)
 
-Fills a pending order at NAV ± `max(clp.commit_spread_bps, 10)` bps, with NAV from `Market.user_twap_price` at settle time. The keeper cranks it in practice. It requires:
+Fills a pending order at NAV ± `max(clp.commit_spread_bps, 10)` bps, with NAV from `Market.user_twap_price` at settle time. Any other signer fails with `SettleKeeperOnly` (6047). The keeper settles at the first push it sees after the commit, so the owner can't pick the price. It requires:
 
 - `now ≤ expires_at`, else `OrderExpired`.
 - `market.twap_updated_at > order.created_at`, else `NoFreshOraclePush`. Any push after the commit qualifies, not only the first.
@@ -295,18 +298,40 @@ It doesn't recheck `swap_guards.enabled`. Since 13 Oct 2026 a paused market (`ma
 | Quote below `min_out` | Full refund instead of a revert, so a runaway price can't leave the order retrying until expiry. The accounts close and `OrderRefunded` is emitted |
 | Market below `collateral_floor_bps` at the settle price | Revert (`CollateralFloorBreach`). The order stays pending and can fill at a later push once the market is topped up |
 | CLP inventory short | Revert. The order stays pending while the keeper adds inventory and retries |
+| The payout or refund can't be delivered (the recorded account is closed, re-owned, frozen or the wrong mint) | The settle succeeds and the order is held: the payout goes to the claim account, the refund stays in the escrow, the status becomes 1 and `OrderHeld` is emitted. The log line is `settle_swap HELD for claim`. `claim` pays the owner |
 
-The collateral floor is checked only on the fill path. A fill updates `swap_prev_price` but doesn't count toward the window cap. Accounts: `cranker` (signer), `user` (receives the rent), `order`, `escrow`, `clp`, `clp_vault`, `clp_synth`, `market`, `user_out`, `user_in`, `token_program`.
+The collateral floor is checked only on the fill path. A fill updates `swap_prev_price` but doesn't count toward the window cap. Accounts, in order:
 
-Remaining accounts, needed only when the market is capped: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. The keeper passes them on every settle. A capped market settled without them fails with `ExposureAccountsMissing` (6046), and the order stays pending until someone settles it with them. An uncapped market ignores them, as did the program before the upgrade, so passing them is always safe.
+| # | Account | Notes |
+|---|---|---|
+| 0 | `cranker` | Signer, writable. `clp.authority` or `market.keeper_authority` |
+| 1 | `user` | `order.user`; receives the rent |
+| 2 | `order` | The `Order` PDA |
+| 3 | `escrow` | The order's escrow token account |
+| 4 | `clp` | The market's `Clp` PDA |
+| 5 | `clp_vault` | The CLP's cUSDC account |
+| 6 | `clp_synth` | The CLP's account for the leg |
+| 7 | `market` | The mint-redeem `Market` |
+| 8 | `user_out` | The payout account. For a 213-byte order, the one recorded at commit |
+| 9 | `user_in` | The refund account. For a 213-byte order, the one recorded at commit |
+| 10 | `token_program` | SPL Token |
+| 11 | `claim` | PDA `[b"claim", order]`; holds the payout of a held order |
+| 12 | `out_mint` | The payout mint |
+| 13 | `system_program` | |
+
+The inventory accounts come after these. They are needed only when the market is capped: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. The keeper passes them on every settle. A capped market settled without them fails with `ExposureAccountsMissing` (6046), and the order stays pending until the keeper settles it with them. An uncapped market ignores them, as did the program before the upgrade, so passing them is always safe.
 
 A partial fill is the CLP's check against the room left, measured at the settle price: the largest input whose value fits the room, with the spread included on a buy. A `min_out` that the partial fill misses is an ordinary refund. A settle always empties the escrow, so nothing is stranded.
 
 The keeper posts `commit_spread_bps` with `set_commit_spread`, as `clamp(half-spread, 10, 500)` from its volatility model, and re-posts it whenever it moves by 2 bps or more. As of 10 Oct 2026 it is 18 bps on QQQ, 15 on SPY and 18 on XAU.
 
+#### `claim()` (anyone)
+
+Pays a held order's owner. It is permissionless, like `cancel_swap`, and every token goes to an account owned by `order.user`, so a caller can't redirect anything. It returns the claim's payout to the owner's account for that mint, any refund in the escrow to the owner's account for the escrowed mint, the escrow and order rent to the owner, and the claim account's rent to `claim_payer`, the keeper that fronted it. The keeper cranks it and creates the owner's associated token account first. Fails with `OrderNotClaimable` (6049) when nothing is held, and `ClaimDestinationInvalid` (6050) when a destination isn't a live, unfrozen account of the owner for its mint. Emits `OrderClaimed`. Accounts: `user`, `order`, `escrow`, `claim`, `claim_payer`, `refund_to`, `payout_to`, `token_program`.
+
 #### `cancel_swap()` (anyone, after expiry)
 
-Refunds an expired order once `now > expires_at` (else `OrderNotExpired`). Settle owns `now ≤ expires_at`, so there is no gap or overlap, and before expiry nobody can cancel. Since 11 Oct 2026 anyone may send it: `user` must be the order's owner but doesn't sign, and the escrow can go only to `user_in`, a token account the owner holds for the escrowed mint (`SwapAccountMismatch`). Nothing else is checked (no frozen, enabled, oracle or market-active gate), so escrowed funds can always be recovered after the 180 s TTL. Returns the escrow's whole balance and all rent to the owner and emits `OrderCancelled`. The keeper sends it for every expired order about 5 s after expiry. Accounts: `user`, `order`, `escrow`, `user_in`, `token_program`.
+Refunds an expired order once `now > expires_at` (else `OrderNotExpired`). Settle owns `now ≤ expires_at`, so there is no gap or overlap, and before expiry nobody can cancel. Since 11 Oct 2026 anyone may send it: `user` must be the order's owner but doesn't sign, and the escrow can go only to `user_in`, a token account the owner holds for the escrowed mint (`SwapAccountMismatch`). For a 213-byte order, `user_in` must be the account recorded at commit. If that account can't receive the refund, the cancel still succeeds, the funds wait in the escrow and the order is held for `claim`. Nothing else is checked (no frozen, enabled, oracle or market-active gate), so escrowed funds can always be recovered after the 180 s TTL. Returns the escrow's whole balance and all rent to the owner and emits `OrderCancelled`. The keeper sends it for every expired order about 5 s after expiry. Accounts: `user`, `order`, `escrow`, `user_in`, `token_program`.
 
 ### Bin book management
 
@@ -365,7 +390,7 @@ Moves cUSDC from the admin into the global vault, adds it to `total_deposits` an
 
 #### `allocate_to_market(amount: u64)` / `return_to_global(amount: u64)` (`global_clp.authority`)
 
-Move cUSDC between the global vault and a market's CLP vault, updating `allocated_from_global` and `market_allocations`. They move only between those two accounts. The global vault must be owned by the `GlobalClp` PDA, and the CLP vault must be owned by this market's `Clp` PDA and hold the same mint (`InvalidVault`).
+Move cUSDC between the global vault and a market's CLP vault, updating `allocated_from_global` and `market_allocations`. `allocate_to_market` refuses while the treasury is frozen, and takes `treasury_policy` as its last account. They move only between those two accounts. The global vault must be owned by the `GlobalClp` PDA, and the CLP vault must be owned by this market's `Clp` PDA and hold the same mint (`InvalidVault`).
 
 #### `deposit_profit(params: DepositProfitParams)` (`global_clp.authority` or a registered keeper)
 
@@ -444,7 +469,11 @@ Moves treasury cUSDC straight into a market's collateral vault and credits `tota
 
 The keeper's liquidity reallocator calls it: at once for a market below 100% collateral at its stored price, and after 5 minutes for one short of its posted target by more than one confidence band. It fills to the posted target, at most 130% by default, and never takes a fill back. See [Solvency → Treasury backstop](/concepts/solvency#treasury-backstop).
 
-Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's), `global_vault`, `mint_redeem_program`, `token_program`. Emits `MarketBackstopped`, and mint-redeem emits `CollateralFunded`.
+Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's), `global_vault`, `mint_redeem_program`, `token_program`, `treasury_policy` (last). It refuses while the treasury is frozen. Emits `MarketBackstopped`, and mint-redeem emits `CollateralFunded`.
+
+#### `sweep_clp_lamports()` (`global_clp.authority`)
+
+Moves the lamports a per-market `Clp` PDA holds above its rent-exempt minimum to the authority. The signer must be `global_clp.authority`. Only `Clp` accounts qualify, never token accounts, orders or other records, and the account keeps exactly its minimum. It fails with `NothingToSweep` (6051) when there is nothing above it. Accounts: `global_clp`, `authority` (signer, writable), `clp` (writable). Emits `ClpLamportsSwept`.
 
 ### Configuration
 
@@ -468,7 +497,7 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 
 ## Events
 
-`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled` or `OrderRefunded` (and `OrderCapped` as well when the exposure cap cut a fill short), and `cancel_swap` emits `OrderCancelled`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet`, `MarketBackstopped` and `MarketAdvanced`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
+`commit_swap` emits `OrderCommitted`, `settle_swap` emits `OrderSettled`, `OrderRefunded` or `OrderHeld` (and `OrderCapped` as well when the exposure cap cut a fill short), `cancel_swap` emits `OrderCancelled` or `OrderHeld`, and `claim` emits `OrderClaimed`. `sweep_clp_lamports` emits `ClpLamportsSwept`. The treasury instructions emit `TreasuryPolicyInitialized`, `TreasuryWithdrawn`, `TreasuryLimitsProposed`, `TreasuryLimitsApplied`, `TreasuryLimitsCancelled`, `TreasuryFreezeChanged`, `TreasuryGuardianSet`, `MarketBackstopped` and `MarketAdvanced`. Their fields are in the IDL. Every fill on any route also emits `SwapExecuted`:
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -545,6 +574,12 @@ Accounts: `global_clp`, `authority`, `market`, `collateral_vault` (the market's)
 | 6044 | `PoolClosedWhileLive` | `pool_swap` while the market's price is live: its risk state is `Normal`, or its last push is at most 300 s old |
 | 6045 | `ExposureCapExceeded` | `pool_swap` that would push traders' net position past `oi_cap`: "This trade would push the market's net exposure past its cap" |
 | 6046 | `ExposureAccountsMissing` | `pool_swap` or `settle_swap` on a capped market without the four inventory accounts: "The market is capped: pass the pool synth vaults and the CLP's token accounts" |
+| 6047 | `SettleKeeperOnly` | `settle_swap` signed by neither `clp.authority` nor `market.keeper_authority`: "Only the keeper (clp.authority or market.keeper_authority) may settle" |
+| 6048 | `InvalidOrderAccount` | An order account that isn't valid for the instruction |
+| 6049 | `OrderNotClaimable` | `claim` on an order with nothing held |
+| 6050 | `ClaimDestinationInvalid` | `claim` to an account that isn't a live, unfrozen account of the order's owner for that mint |
+| 6051 | `NothingToSweep` | `sweep_clp_lamports` on a `Clp` with no lamports above its rent-exempt minimum |
+| 6052 | `PoolShapePredatesFloat` | `pool_swap` on a book posted before the market began to float |
 
 → [Full error catalog](/reference/errors)
 

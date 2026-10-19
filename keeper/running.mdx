@@ -47,6 +47,8 @@ The keeper loads `.env` from its working directory, or the file named by `KEEPER
 | `HL_CROSS_CHECK_ENABLED` | `true` | Compare each fresh print with Hyperliquid and withhold the push when they disagree. An unreachable Hyperliquid lets the print through; Hyperliquid never sets a price. |
 | `CROSS_CHECK_BAND_BPS` | 30 FX, 60 metals, 100 stocks | Largest allowed disagreement. One value overrides all three. |
 
+A print more than 10% from the last accepted price is held, and an operator releases it by writing an R2 object, as described in [CNBC price holds](/concepts/keeper#cnbc-price-holds). The updater also pushes nothing for a market after its scheduled close plus 15 minutes.
+
 When the fallback source prices a market, the confidence band comes from a GJR-GARCH volatility model; with Pyth, the keeper uses the wider of Pyth's band and the model's. Mainnet will price from Pyth (Pyth Pro).
 
 ### Book manager and parameter posting
@@ -161,6 +163,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | Variable | Default | Meaning |
 |---|---|---|
 | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | unset | Journal in R2. Setting any one selects R2 and requires all four. |
+| `DATA_API_KEY` | unset | Required for the keeper's data endpoints (`/api/data/**`), which are refused without it. Callers send it as the `x-api-key` header, and the frontend's `KEEPER_DATA_API_KEY` must match. `/healthz`, `/health` and `/ping` stay open. |
 | `DATA_DIR` | `/data` | Root for the journal and the γ and off-hours checkpoints when R2 is unset. It must persist across restarts and support OS file locks, and only one process can hold it. |
 | `PORT`, then `DASHBOARD_PORT` | `8484` | The single dashboard port. |
 | `KEEPER_PEERS` | unset | Dashboard URLs of other keeper instances (see below). |
@@ -199,7 +202,7 @@ The allocator's limits come from the stress assumptions below and the treasury b
 
 Several instances can run with the same keys. Set `KEEPER_PEERS` on each to the dashboard URLs of the others. Every 30 s each instance probes `/api/status/<network>` on its peers, and the one with the oldest start time is primary. Standby instances still push prices, which is harmless to repeat, but skip the loops that move funds, such as the book manager and the commit settler. When the primary stops answering, the oldest remaining instance takes over at the next probe.
 
-Each market has one `keeper_authority`; the market admin can rotate it with `update_keeper_authority` to split markets between operators. Bots without either key can run alongside: `settle_swap` is permissionless, and anyone can trade the books.
+Each market has one `keeper_authority`; the market admin can rotate it with `update_keeper_authority` to split markets between operators. Bots without either key can run alongside: `cancel_swap` and `claim` are permissionless, and anyone can trade the books. `settle_swap` needs `clp.authority` or `market.keeper_authority`.
 
 ## Logging
 

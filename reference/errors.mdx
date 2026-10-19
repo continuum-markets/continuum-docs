@@ -83,7 +83,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 
 Program ID (devnet): `8xauDRjw9XRyk4FE3hW1JKjD8nC87gfr59Xig1dJqLES`
 
-Codes 6003 to 6016 and 6044 to 6046 are swap errors from `pool_swap` and the committed-order instructions. `clp_swap`, retired on 11 Oct 2026, always fails with 6003. 6031 and 6032 are retired and nothing returns them.
+Codes 6003 to 6016 and 6044 to 6052 are swap errors from `pool_swap` and the committed-order instructions, including `claim`. `clp_swap`, retired on 11 Oct 2026, always fails with 6003. 6031 and 6032 are retired and nothing returns them.
 
 | Code | Hex | Name | Message | Cause and fix |
 |---|---|---|---|---|
@@ -134,6 +134,12 @@ Codes 6003 to 6016 and 6044 to 6046 are swap errors from `pool_swap` and the com
 | 6044 | `0x179c` | `PoolClosedWhileLive` | `The book trades only while the market is closed; use a committed order` | `pool_swap` while the market's price is live: its risk state is `Normal`, or its last price push is at most 300 s old. Send a committed order instead. The book reopens once the price is more than 300 s old outside `Normal`. |
 | 6045 | `0x179d` | `ExposureCapExceeded` | `This trade would push the market's net exposure past its cap` | A `pool_swap` fill that would move traders' net position further past `Clp.oi_cap`. Try a smaller amount, or the other side, which opens room. Committed orders never raise this: `settle_swap` fills what fits and refunds the rest. |
 | 6046 | `0x179e` | `ExposureAccountsMissing` | `The market is capped: pass the pool synth vaults and the CLP's token accounts` | `pool_swap` or `settle_swap` on a market with `oi_cap` above 0 without the four inventory accounts: the pool long and short synth vaults, then the CLP's long and short token accounts. |
+| 6047 | `0x179f` | `SettleKeeperOnly` | `Only the keeper (clp.authority or market.keeper_authority) may settle` | `settle_swap` signed by anyone else. Settling is keeper-only; the keeper settles at the first push it sees after the commit. |
+| 6048 | `0x17a0` | `InvalidOrderAccount` | `Not a valid order account for this instruction` | An order account that doesn't fit the instruction, such as an unrecognised size or a recorded account that doesn't match. |
+| 6049 | `0x17a1` | `OrderNotClaimable` | `The order has nothing held for claim` | `claim` on an order whose status isn't held. |
+| 6050 | `0x17a2` | `ClaimDestinationInvalid` | `Claim destination must be a live, unfrozen token account of the order's owner for that mint` | `claim` to an account that is closed, frozen, the wrong mint or not the owner's. The keeper creates the owner's token account first. |
+| 6051 | `0x17a3` | `NothingToSweep` | `The account holds no lamports above its rent-exempt minimum` | `sweep_clp_lamports` on a `Clp` with nothing to move. |
+| 6052 | `0x17a4` | `PoolShapePredatesFloat` | `The book was last reshaped before the market began to float; wait for the free-float book` | `pool_swap` while the market floats, on a book whose `shape_updated_at` isn't more than 300 s after `twap_updated_at`. Wait for the keeper to post the free-float book. |
 
 ## oracle
 
@@ -205,6 +211,13 @@ These come from the [order book](/flows/order-book), the [trading account](/flow
 | 6018 | `0x1782` | `BadGlobalAccounts` | `Global accounts must come in groups of mint, global, global vault, market vault and token program, for this market's mints` | The remaining accounts for Manifest's global orders aren't in groups of five for this market's mints. |
 | 6019 | `0x1783` | `InsufficientStake` | `Not that much S is staked` | `unstake_rebate` asked for more S than the position has staked. Check `RebatePosition.units`. |
 | 6020 | `0x1784` | `RebateFundingAboveYield` | `The rebate pot can't be funded beyond the collateral yield the market has harvested since the rebate opened` | `fund_rebate` would take the pot's cumulative funding above `total_yield_harvested` minus the value it had when the rebate opened. Fund less, or wait for the market to harvest more. |
+| 6021 | `0x1785` | `SessionBudgetExceeded` | `The session has used its budget; the owner must grant it again` | A session-signed order that would take the key past its total budget. Approve the key again in the app, which resets the count. |
+| 6022 | `0x1786` | `SessionAccountReadOnly` | `A session-signed trade must pass the trading account as writable, to record what the session has spent` | A session-signed `place_orders`, `swap_pool` or `commit_order` with the rules account passed read-only. |
+| 6023 | `0x1787` | `CanonicalBooksMissing` | `A session-signed book call must pass the market's canonical-books account first among the remaining accounts` | A session-signed `place_orders` or `claim_seat` without the `CanonicalBooks` account as the first remaining account. |
+| 6024 | `0x1788` | `NotCanonicalBook` | `A session key may only use the market's canonical Manifest book` | A session-signed call on a Manifest book other than the market's canonical one. Your wallet can use any book. |
+| 6025 | `0x1789` | `MarketNotActive` | `A session key cannot trade a market that is not active` | A session-signed order, pool swap or committed order on an inactive market. Cancels still work. |
+| 6026 | `0x178a` | `InvalidProgramData` | `The program account does not match the program data account` | `set_canonical_books` with a program data account that isn't the trading program's. |
+| 6027 | `0x178b` | `NotUpgradeAuthority` | `Only the trading program's upgrade authority can set the canonical books` | `set_canonical_books` signed by anyone but the program's upgrade authority. |
 
 ## Anchor errors below 6000
 

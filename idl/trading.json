@@ -189,7 +189,9 @@
       "name": "claim_seat",
       "docs": [
         "Claim the trader's seat on a market, which Manifest needs before",
-        "deposits and resting orders. The trader PDA pays the rent."
+        "deposits and resting orders. The trader PDA pays the rent. A session key",
+        "may only claim a seat on the market's canonical book: the first remaining",
+        "account must be its CanonicalBooks."
       ],
       "discriminator": [
         47,
@@ -334,7 +336,9 @@
       "docs": [
         "Commit an order from the trading account. It fills at the next official",
         "price, or after its time to live anyone can refund it; either way the",
-        "tokens and the rent come back to the trader PDA, never anywhere else."
+        "tokens and the rent come back to the trader PDA, never anywhere else.",
+        "A session-signed commit counts against the session's budget (a buy at",
+        "its cUSDC, a sale at the NAV of what it sells) and needs an active market."
       ],
       "discriminator": [
         106,
@@ -1197,9 +1201,11 @@
       "name": "place_orders",
       "docs": [
         "Cancel and place resting orders from the seat's balance. Session-signed",
-        "orders must be priced inside the band and under the per-order limit.",
-        "Remaining accounts may carry up to two global groups (see",
-        "manifest::GlobalGroup), so orders can fill makers' global orders."
+        "orders must be priced inside the band, under the per-order limit and",
+        "within the session's budget, on the market's canonical book of an active",
+        "market. Remaining accounts may carry up to two global groups (see",
+        "manifest::GlobalGroup), so orders can fill makers' global orders; a",
+        "session-signed call puts the market's CanonicalBooks before them."
       ],
       "discriminator": [
         60,
@@ -1428,9 +1434,89 @@
       "args": []
     },
     {
+      "name": "set_canonical_books",
+      "docs": [
+        "Set (or replace) the Manifest books a session key may trade for a",
+        "Continuum market, one per side. The trading program's upgrade authority",
+        "only; it pays the record's rent the first time. Each book's header must",
+        "trade that side's token for the market's collateral."
+      ],
+      "discriminator": [
+        236,
+        168,
+        170,
+        200,
+        240,
+        229,
+        81,
+        63
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mr_market"
+        },
+        {
+          "name": "books",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  110,
+                  111,
+                  110,
+                  105,
+                  99,
+                  97,
+                  108,
+                  95,
+                  98,
+                  111,
+                  111,
+                  107,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mr_market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "long_book"
+        },
+        {
+          "name": "short_book"
+        },
+        {
+          "name": "program",
+          "address": "Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA"
+        },
+        {
+          "name": "program_data"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "set_session",
       "docs": [
-        "Grant (or replace) the session key. Owner only."
+        "Grant (or replace) the session key, with its per-order limit and total",
+        "budget, and start the budget afresh. Owner only."
       ],
       "discriminator": [
         156,
@@ -1709,7 +1795,11 @@
         "Swap on the CLP's bin book from the trading account. The book trades",
         "only while the market floats; the CLP enforces that. A session-signed",
         "swap must fill inside the band, judged on what actually moved, so a",
-        "stolen key cannot force a fill deep into the book.",
+        "stolen key cannot force a fill deep into the book, and it counts against",
+        "the session's budget (a buy at the cUSDC paid, a sale at the NAV of what",
+        "was sold). The pool needs no canonical-books check: the CLP's pool_swap",
+        "requires it to be the CLP's own [b\"pool\", market, side] PDA, which only",
+        "the CLP admin can create.",
         "Remaining accounts are passed through to the CLP's `pool_swap`: when the",
         "market is capped, the pool long/short synth vaults then the CLP's long/short",
         "token accounts (the exposure cap's inventory, r63)."
@@ -2280,6 +2370,19 @@
   ],
   "accounts": [
     {
+      "name": "CanonicalBooks",
+      "discriminator": [
+        218,
+        154,
+        232,
+        101,
+        250,
+        197,
+        191,
+        33
+      ]
+    },
+    {
       "name": "Clp",
       "discriminator": [
         158,
@@ -2383,6 +2486,19 @@
         119,
         126,
         63
+      ]
+    },
+    {
+      "name": "CanonicalBooksSet",
+      "discriminator": [
+        209,
+        22,
+        6,
+        113,
+        123,
+        32,
+        41,
+        137
       ]
     },
     {
@@ -2673,6 +2789,41 @@
       "code": 6020,
       "name": "RebateFundingAboveYield",
       "msg": "The rebate pot can't be funded beyond the collateral yield the market has harvested since the rebate opened"
+    },
+    {
+      "code": 6021,
+      "name": "SessionBudgetExceeded",
+      "msg": "The session has used its budget; the owner must grant it again"
+    },
+    {
+      "code": 6022,
+      "name": "SessionAccountReadOnly",
+      "msg": "A session-signed trade must pass the trading account as writable, to record what the session has spent"
+    },
+    {
+      "code": 6023,
+      "name": "CanonicalBooksMissing",
+      "msg": "A session-signed book call must pass the market's canonical-books account first among the remaining accounts"
+    },
+    {
+      "code": 6024,
+      "name": "NotCanonicalBook",
+      "msg": "A session key may only use the market's canonical Manifest book"
+    },
+    {
+      "code": 6025,
+      "name": "MarketNotActive",
+      "msg": "A session key cannot trade a market that is not active"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidProgramData",
+      "msg": "The program account does not match the program data account"
+    },
+    {
+      "code": 6027,
+      "name": "NotUpgradeAuthority",
+      "msg": "Only the trading program's upgrade authority can set the canonical books"
     }
   ],
   "types": [
@@ -2751,6 +2902,66 @@
             "type": {
               "option": "u32"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CanonicalBooks",
+      "docs": [
+        "The Manifest books a session key may trade for one Continuum market, one per",
+        "side (0 long, 1 short), set by the trading program's upgrade authority. Owner",
+        "signed calls may use any book for the market's tokens; session-signed ones",
+        "only these (audit TR-3)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mr_market",
+            "type": "pubkey"
+          },
+          {
+            "name": "books",
+            "type": {
+              "array": [
+                "pubkey",
+                2
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CanonicalBooksSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mr_market",
+            "type": "pubkey"
+          },
+          {
+            "name": "long_book",
+            "type": "pubkey"
+          },
+          {
+            "name": "short_book",
+            "type": "pubkey"
           }
         ]
       }
@@ -4384,6 +4595,14 @@
           {
             "name": "max_order_quote",
             "type": "u64"
+          },
+          {
+            "name": "max_session_quote",
+            "docs": [
+              "The session's total budget in quote atoms: 0 for DEFAULT_SESSION_BUDGET,",
+              "u64::MAX for none."
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -4423,6 +4642,10 @@
           },
           {
             "name": "max_order_quote",
+            "type": "u64"
+          },
+          {
+            "name": "max_session_quote",
             "type": "u64"
           }
         ]
@@ -4554,11 +4777,30 @@
             "type": "u8"
           },
           {
+            "name": "max_session_quote",
+            "docs": [
+              "The most quote (cUSDC atoms) all session-signed placements together may",
+              "commit until the owner grants the session again. 0 means",
+              "DEFAULT_SESSION_BUDGET; UNLIMITED_SESSION_BUDGET means no limit.",
+              "(Taken from the reserved bytes: the account did not grow.)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "session_spent_quote",
+            "docs": [
+              "What session-signed placements have committed since set_session: buys at",
+              "the quote they may pay, sells at the NAV of what they sell. Cancels and",
+              "fills refund nothing."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                64
+                48
               ]
             }
           }

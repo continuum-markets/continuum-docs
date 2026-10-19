@@ -22,6 +22,22 @@ For each market, the keeper fetches a price and confidence band and pushes both 
 
 The updater knows when a market is closed. If the source's publish time is more than 120 s old (`HERMES_STALE_SECS`), or the fetch fails, the keeper **withholds** the push. The stored price then ages past 300 s, mint and redeem freeze, and the book manager switches to free-float books.
 
+### CNBC price holds
+
+The keeper compares every public-quote print with the last price it accepted for that market. A move of more than 10% is held. The keeper doesn't push it, or anything between the two levels. Mint and redeem freeze on the 300 s gate, and the books float with the held level treated as a pull-only venue.
+
+A held print ends in one of three ways:
+
+- **Reverted.** A later print comes back within 1% of the accepted price. The held print was garbage, and the keeper resumes at once.
+- **Confirmed automatically.** This applies only to a reopening gap: the accepted price had been unchanged for an hour, a later print with a later source time and a different price agrees within 0.5%, the move is under 20%, and it isn't shaped like a split.
+- **Released by an operator.** Everything else needs one, including any move over 10% while the market was trading. The operator checks the price elsewhere, then writes a release object to R2 at `keeper/cnbc-hold-release/v1/<network>/<SYM>.json`. The keeper polls it, accepts the first print inside the tolerance and resumes.
+
+Splits never trigger a hold. They are armed ahead of the ex-date with `scripts/apply-corporate-action.ts`, and the keeper then compares prints in adjusted units.
+
+After a restart the baseline for each market is its on-chain price, so a first print more than 10% from the chain is held. Holds page Discord with a reminder every 30 minutes, and are saved to R2 so a restart restores them.
+
+The price updater also withholds any push from a market that is past its scheduled close plus 15 minutes.
+
 ### Book manager (30 s)
 
 Per market, each tick:
@@ -44,7 +60,7 @@ The settler finds pending `Order` accounts with one filtered `getProgramAccounts
 - A fill the CLP can't cover is funded first. The settler borrows the cash it lacks from the treasury (`allocate_to_market`) and mints or redeems pairs if needed: a sell pays out cUSDC, and a buy needs synth, which the CLP mints in pairs at twice the value it lacks. These steps go in the same transaction as the settle where they fit, so a fill that fails takes its funding back with it. Otherwise they run in sequence before the settle.
 - An order that the collateral floor or the oracle checks hold back waits for a later push.
 
-About 5 s after an order's 180 s TTL, the settler refunds it with `cancel_swap`, which returns the escrow to the owner. Anyone may settle or refund; the keeper just does it promptly.
+About 5 s after an order's 180 s TTL, the settler refunds it with `cancel_swap`, which returns the escrow to the owner. Only the keeper settles, but anyone may refund. A payout or refund that can't reach the owner's recorded account leaves the order held, and the settler then cranks `claim`, creating the owner's token account first and getting the claim account's rent back.
 
 ### Liquidity reallocator (30 s)
 
@@ -207,7 +223,7 @@ Full list: [keeper running guide](/keeper/running).
 
 Not the protocol's: its source isn't published, and its privileged instructions check the market's authorities. What's open and what isn't:
 
-- Anyone can crank `settle_swap`. Settling committed orders needs no authority.
+- `settle_swap` is keeper-only: the signer must be `clp.authority` or `market.keeper_authority`. `cancel_swap` and `claim` are open to anyone.
 - Paired arbitrage is open. Ordinary `mint_paired` / `redeem_paired` plus book trades need no privilege, and neither does `donate_to_vault`.
 - Pricing and book shaping are privileged. `update_risk_state_v2`, `set_buffer_target` and `set_s_gamma_index` require `market.keeper_authority`. `set_pool_shape` requires the pool's `authority`, fee posting through `update_market` requires `market.authority`, and `set_commit_spread` requires the CLP's `authority`.
 

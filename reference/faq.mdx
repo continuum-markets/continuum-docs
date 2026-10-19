@@ -60,7 +60,7 @@ What keeps working:
 
 - The bin books open at their last posted bins, because `pool_swap` trades once the price is more than 300 s old outside `Normal`.
 - A committed order that nobody settles can be refunded with `cancel_swap` once its 180 s TTL has passed. Anyone can send it, and the escrow goes back to the order's owner.
-- `settle_swap` is permissionless, so anyone can settle a committed order once a fresh price has been pushed.
+- `settle_swap` is keeper-only, so the owner can't choose which price fills the order. The keeper settles at the first push it sees after the commit. If a payout can't reach the owner's recorded account, the order is held and anyone can send `claim`.
 
 ## Is my money lent out? What if a lending venue freezes?
 

@@ -26,7 +26,7 @@ The keeper sets the centre from NAV, shifted by the CLP's inventory, and reshape
 
 Bins use two step sizes: a fine core step (`step_bps`) for the first `core_bins` bins on each side, then a wider wing step (`wing_step_bps`). Ask bin `i`, counting from 0, sits `i + 1` steps above the centre and bid bin `i` sits `i + 1` steps below it. Each step up multiplies the price by `1 + step / 10_000`, and each step down divides by it. On 10 Oct 2026 each QQQ book had 12 bins: 3 core bins 20 bps apart, then 300 bps wing steps. A swap walks the bins outward from the centre. If the book runs out, the swap fills what it can and charges only for that, and `min_out` still applies.
 
-`pool_swap` charges no swap fee; you pay the distance from the centre. It fills only while the market floats: the market's risk state must not be `Normal`, and its last price push must be more than 300 s old, the same age at which mint and redeem freeze. In any other case it fails with `PoolClosedWhileLive`, and you trade with a committed order instead. Every devnet market runs in `ProxyMode`, so on devnet a book opens 300 s after the last push and closes again at the next one.
+`pool_swap` charges no swap fee; you pay the distance from the centre. It fills only while the market floats: the market's risk state must not be `Normal`, and its last price push must be more than 300 s old, the same age at which mint and redeem freeze. In any other case it fails with `PoolClosedWhileLive`, and you trade with a committed order instead. While the market floats, the book must also have been posted by the keeper after the float began: `pool.shape_updated_at` must be more than 300 s after `twap_updated_at`, or the swap fails with `PoolShapePredatesFloat` (6052). Only a book the keeper posted for the float can trade. Every devnet market runs in `ProxyMode`, so on devnet a book opens 300 s after the last push and closes again at the next one.
 
 There is no pool-level kill switch. A new pool stays disabled until the keeper posts its first shape, and after that nothing disables or freezes it: no instruction sets `pool.frozen`, and `set_pool_shape` always re-enables the pool. Freezing the CLP's swap guards stops committed orders but not `pool_swap`. The keeper can still empty a book by posting all-zero bins, and the [rolling-window cap](#rolling-window-cap) can pause it.
 
@@ -185,13 +185,14 @@ Their spread (`spread_bps`) and window cap were left unchanged. `spread_bps` pri
   <Step title="Commit">
     `commit_swap(side, direction, amount_in, min_out, nonce)` moves your input (cUSDC on a buy, tokens of the leg on a sell) into an escrow token account owned by the order PDA. It needs the market active (`MarketInactive`) and its swap guards enabled (`SwapDisabled`) and not frozen (`SwapFrozen`). Your payout account must already exist. The program checks it at commit, so settlement can't fail on a missing account.
   </Step>
-  <Step title="Settle (permissionless)">
-    `settle_swap` becomes valid once `market.twap_updated_at` is later than the commit, in a later second. It stays valid until `expires_at`. Anyone can call it, and the keeper sends it after the first push that qualifies. It fills at the market's current price, which may come from a later push than the first one after your commit.
+  <Step title="Settle (keeper only)">
+    `settle_swap` becomes valid once `market.twap_updated_at` is later than the commit, in a later second. It stays valid until `expires_at`. Only the keeper can send it: the signer must be `clp.authority` or `market.keeper_authority` (`SettleKeeperOnly`, 6047). The keeper settles at the first push it sees after the commit, so you can't choose which price fills your order.
 
     - If the output misses `min_out`, the order is refunded in full and closed.
     - If the market's exposure cap has room for only part of the order, the part that fits fills and the rest is refunded with the escrow (see [Exposure cap](#exposure-cap)).
     - If the market is below its collateral floor (a 100% collateral ratio at the settle price), or the price fails the checks above, settle reverts. The order stays pending and fills at a later push, if one passes before it expires.
     - If the CLP lacks inventory, settle reverts and the order stays pending while the keeper provisions it.
+    - If a payout or refund can't reach your account, settle still succeeds and the order is held (see [Held orders](#held-orders)).
 
     While the underlying market is closed the keeper normally withholds pushes, so an order committed then can't settle and expires.
   </Step>
@@ -200,7 +201,13 @@ Their spread (`spread_bps`) and window cap were left unchanged. `spread_bps` pri
   </Step>
 </Steps>
 
-Settling, refunding and cancelling all close the order and escrow accounts and return their rent to you.
+Settling, refunding and cancelling all close the order and escrow accounts and return their rent to you, unless the order is held.
+
+### Held orders
+
+An order records three accounts when you commit: your payout account (`user_out`), your input account (`user_in`) and the claim payer. If the payout or refund can't be delivered, because the recorded account is closed, owned by someone else, frozen or the wrong mint, settle and cancel still succeed. The funds wait instead: a payout in a claim account, a refund in the escrow. The order's status becomes 1, "held", the log line reads `settle_swap HELD for claim`, and `OrderHeld` is emitted.
+
+`claim` releases a held order. It is permissionless, and every token goes to an account owned by the order's owner, so it can't be redirected. The keeper cranks it and creates the owner's token account first if it is missing. The keeper also fronts the claim account's rent when it settles, and gets it back at `claim`. `claim` returns the escrow and order rent to the owner and emits `OrderClaimed`. A claim on an order with nothing held fails with `OrderNotClaimable` (6049), and one to an account that isn't the owner's live, unfrozen account for that mint fails with `ClaimDestinationInvalid` (6050).
 
 <Note>
   On devnet the fill price (`market.user_twap_price`) and the freshness check (`market.twap_updated_at`) both come from keeper pushes, so a committed order trusts the keeper's price.
@@ -216,7 +223,7 @@ pub struct Order {
     pub market: Pubkey,    // offset 40
     pub side: u8,          // 0 = long, 1 = short
     pub direction: u8,     // 0 = buy, 1 = sell
-    pub status: u8,        // offset 74; 0 = pending, the only stored state
+    pub status: u8,        // offset 74; 0 = pending, 1 = held for claim
     pub bump: u8,
     pub escrow_bump: u8,
     pub amount_in: u64,
@@ -224,8 +231,13 @@ pub struct Order {
     pub created_at: i64,   // settle needs twap_updated_at > created_at
     pub expires_at: i64,   // created_at + 180; settle up to it, cancel after it
     pub nonce: u64,
+    pub user_out: Pubkey,    // offset 117; the payout account given at commit
+    pub user_in: Pubkey,     // offset 149; where refunds and leftovers go
+    pub claim_payer: Pubkey, // offset 181; who paid the claim account's rent
 }
 ```
+
+The account is 213 bytes. Orders committed before the upgrade are 117 bytes, with no recorded accounts, and still settle and cancel.
 
 ### Accounts: `commit_swap`
 
@@ -244,11 +256,11 @@ pub struct Order {
 
 ### Accounts: `settle_swap` and `cancel_swap`
 
-`settle_swap` takes `cranker` (signer: anyone, who pays the transaction fee and gets nothing), `user` (`order.user`, who receives the rent), `order`, `escrow`, `clp`, `clpVault` and `clpSynth` (the CLP's cUSDC and leg inventory), `market`, `userOut`, `userIn` and `tokenProgram`. All but `cranker`, `market` and `tokenProgram` are mutable.
+`settle_swap` takes these accounts, in order: `cranker` (signer, mut, the keeper: `clp.authority` or `market.keeper_authority`), `user` (`order.user`), `order`, `escrow`, `clp`, `clpVault`, `clpSynth` (the CLP's cUSDC and leg inventory), `market`, `userOut`, `userIn`, `tokenProgram`, `claim` (the PDA `[b"claim", order]`), `outMint` and `systemProgram`. The inventory accounts follow. On a 213-byte order, `userOut` and `userIn` must be the accounts recorded at commit.
 
-When the market is capped it also needs four read-only remaining accounts after those: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. The keeper passes them on every settle. Without them a capped market's settle fails with `ExposureAccountsMissing` and the order stays pending. An uncapped market ignores them.
+When the market is capped it also needs four read-only inventory accounts after those: the pool long synth vault, the pool short synth vault, the CLP's long token account and the CLP's short token account. The keeper passes them on every settle. Without them a capped market's settle fails with `ExposureAccountsMissing` and the order stays pending. An uncapped market ignores them.
 
-`cancel_swap` takes `user` (the order's owner, who receives the rent; not a signer), `order`, `escrow`, `userIn` (the owner's token account for the escrowed mint, which receives the refund) and `tokenProgram`. All but `tokenProgram` are mutable. Whoever sends the transaction pays its fee.
+`cancel_swap` takes `user` (the order's owner, who receives the rent; not a signer), `order`, `escrow`, `userIn` (the owner's token account for the escrowed mint, which receives the refund; on a 213-byte order it must be the recorded account) and `tokenProgram`. All but `tokenProgram` are mutable. Whoever sends the transaction pays its fee.
 
 ### Commit and cancel
 
@@ -303,7 +315,7 @@ await clp.methods
   .rpc();
 ```
 
-The order emits `OrderCommitted`, then one of `OrderSettled` (with `out`, `nav` and `base_price`), `OrderRefunded` (a `min_out` miss, or a market with no room under its exposure cap) or `OrderCancelled`. A partial fill emits `OrderSettled` for the part that filled, whose `amount_in` is only that part, together with `OrderCapped`. Fills also emit `SwapExecuted`, whose `route` is 1 for `pool_swap` and 2 for a committed settlement. Route 0 belonged to the retired `clp_swap`.
+The order emits `OrderCommitted`, then one of `OrderHeld` (later `OrderClaimed`), `OrderSettled` (with `out`, `nav` and `base_price`), `OrderRefunded` (a `min_out` miss, or a market with no room under its exposure cap) or `OrderCancelled`. A partial fill emits `OrderSettled` for the part that filled, whose `amount_in` is only that part, together with `OrderCapped`. Fills also emit `SwapExecuted`, whose `route` is 1 for `pool_swap` and 2 for a committed settlement. Route 0 belonged to the retired `clp_swap`.
 
 ## Exposure cap
 
@@ -344,6 +356,11 @@ The cap is a number the keeper re-posts each night, so read the live `Clp.oi_cap
 | `PoolClosedWhileLive` | 6044 | `pool_swap` | The market's price is live; use a committed order |
 | `ExposureCapExceeded` | 6045 | `pool_swap` | The fill would push the market's net exposure past its cap. Committed orders fill in part instead |
 | `ExposureAccountsMissing` | 6046 | `pool_swap`, `settle_swap` | The market is capped and the four inventory accounts weren't passed |
+| `SettleKeeperOnly` | 6047 | `settle_swap` | The signer is neither `clp.authority` nor `market.keeper_authority` |
+| `InvalidOrderAccount` | 6048 | `settle_swap`, `cancel_swap`, `claim` | Not a valid order account for the instruction |
+| `OrderNotClaimable` | 6049 | `claim` | The order has nothing held |
+| `ClaimDestinationInvalid` | 6050 | `claim` | The destination isn't a live, unfrozen account of the owner for that mint |
+| `PoolShapePredatesFloat` | 6052 | `pool_swap` | The book was posted before the market began to float |
 
 See the [full error catalog](/reference/errors).
 

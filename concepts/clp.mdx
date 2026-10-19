@@ -52,11 +52,13 @@ The large-order path uses three instructions and one account:
 commit_swap(side, direction, amount_in, min_out, nonce)
     → escrows the input into an Order PDA [b"order", user, market, nonce]
       (TTL 180 s)
-settle_swap()                   ── permissionless
-    → fills at NAV ± max(commit_spread_bps, 10) bps at the latest push,
-      which must be newer than the commit; min_out miss → full refund
+settle_swap()                   ── keeper only
+    → fills at NAV ± max(commit_spread_bps, 10) bps at the first push the
+      keeper sees after the commit; min_out miss → full refund
 cancel_swap()                   ── anyone, after the TTL
     → refund to the owner; checks nothing else
+claim()                         ── anyone, for a held order
+    → pays the owner what a settle or cancel could not deliver
 ```
 
 Since 11 Oct 2026, committed orders are the protocol's only venue while a market is open, and they run on every live market. `commit_swap` needs the market's swap guards (`swap_guards`) enabled and not frozen.
@@ -66,7 +68,9 @@ How the venue behaves:
 - There is no size cap of its own, but the market's [exposure cap](/concepts/solvency#6-exposure-cap) limits how far traders can go net long or short: the order fills up to the room left and the rest is refunded. The fill price is set after the commitment, so latency arbitrage is impossible by construction. Besides the cap, the limits are oracle health, a 100% collateral floor and keeper-provisioned inventory. A fill that fails any of them reverts, and the order stays pending for a later push. A `min_out` miss refunds the order instead.
 - `COMMIT_SPREAD_BPS = 10` is only a floor. The keeper posts `commit_spread_bps = clamp(half-spread, 10, 500)` from the books' vol model: 18 bps for QQQ, 15 for SPY and 18 for XAU as of 10 Oct 2026. The post-commit price removes latency arbitrage, and the spread prices the protocol's convexity exposure on large fills.
 - Funds are always recoverable. After the 180 s TTL (`COMMIT_TTL_SECS`), anyone can send `cancel_swap`, which returns the escrow to the owner whatever the oracle, keeper or admin state. The keeper sends it about 5 s after expiry, and the app offers a **Refund now** button 60 s after. Before expiry nobody can cancel. Every terminal path (settle, refund, cancel) closes the `Order` account and returns its rent.
-- Anyone can call `settle_swap`. The keeper cranks it every 20 s, or every 5 s while orders are pending.
+- Only the keeper can call `settle_swap`: the signer must be `clp.authority` or `market.keeper_authority`. It settles at the first push it sees after the commit, so the owner can't pick the price. The keeper cranks it every 20 s, or every 5 s while orders are pending.
+
+- If a payout or refund can't reach the owner's recorded account (it is closed, re-owned, frozen or the wrong mint), the settle or cancel still succeeds and the order is held. The funds wait in a claim account or the escrow until `claim`, which the keeper cranks after creating the owner's token account. The keeper fronts the claim account's rent and gets it back.
 
 The `Order` account layout supports `getProgramAccounts` filters: `user` at offset 8, `market` at 40, `status` at 74.
 

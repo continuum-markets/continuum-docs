@@ -14,6 +14,8 @@ Continuum's price layer is one stored number per market. The keeper fetches a pr
 
 Pyth's public Hermes service has required an API key since 26 Aug 2026, so the devnet keeper prices markets from a keyless public quote source. That source publishes no confidence interval, so the keeper derives one from a GJR-GARCH volatility model kept per market.
 
+A move of more than 10% from the last accepted price is held until it is confirmed or an operator releases it (see [CNBC price holds](/concepts/keeper#cnbc-price-holds)).
+
 The keeper checks every fresh price against Hyperliquid before pushing it. It compares the price with Hyperliquid's oracle price for the same market (SPY and QQQ go through a learned index ratio), and a disagreement beyond a per-market band blocks the push. Hyperliquid can veto a price but never sets one. If Hyperliquid is unreachable, the push goes ahead.
 
 The oracle program is not in the devnet price path. The keeper skips `update_price_observation` on devnet, so `OracleConfig` there is stale. Don't read it for live prices; read the `Market` account.

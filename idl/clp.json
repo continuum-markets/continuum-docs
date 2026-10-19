@@ -443,7 +443,9 @@
     {
       "name": "allocate_to_market",
       "docs": [
-        "Transfer USDC from the global vault to a per-market operating vault (keeper)."
+        "Transfer USDC from the global vault to a per-market operating vault (keeper).",
+        "Refused while the guardian has the treasury frozen (AUDIT CLP-3); the",
+        "reverse move, `return_to_global`, is never blocked."
       ],
       "discriminator": [
         185,
@@ -518,13 +520,40 @@
           "name": "clp_vault",
           "docs": [
             "Per-market operating vault: owned by this market's Clp PDA and of the",
-            "global vault's mint, so neither direction can pay a foreign account."
+            "global vault's mint."
           ],
           "writable": true
         },
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "treasury_policy",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -596,8 +625,9 @@
         "collateral, crediting its `total_collateral`, via mint-redeem's",
         "`fund_collateral_from` with the GlobalClp PDA as the funder. The signer",
         "must be global_clp.authority AND market.authority (mint-redeem's",
-        "`has_one`). Not rate-limited and allowed while frozen: the funds stay",
-        "protocol-owned, landing in the market's own collateral vault."
+        "`has_one`). Not rate-limited: the funds stay protocol-owned, landing in",
+        "the market's own collateral vault. Refused while the guardian has the",
+        "treasury frozen (AUDIT CLP-3): from there mint-redeem can deploy them."
       ],
       "discriminator": [
         154,
@@ -661,6 +691,37 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "treasury_policy",
+          "docs": [
+            "Read for `frozen` (AUDIT CLP-3). Appended last so every earlier account",
+            "keeps its position."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121,
+                  95,
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              }
+            ]
+          }
         }
       ],
       "args": [
@@ -679,7 +740,10 @@
         "every token goes to its owner, so a crank (the keeper) may send it.",
         "Deliberately checks NOTHING else, no frozen/enabled/oracle/is_active:",
         "escrowed funds are always recoverable after the TTL regardless of",
-        "protocol state."
+        "protocol state. A new order refunds only to its recorded `user_in`; a",
+        "legacy order to any account of its owner for the escrow's mint. When that",
+        "account cannot receive, the escrow is kept and the order becomes",
+        "ORDER_CLAIMABLE for `claim` (AUDIT CLP-5: refunds cannot be blocked)."
       ],
       "discriminator": [
         88,
@@ -703,64 +767,20 @@
         },
         {
           "name": "order",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  111,
-                  114,
-                  100,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "order.user",
-                "account": "Order"
-              },
-              {
-                "kind": "account",
-                "path": "order.market",
-                "account": "Order"
-              },
-              {
-                "kind": "account",
-                "path": "order.nonce",
-                "account": "Order"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  101,
-                  115,
-                  99,
-                  114,
-                  111,
-                  119
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "order"
-              }
-            ]
-          }
+          "docs": [
+            "The order's escrow; its PDA (stored bump) is checked in the handler."
+          ],
+          "writable": true
         },
         {
           "name": "user_in",
           "docs": [
-            "Refund destination (owner/mint validated in handler)."
+            "the owner for the escrow mint for a legacy one. If it cannot receive, the",
+            "escrow is held for `claim`."
           ],
           "writable": true
         },
@@ -883,6 +903,71 @@
       ],
       "args": [],
       "returns": "bool"
+    },
+    {
+      "name": "claim",
+      "docs": [
+        "Release what a settle or cancel held for an order whose recorded account",
+        "could not receive (closed, re-owned, frozen or wrong mint). Permissionless,",
+        "like `cancel_swap`: every token goes to accounts owned by `order.user`,",
+        "the escrow and order rent to `order.user`, and the claim account's rent",
+        "back to the keeper that paid it. A trading-account order (owned by the",
+        "trader PDA) is claimed by a crank because that PDA cannot sign here."
+      ],
+      "discriminator": [
+        62,
+        198,
+        214,
+        193,
+        213,
+        159,
+        108,
+        210
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true
+        },
+        {
+          "name": "order",
+          "writable": true
+        },
+        {
+          "name": "escrow",
+          "writable": true
+        },
+        {
+          "name": "claim",
+          "writable": true
+        },
+        {
+          "name": "claim_payer",
+          "docs": [
+            "rent back); ignored otherwise."
+          ],
+          "writable": true
+        },
+        {
+          "name": "refund_to",
+          "docs": [
+            "`order.user` for the escrow's mint when the escrow holds any."
+          ],
+          "writable": true
+        },
+        {
+          "name": "payout_to",
+          "docs": [
+            "`order.user` for the claim's mint when it holds any."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
     },
     {
       "name": "clp_burn_excess",
@@ -1321,8 +1406,10 @@
       "name": "commit_swap",
       "docs": [
         "Escrow `amount_in` (cUSDC for buys / synth for sells) into an Order-owned",
-        "token account. Settlement happens via the permissionless `settle_swap`",
-        "at the next oracle push; `cancel_swap` refunds after the TTL."
+        "token account. The keeper settles it via `settle_swap` at the next oracle",
+        "push; `cancel_swap` refunds after the TTL. The payout (`user_out`) and",
+        "source (`user_in`) accounts are recorded in the Order: settle and cancel",
+        "pay only there, or hold the tokens for `claim` (AUDIT CLP-5)."
       ],
       "discriminator": [
         122,
@@ -3529,12 +3616,23 @@
     {
       "name": "settle_swap",
       "docs": [
-        "Permissionless settlement crank. Fills the order at NAV(now) ±",
-        "COMMIT_SPREAD_BPS — valid only when `market.twap_updated_at` is STRICTLY",
-        "newer than the commit (the no-latency-arb property) and the oracle is",
-        "healthy. min_out miss → full refund (terminal), so orders can't",
-        "revert-loop. Inventory shortfall → revert (stays pending; the keeper",
-        "provisions and retries). All rent returns to the order's user.",
+        "Keeper-only settlement (AUDIT CLP-5): the signer must be `clp.authority`",
+        "or `market.keeper_authority`, so the order owner cannot pick which push",
+        "fills. Fills the order at NAV(now) ± the committed spread, valid only when",
+        "`market.twap_updated_at` is STRICTLY newer than the commit (the",
+        "no-latency-arb property) and the oracle is healthy. min_out miss → full",
+        "refund (terminal), so orders can't revert-loop. Inventory shortfall →",
+        "revert (stays pending; the keeper provisions and retries).",
+        "",
+        "No account the owner controls can make it fail. A new order pays only to",
+        "the accounts recorded at commit (`order.user_out`, `order.user_in`); a",
+        "legacy (pre-upgrade) order pays to the accounts passed, checked for owner",
+        "and mint. When the payout account cannot receive (closed, re-owned,",
+        "frozen, wrong mint) the output goes into the order's claim token account",
+        "`[b\"claim\", order]`, created here with the keeper's rent; when the refund",
+        "account cannot receive, the tokens stay in the escrow. Either way the",
+        "order stays open as ORDER_CLAIMABLE and `claim` releases it. Otherwise",
+        "all rent returns to the order's user, as before.",
         "",
         "MAINNET PREREQUISITE (AUDIT C1 — BLOCKER, needs Pyth feed integration +",
         "cutover decision): today the fill price and the freshness timestamp are",
@@ -3563,8 +3661,10 @@
         {
           "name": "cranker",
           "docs": [
-            "Permissionless cranker — pays the tx fee, receives nothing."
+            "The keeper. Writable: it pays the claim account's rent when the owner's",
+            "payout account cannot receive (refunded at `claim`)."
           ],
+          "writable": true,
           "signer": true
         },
         {
@@ -3573,59 +3673,14 @@
         },
         {
           "name": "order",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  111,
-                  114,
-                  100,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "order.user",
-                "account": "Order"
-              },
-              {
-                "kind": "account",
-                "path": "order.market",
-                "account": "Order"
-              },
-              {
-                "kind": "account",
-                "path": "order.nonce",
-                "account": "Order"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  101,
-                  115,
-                  99,
-                  114,
-                  111,
-                  119
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "order"
-              }
-            ]
-          }
+          "docs": [
+            "The order's escrow; its PDA (stored bump) is checked in the handler."
+          ],
+          "writable": true
         },
         {
           "name": "clp",
@@ -3659,28 +3714,121 @@
           "writable": true
         },
         {
-          "name": "market",
-          "relations": [
-            "order"
-          ]
+          "name": "market"
         },
         {
           "name": "user_out",
           "docs": [
-            "User's payout account (owner/mint validated in handler)."
+            "of the owner for the payout mint for a legacy one). Paid only if it can",
+            "receive; otherwise the payout goes to `claim`."
           ],
           "writable": true
         },
         {
           "name": "user_in",
           "docs": [
-            "User's input-mint account — refund target on a min_out miss (validated in handler)."
+            "it can receive; otherwise the tokens stay in the escrow for `claim`."
           ],
           "writable": true
         },
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "claim",
+          "docs": [
+            "(and its address checked) only when the payout account cannot receive."
+          ],
+          "writable": true
+        },
+        {
+          "name": "out_mint",
+          "docs": [
+            "the handler; needed to create the claim account."
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "sweep_clp_lamports",
+      "docs": [
+        "Move the lamports a per-market `Clp` account holds above its rent-exempt",
+        "minimum to the authority (global_clp.authority, which must also be the",
+        "Clp's own authority). The excess on devnet is Meteora position rent that",
+        "was refunded to these PDAs. Only `Clp` accounts qualify: never token",
+        "accounts (owned by the token program), orders (their rent belongs to the",
+        "trader) or any other record. The account keeps exactly its minimum."
+      ],
+      "discriminator": [
+        233,
+        110,
+        242,
+        81,
+        96,
+        246,
+        200,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "global_clp",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  108,
+                  112
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "Receives the excess lamports."
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_clp"
+          ]
+        },
+        {
+          "name": "clp",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  112
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "clp.market_id",
+                "account": "Clp"
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -4778,6 +4926,19 @@
   ],
   "events": [
     {
+      "name": "ClpLamportsSwept",
+      "discriminator": [
+        152,
+        156,
+        10,
+        154,
+        82,
+        112,
+        76,
+        55
+      ]
+    },
+    {
       "name": "MarketAdvanced",
       "discriminator": [
         253,
@@ -4830,6 +4991,19 @@
       ]
     },
     {
+      "name": "OrderClaimed",
+      "discriminator": [
+        216,
+        186,
+        131,
+        38,
+        14,
+        138,
+        182,
+        248
+      ]
+    },
+    {
       "name": "OrderCommitted",
       "discriminator": [
         120,
@@ -4840,6 +5014,19 @@
         215,
         13,
         83
+      ]
+    },
+    {
+      "name": "OrderHeld",
+      "discriminator": [
+        168,
+        56,
+        80,
+        247,
+        29,
+        17,
+        89,
+        254
       ]
     },
     {
@@ -5208,6 +5395,36 @@
       "code": 6046,
       "name": "ExposureAccountsMissing",
       "msg": "The market is capped: pass the pool synth vaults and the CLP's token accounts"
+    },
+    {
+      "code": 6047,
+      "name": "SettleKeeperOnly",
+      "msg": "Only the keeper (clp.authority or market.keeper_authority) may settle"
+    },
+    {
+      "code": 6048,
+      "name": "InvalidOrderAccount",
+      "msg": "Not a valid order account for this instruction"
+    },
+    {
+      "code": 6049,
+      "name": "OrderNotClaimable",
+      "msg": "The order has nothing held for claim"
+    },
+    {
+      "code": 6050,
+      "name": "ClaimDestinationInvalid",
+      "msg": "Claim destination must be a live, unfrozen token account of the order's owner for that mint"
+    },
+    {
+      "code": 6051,
+      "name": "NothingToSweep",
+      "msg": "The account holds no lamports above its rent-exempt minimum"
+    },
+    {
+      "code": 6052,
+      "name": "PoolShapePredatesFloat",
+      "msg": "The book was last reshaped before the market began to float; wait for the free-float book"
     }
   ],
   "types": [
@@ -5388,6 +5605,30 @@
               "large committed fills (r38: flips a 20x asset from 99% bust → 0%)."
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClpLamportsSwept",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "clp",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "remaining",
+            "type": "u64"
           }
         ]
       }
@@ -6394,15 +6635,21 @@
     {
       "name": "Order",
       "docs": [
-        "A commit-then-settle order: the user escrowed `amount_in` at `created_at` and the",
-        "fill executes at the FIRST oracle push strictly after that (price set after the",
-        "commitment → latency arb impossible → large sizes safe at NAV ± COMMIT_SPREAD_BPS).",
+        "A commit-then-settle order: the user escrowed `amount_in` at `created_at`, and the",
+        "keeper's `settle_swap` fills it at the price of an oracle push strictly after that",
+        "(price set after the commitment → latency arb impossible → large sizes safe at",
+        "NAV ± the committed spread). Settlement is keeper-only (AUDIT CLP-5), so the owner",
+        "cannot pick which push fills; any push before `expires_at` qualifies, normally the",
+        "first one the keeper sees.",
         "",
         "LAYOUT IS LOAD-BEARING for the keeper's getProgramAccounts memcmp filters:",
         "user @ 8 (after discriminator) · market @ 40 · status @ 74",
-        "Only `Pending(0)` is ever persisted — every terminal path (settle, refund, cancel)",
-        "CLOSES the account (rent → user), which makes repeated settle attempts idempotent",
-        "(the loser fails at account load). `status` is kept as a byte for forward compat."
+        "Two sizes exist: `ORDER_LEN_LEGACY` (117, committed before the CLP-5 upgrade, no",
+        "recorded accounts) and `ORDER_LEN` (213). Statuses: `ORDER_PENDING` (0) awaits",
+        "settle or cancel; `ORDER_CLAIMABLE` (1) holds tokens its owner's recorded account",
+        "could not receive, released by the permissionless `claim`. Every other terminal",
+        "path CLOSES the account (rent → user), which makes repeated settle attempts",
+        "idempotent."
       ],
       "type": {
         "kind": "struct",
@@ -6454,6 +6701,29 @@
           {
             "name": "nonce",
             "type": "u64"
+          },
+          {
+            "name": "user_out",
+            "docs": [
+              "The payout account given at commit. Settle pays only here, or into the",
+              "order's claim account when this one cannot receive."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user_in",
+            "docs": [
+              "The source account given at commit, where refunds and leftovers go."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "claim_payer",
+            "docs": [
+              "Who paid the claim account's rent (the settling keeper) and gets it back",
+              "at `claim`; default while no claim account exists."
+            ],
+            "type": "pubkey"
           }
         ]
       }
@@ -6524,6 +6794,34 @@
       }
     },
     {
+      "name": "OrderClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "released_in",
+            "type": "u64"
+          },
+          {
+            "name": "released_out",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "OrderCommitted",
       "type": {
         "kind": "struct",
@@ -6559,6 +6857,39 @@
           {
             "name": "expires_at",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderHeld",
+      "docs": [
+        "A settle or cancel could not deliver to the owner's account: `held_in`",
+        "stays in the escrow, `held_out` sits in the claim account, and the order is",
+        "ORDER_CLAIMABLE until `claim`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "order",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "held_in",
+            "type": "u64"
+          },
+          {
+            "name": "held_out",
+            "type": "u64"
           }
         ]
       }

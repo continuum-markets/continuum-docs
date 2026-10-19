@@ -91,7 +91,7 @@ The risk state can lag reality by one keeper tick. Outside `Normal`, the price a
 
 ## State during maintenance
 
-For a hard halt, the market authority sets `market.is_active = false` with `update_market`. Mint and redeem then revert (`MarketNotActive`), and so does `commit_swap` (`MarketInactive`). `pool_swap` and `settle_swap` don't check the flag, so pending orders can still settle and the books still fill while the price is stale; after the TTL anyone can send `cancel_swap` to refund an order, whatever the state.
+For a hard halt, the market authority sets `market.is_active = false` with `update_market`. Mint and redeem then revert (`MarketNotActive`), and so does `commit_swap` (`MarketInactive`). `pool_swap` doesn't check the flag, so the books still fill while the price is stale, and `settle_swap` refunds the orders of a paused market; after the TTL anyone can send `cancel_swap` to refund an order, whatever the state.
 
 ## Read more
 

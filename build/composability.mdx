@@ -48,7 +48,7 @@ What to know before building one:
 
 - The books fill only while the market's price is stale. The window lasts until the keeper's guard pulls the stale side or a fresh push closes the book, and the take is capped by the depth of the in-the-money bins.
 - Closing a one-sided position needs the paired round trip. Mint and redeem reopen only with the next fresh price, so the position carries price risk until then. The round trip's hurdle is the mint or redeem fee (posted at 10 to 39 bps as of 13 Oct 2026, then multiplied by 1.5 in ProxyMode) plus the book's spread. Near NAV it rarely clears.
-- `settle_swap` is permissionless: anyone can crank a pending committed order, for no reward. It still depends on the keeper, because an order settles only at a price push newer than its commit. If the keeper stops pushing, orders expire after 180 s, and anyone can then send `cancel_swap` to return the escrow to its owner.
+- `settle_swap` is keeper-only: the signer must be `clp.authority` or `market.keeper_authority`, so an integrator can't settle its own order. An order settles only at a price push newer than its commit. If the keeper stops pushing, orders expire after 180 s, and anyone can then send `cancel_swap` to return the escrow to its owner. If a payout or refund can't reach the account recorded at commit, the order is held and anyone can send `claim`.
 
 A settlement watchdog is more useful here than an arb engine: crank pending orders after each push, and refund orders that have expired.
 

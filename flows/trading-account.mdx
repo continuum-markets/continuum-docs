@@ -40,7 +40,11 @@ Nothing the key signs can send funds anywhere except your own wallet. The progra
 
 A stolen key could still trade badly with an accomplice on the other side of a book. So the program holds every key-signed book order, and every key-signed pool fill, to a backstop band around the posted price: `3 · σ · √(t / 30s) + 10%`, clamped to 10%–25%. A pool fill is judged on what actually moved, so a key can't force a fill deep into the book either. Committed orders fill at the official price, so there's no one to trade with. Orders your wallet signs are not checked.
 
-There's no per-order limit. The program supports one, but it would bound each order, not the total, so a thief would just place more orders. The band is what limits the damage.
+The key also has a total budget, so a thief can't just keep placing orders. It is \$10,000 by default. When you turn the key on you can pick \$1,000, \$10,000, \$100,000 or **No limit**, and the trading panel shows "\$X of \$Y left". The budget counts what the key's orders commit when they are placed. A bid counts at its quote, an ask, a pool sale and a committed sale at the NAV of what they sell, and a pool buy at the cUSDC it pays. Cancelled orders still count, and so do fills, because nothing is refunded to the budget. When it runs out, the app asks you to approve the key again, which resets the count. Orders your wallet signs don't use the budget.
+
+The app sets no per-order limit. The program supports one (`max_order_quote`), but it bounds each order, not the total, so the budget and the band do the work.
+
+A key can place orders only on a market's canonical book, one per side, which the program records for each market. All 13 active markets have them. Your wallet can use any book. A key can't trade a market that is not active: orders, pool swaps and committed orders fail with `MarketNotActive`, while cancels still work.
 
 ## Funding a trade
 
@@ -93,17 +97,22 @@ One cost never comes back: each book seat, and each book slot an order once need
 | Instruction | Signer | What it does |
 |---|---|---|
 | `open_account` | Owner | Creates the rules account |
-| `set_session`, `revoke_session` | Owner | Grants or revokes the trading key |
+| `set_session(SessionParams)`, `revoke_session` | Owner | Grants or revokes the trading key. `SessionParams { key, expires_at, max_order_quote, max_session_quote }`, where `max_session_quote` is the key's total budget in cUSDC atoms (6 decimals): 0 means the program default of \$10,000, and `u64::MAX` means no limit. `set_session` resets the spent counter |
+| `set_canonical_books` | The trading program's upgrade authority | Records a market's canonical Manifest book for each side in a `CanonicalBooks` account |
 | `deposit` | Owner | Wallet → account |
 | `withdraw` | Owner or key | Account → the owner's own token account |
 | `withdraw_sol` | Owner | Trader's rent SOL → owner |
 | `close_account` | Owner | Closes the empty token accounts and the rules account, and sends their rent and the trader's SOL to the owner |
-| `claim_seat`, `deposit_to_market`, `withdraw_from_market` | Owner or key | Manifest seats |
-| `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market |
-| `swap_pool` | Owner or key | The CLP's `pool_swap` from the account. On a capped market, pass the pool long and short synth vaults and the CLP's long and short token accounts as remaining accounts; `swap_pool` hands them on to `pool_swap` for the [exposure cap](/flows/trade#exposure-cap) |
-| `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address |
+| `claim_seat`, `deposit_to_market`, `withdraw_from_market` | Owner or key | Manifest seats. For a key, `claim_seat` takes the market's `CanonicalBooks` account as `remaining[0]` |
+| `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market. A key must pass the rules account as writable, and the market's `CanonicalBooks` account as the first remaining account |
+| `swap_pool` | Owner or key | The CLP's `pool_swap` from the account. On a capped market, pass the pool long and short synth vaults and the CLP's long and short token accounts as remaining accounts; `swap_pool` hands them on to `pool_swap` for the [exposure cap](/flows/trade#exposure-cap). A key must pass the rules account as writable |
+| `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address. A key must pass the rules account as writable |
 | `open_rebate_position` | Anyone | Opens the account's [rebate position](/programs/trading#open_rebate_position) for a market |
 | `stake_rebate`, `claim_rebate` | Owner, key or keeper | Stakes S into the rebate vault; pays earnings to the trader's own cUSDC account |
 | `unstake_rebate` | Owner or key | Returns staked S to the account. Never the keeper |
 
-A committed order placed from the account is owned by the trader address, so settlement pays its token accounts and refunds return there, the same as for any other order.
+Session spend is recorded in `TradingRules` (186 bytes): `max_session_quote` at offset 122, `session_spent_quote` at 130, and 48 reserved bytes. A key-signed call that doesn't pass the rules account as writable fails with `SessionAccountReadOnly`, and one past the budget fails with `SessionBudgetExceeded`. The price-band check is exact at any NAV.
+
+A `CanonicalBooks` account is the PDA `["canonical_books", mr_market]`, 137 bytes, holding the canonical long and short book. A key-signed book call without it fails with `CanonicalBooksMissing`, and with any other book it fails with `NotCanonicalBook`.
+
+A committed order placed from the account is owned by the trader address. Settlement pays the token accounts recorded at commit, and refunds return there, the same as for any other order. If a recorded account can't receive, the funds are [held for claim](/flows/trade#held-orders).

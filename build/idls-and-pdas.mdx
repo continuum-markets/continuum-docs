@@ -131,7 +131,7 @@ registryEntry        G2QaqhBF1j1U9DA7s8sjuZJ3ysmPbEJbce9qaKRzzhX7 no account
 
 Some rows can show "no account", and that is expected:
 
-- `order` and `escrow` exist only while that order is open. `settle_swap` and `cancel_swap` close both.
+- `order` and `escrow` exist only while that order is open. `settle_swap` and `cancel_swap` close both, except for a held order, which stays open until `claim`. A `claim` account, PDA `[b"claim", order]`, exists only while a settle holds a payout.
 - `dripRecord` exists after the wallet's first faucet drip.
 - `faucetMintAuthority` is a signing PDA that holds no data. It is the cUSDC mint's mint authority.
 - `registryEntry` is empty because the Registry holds no markets yet. Get market addresses from [Addresses](/reference/addresses).

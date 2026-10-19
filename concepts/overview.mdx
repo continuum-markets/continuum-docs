@@ -73,7 +73,8 @@ Standing depth is deliberately lean. It is sized to organic demand rather than T
 
 This is the open-hours path, at any size. You escrow your input into an `Order` PDA. The order fills at a keeper push made after your commit (not necessarily the first one), at NAV ± `max(commit_spread_bps, 10)` bps, where the keeper posts `commit_spread_bps` from the books' volatility model. Because the price is set after you commit, there is no stale quote to pick off, so there is no size or window cap. The limits are oracle health, the collateral floor and the inventory the keeper has provisioned.
 
-- Settlement is permissionless; the keeper cranks it.
+- Only the keeper can settle (`clp.authority` or `market.keeper_authority`), at the first push it sees after the commit, so the owner can't pick the price.
+- If a payout or refund can't reach the owner's recorded account, the order is held and a permissionless `claim` pays the owner later.
 - A `min_out` miss refunds in full and closes the order, so it can't loop on reverts.
 - After the 180 s TTL, anyone can send `cancel_swap`, and the escrow goes back to its owner. The keeper does it about 5 s after expiry. It checks nothing else, so escrowed funds come back whatever the oracle, keeper or admin state.
 - Every terminal path closes the `Order` account and returns its rent to the user.
@@ -98,8 +99,8 @@ The keeper isn't part of the transaction, but the transaction depends on its pus
 1. User    ─── commit_swap(side, direction, amount_in, min_out, nonce) ──►  clp
             input escrowed into an Order PDA, TTL = 180 s
 2. Keeper  ─── update_risk_state_v2 (a price push after the commit)    ──►  mint-redeem
-3. Anyone  ─── settle_swap() with the Order account                    ──►  clp
-            fills at NAV ± committed spread at the latest push;
+3. Keeper  ─── settle_swap() with the Order account                    ──►  clp
+            fills at NAV ± committed spread at the first push it sees;
             min_out miss → full refund; either way the Order closes
 4. (fallback) after 180 s: the keeper, or anyone, sends cancel_swap;
             the escrow goes back to the user
