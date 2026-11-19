@@ -30,6 +30,8 @@ Two markets have left the list. VXX was delisted in June 2026. OIL (WTI crude) w
 
 ## Shipped since August
 
+- Decay priced by the program and an order-book taker fee, on 19 Nov 2026. The mint-redeem program now prices the short's volatility decay from the price itself on all 13 live markets, so a move and its charge land in the same read and the keeper posts no decay. Orders that take from an order book through the trading program pay 5 bps to the treasury. See [NAV](/concepts/nav#volatility-decay) and [Order book](/flows/order-book#taker-fee).
+
 - Seven markets: MSFT, TSLA, AMZN, GOOGL, GBP and JPY on 23 Aug 2026, and MSTR on 25 Aug 2026.
 - Corporate-action support. `apply_corporate_action` (authority-only and time-gated) maps the raw price through `price_adjust_num / price_adjust_den`, so a stock split leaves every leg's NAV unchanged. The ratio is armed ahead of the ex-date. No action is armed today.
 - γ renewal with `reanchor_gamma`. Only the market authority can call it, and calls must be at least 14 days apart. It folds the accumulated γ into `initial_s_price` and resets γ to 1, which leaves every holder's claim the same at every price and lets γ keep charging. It does not reset the market's anchor to the spot price. No market has been re-anchored yet.

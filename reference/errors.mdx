@@ -116,7 +116,7 @@ Codes 6003 to 6016 and 6044 to 6052 are swap errors from `pool_swap` and the com
 | 6023 | `0x1787` | `HardBoundBreach` | `Hard inventory bound breached - operations restricted` | Never raised. |
 | 6024 | `0x1788` | `YieldStrategyDisabled` | `Yield strategy is disabled` | `record_deployment` while the market's yield strategy is disabled. |
 | 6025 | `0x1789` | `ExceedsMaxDeployment` | `Deployment exceeds maximum allowed for current risk state` | `record_deployment` above the deployment share allowed in the current risk state. |
-| 6026 | `0x178a` | `MaxDeploymentsExceeded` | `Maximum number of yield deployments reached` | `allocate_to_market` when `GlobalClp.market_allocations` already holds 10 markets, or `record_deployment` with a full deployment list. |
+| 6026 | `0x178a` | `MaxDeploymentsExceeded` | `Maximum number of yield deployments reached` | `record_deployment` for a fourth yield deployment (the list holds 3). `allocate_to_market` no longer raises it as of 11 Oct 2026. |
 | 6027 | `0x178b` | `DeploymentNotFound` | `Deployment not found` | `record_harvest` or `record_withdrawal` for a protocol with no recorded deployment. |
 | 6028 | `0x178c` | `InsufficientDeployment` | `Insufficient deployment balance` | A withdrawal or recall larger than the recorded deployment. |
 | 6029 | `0x178d` | `DeploymentTooHigh` | `Deployment percentage too high` | `configure_yield_strategy` with a deployment share out of range. |

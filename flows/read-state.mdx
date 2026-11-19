@@ -289,7 +289,7 @@ const subscription = connection.onAccountChange(marketPda, (info) => {
 await connection.removeAccountChangeListener(subscription);
 ```
 
-The Market account changes on every keeper price push, every mint and redeem, and whenever the keeper posts a fee, γ or the buffer target. The keeper's price cycle runs every 15 s by default, and it normally withholds pushes while the underlying market is closed. For book updates, subscribe to the two `Pool` accounts; each book is one account.
+The Market account changes on every keeper price push, every mint and redeem, and whenever the keeper posts a fee or the buffer target. On the 13 live markets γ changes only inside a price push, when a decay window closes. The keeper's price cycle runs every 15 s by default, and it normally withholds pushes while the underlying market is closed. For book updates, subscribe to the two `Pool` accounts; each book is one account.
 
 ## Common pitfalls
 

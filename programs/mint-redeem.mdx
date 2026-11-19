@@ -3,7 +3,7 @@ title: mint-redeem
 description: The Market account, paired mint and redeem at NAV, the keeper's price writes, decay priced by the program or posted by the keeper, the order-book fee rates, and market administration, grouped by who can call each instruction.
 ---
 
-The mint-redeem program holds one `Market` account per synthetic asset, mints and burns its L and S tokens, and keeps the market's collateral ledger. Users call `mint_paired` and `redeem_paired`. The keeper writes the price, the confidence band and the buffer target, and posts γ on every market that is not in decay mode. The market authority configures and maintains the market, switches a market's decay between the keeper-posted path and the program-priced path with `set_decay_mode`, and sets its order-book taker fee with `set_book_fee`.
+The mint-redeem program holds one `Market` account per synthetic asset, mints and burns its L and S tokens, and keeps the market's collateral ledger. Users call `mint_paired` and `redeem_paired`. The keeper writes the price, the confidence band and the buffer target. It posts γ only on a market that is not in decay mode, and no live market is one. The market authority configures and maintains the market, switches a market's decay between the keeper-posted path and the program-priced path with `set_decay_mode`, and sets its order-book taker fee with `set_book_fee`.
 
 ```
 Devnet ID: 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
@@ -17,7 +17,7 @@ Devnet ID: 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
 seeds = [b"market", asset_symbol]   // raw symbol bytes, e.g. "QQQ"
 ```
 
-The account is at most 976 bytes: an 8-byte discriminator plus `Market::INIT_SPACE`, which reserves room for a 10-byte symbol and five `collateral_vaults` entries. `collateral_vaults` is a variable-length `Vec` (empty on every live market), so the fields after it have no fixed byte offsets. Decode the account with the IDL rather than reading at offsets. Devnet markets are allocated 891 bytes (10 Oct 2026); the data fits because the list is empty. The decay-window and book-fee fields added by r66 take 77 more bytes and still fit, so no market needs `realloc_market` for them.
+The account is at most 976 bytes: an 8-byte discriminator plus `Market::INIT_SPACE`, which reserves room for a 10-byte symbol and five `collateral_vaults` entries. `collateral_vaults` is a variable-length `Vec` (empty on every live market), so the fields after it have no fixed byte offsets. Decode the account with the IDL rather than reading at offsets. Devnet markets are allocated 891 bytes (10 Oct 2026); the data fits because the list is empty. The decay-window and book-fee fields added on 19 November 2026 take 77 more bytes and still fit, so no market needs `realloc_market` for them.
 
 Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 
@@ -82,7 +82,7 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 
 Anchor TS decodes `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `gammaDayDecay1E9` and `shortPayoffCapC1E9`; every other field is plain camelCase (`userTwapPrice`, `decayOpenPrice`, `bookFeeLiveBps`).
 
-All six r66 fields read as zero on a market that has never been switched, which means no decay mode and no fee. A market that was never switched prices its short exactly as before.
+All six fields added on 19 November 2026 read as zero on a market that has never been switched, which means no decay mode and no fee. A market that was never switched prices its short exactly as before.
 
 ### RedemptionRequest
 
@@ -153,7 +153,7 @@ Because every read uses `gamma_at(P)`, a window that is still open already charg
 
 ### Order-book fee
 
-The trading program charges a taker fee on order-book fills routed through its `place_orders`, at the rates stored on the Market: `book_fee_live_bps` while the price is live and `book_fee_stale_bps` when it is not. The price counts as stale when `user_twap_price` is 0 or `twap_updated_at` is more than 300 s old, the same limit that mint and redeem use. Each rate is at most 50 bps (`MAX_BOOK_FEE_BPS`), and both are 0 until the market authority sets them with `set_book_fee`. The fee itself is taken and sent in the trading program; see [the trading program](/programs/trading#the-order-book-fee) and [the order book](/flows/order-book#taker-fee).
+The trading program charges a taker fee on order-book fills routed through its `place_orders`, at the rates stored on the Market: `book_fee_live_bps` while the price is live and `book_fee_stale_bps` when it is not. The price counts as stale when `user_twap_price` is 0 or `twap_updated_at` is more than 300 s old, the same limit that mint and redeem use. Each rate is at most 50 bps (`MAX_BOOK_FEE_BPS`), and both are 0 until the market authority sets them with `set_book_fee`. All 13 live markets are set to 5 bps live and 5 bps stale. The fee itself is taken and sent in the trading program; see [the trading program](/programs/trading#the-order-book-fee) and [the order book](/flows/order-book#taker-fee).
 
 ### Limits
 

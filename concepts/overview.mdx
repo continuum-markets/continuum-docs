@@ -7,7 +7,7 @@ Continuum has three moving parts. Two are on-chain programs and one runs off-cha
 
 - `mint-redeem` issues and burns paired long and short tokens against cUSDC collateral at NAV. It also stores each market's price, risk state and solvency target.
 - `clp` is the protocol's trading and treasury program. It hosts both trading venues and the vaults that stock them.
-- The keeper is an off-chain service run by the protocol. It pushes prices on-chain, manages the bin books, settles committed orders, and posts fees and, on markets whose decay it still posts, volatility decay. On a market switched to decay priced by the program, the price write charges decay and the keeper posts none.
+- The keeper is an off-chain service run by the protocol. It pushes prices on-chain, manages the bin books, settles committed orders, and posts fees and buffers. The program prices volatility decay inside the price write on all 13 live markets, and the keeper posts none.
 
 ## The system at a glance
 
@@ -33,7 +33,7 @@ Continuum has three moving parts. Two are on-chain programs and one runs off-cha
               ┌───────────┴───────────────────┴───────────┐
               │              Keeper (off-chain)           │
               │  price push · book manager · settler ·    │
-              │  refill/trim · buffer, fees, γ · yield    │
+              │  refill/trim · buffer, fees · yield       │
               └───────────────────────────────────────────┘
 ```
 
@@ -79,7 +79,7 @@ This is the open-hours path, at any size. You escrow your input into an `Order` 
 - After the 180 s TTL, anyone can send `cancel_swap`, and the escrow goes back to its owner. The keeper does it about 5 s after expiry. It checks nothing else, so escrowed funds come back whatever the oracle, keeper or admin state.
 - Every terminal path closes the `Order` account and returns its rent to the user.
 
-In the app, a market order is a committed order while the market is open, unless traders' orders on the order book fill all of it now for less when you buy, or for more when you sell.
+In the app, a market order is a committed order while the market is open, unless traders' orders on the order book fill all of it now for less when you buy, or for more when you sell, counting the order-book fee.
 
 ## End-to-end mint flow
 

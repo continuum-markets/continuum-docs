@@ -14,7 +14,7 @@ S_NAV = K / P × γ(P)     K = initial_l_price × initial_s_price
 
 `P` is `market.user_twap_price`: the last price the keeper pushed with mint-redeem `update_risk_state_v2`, scaled to 1e6. Despite its name it is a spot price, and the program has already adjusted it for [corporate actions](#corporate-actions). There is no fallback price. Mint and redeem revert with `TwapNotAvailable` if `P` is 0 or the push is more than 300 s old.
 
-γ is the short leg's volatility-decay index, between 0.5 and 1.0 (an unset index of 0 reads as 1.0). On a market whose decay the keeper posts, γ(P) is `s_gamma_index / 1e9` at every P. On a market whose decay the program prices, γ(P) depends on P: `s_gamma_index / 1e9` is γ at the open of the current decay window and `gamma_at(P)` takes it from there. Either way it only moves down between re-anchors, so the product `L_NAV × S_NAV` falls below `K` as decay accrues. See [Volatility decay](#volatility-decay). The examples below use γ = 1.
+γ is the short leg's volatility-decay index, between 0.5 and 1.0 (an unset index of 0 reads as 1.0). On a market whose decay the keeper posts, γ(P) is `s_gamma_index / 1e9` at every P. On a market whose decay the program prices, γ(P) depends on P: `s_gamma_index / 1e9` is γ at the open of the current decay window and `gamma_at(P)` takes it from there. Either way the stored index only moves down between re-anchors, so the product `L_NAV × S_NAV` falls below `K` as decay accrues. See [Volatility decay](#volatility-decay). The examples below use γ = 1.
 
 `initial_l_price` and `initial_s_price` are set when a market is created, and every live market launched with the two equal. QQQ launched at 480, so `K = 480 × 480 = 230,400`. If QQQ moves 10% to 528 with γ = 1, then `S_NAV = 230,400 / 528 = 436.36`. `initial_s_price` can change later, because `reanchor_gamma` folds γ into it.
 
@@ -121,7 +121,7 @@ A close sets γ_open to `gamma_at` at the closing price and opens the next windo
 
 ### Posted by the keeper
 
-On a market that has not been switched, the keeper meters the charge and posts it:
+No live market is on this path. It remains for a market whose authority has not run `set_decay_mode(true)`, such as a new listing before the switch. There the keeper meters the charge and posts it:
 
 - It is always on. The keeper posts it with `set_s_gamma_index`, and nothing turns it off: a keeper started with `CLMM_GAMMA_DECAY_ENABLED` set to any value refuses to boot. `GAMMA_DECAY_COEF` (default 1.0, which is break-even) scales the charge and must be in (0, 1], so it can't zero it either.
 - It charges realized variance and ignores direction. The keeper measures the price close to close over 30-minute windows and banks each window's squared return as decay, which makes the short leg exactly −1x of each window's move. A window also closes early, and is charged at once, when a move holds: a single tick of more than 1% that the next sample confirms, or a price that sits 1% or more from the window's open on two consecutive samples. The keeper posts when the banked total passes 2e-4, or once a day when at least 1e-6 is owed and nothing has been posted for a day. On average the charge costs a short nothing: it removes exactly the convexity `K/P` would otherwise give it. It shows as a loss when the price ends near where it started, and as a gain over a plain short when it trends.
@@ -130,7 +130,7 @@ On a market that has not been switched, the keeper meters the charge and posts i
 - `reanchor_gamma` starts a new epoch. Only the market authority can call it, at least 14 days after the last one. It sets `initial_s_price` to `initial_s_price × γ` and resets γ to 1.0, which leaves every claim unchanged at every price. What it renews is the decay budget. It is not a re-anchor to the current spot price.
 - It is not a funding rate. No cash moves between holders; γ is a mark on the short token's value. An instant mint→redeem round trip at a fixed γ is unaffected, and **long positions never pay it**. The app labels it "volatility decay" on the short side.
 
-As of 11 Oct 2026 no market has been re-anchored. Read on 13 Oct 2026, γ on the 13 live markets runs from about 0.9998 (GBP) down to about 0.957 (NVDA). MSTR, closed on 12 Oct 2026, stood at about 0.944.
+As of 19 Nov 2026 no market has been re-anchored. Read on 19 Nov 2026, γ on the 13 live markets runs from about 0.9995 (GBP) down to about 0.919 (NVDA). MSTR, closed on 12 Oct 2026, stood at about 0.944.
 
 See [Solvency](/concepts/solvency) for why this covers the variance regime but leaves a directional run uncovered.
 

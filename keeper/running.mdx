@@ -55,7 +55,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CLMM_POOLS_ENABLED` | `true` | The book-manager loop. Refills, rebalancing and all parameter posting run inside it, including γ, so `false` stops all of them. |
+| `CLMM_POOLS_ENABLED` | `true` | The book-manager loop. Refills, rebalancing and all parameter posting run inside it, so `false` stops all of them. |
 | `CLMM_POOL_INTERVAL_SECS` | `30` | Loop cadence, minimum 15. |
 | `CLMM_REPOSITION_BPS`, `CLMM_REPOSITION_BPS_<SYM>` | `20` | Largest reposition gate; the keeper cuts it per side to the first funded bin. |
 | `CLMM_VOL_SPREAD_ENABLED` | `true` | Volatility-scaled spreads. `false` posts a plain geometric shape from the first bin, with no spread floor, skew or inventory shift. |
@@ -164,7 +164,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 |---|---|---|
 | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | unset | Journal in R2. Setting any one selects R2 and requires all four. |
 | `DATA_API_KEY` | unset | Required for the keeper's data endpoints (`/api/data/**`), which are refused without it. Callers send it as the `x-api-key` header, and the frontend's `KEEPER_DATA_API_KEY` must match. `/healthz`, `/health` and `/ping` stay open. |
-| `DATA_DIR` | `/data` | Root for the journal and the γ and off-hours checkpoints when R2 is unset. It must persist across restarts and support OS file locks, and only one process can hold it. |
+| `DATA_DIR` | `/data` | Root for the journal and the off-hours checkpoints when R2 is unset, and for the γ checkpoint of a market not in decay mode. It must persist across restarts and support OS file locks, and only one process can hold it. |
 | `PORT`, then `DASHBOARD_PORT` | `8484` | The single dashboard port. |
 | `KEEPER_PEERS` | unset | Dashboard URLs of other keeper instances (see below). |
 | `RUST_LOG` | `info` | Log filter (see [Logging](#logging)). |

@@ -185,6 +185,8 @@ Continuum's activity is on chain. An indexer can follow:
 
 - mint-redeem's `PairedActionExecuted` events: every mint and redeem, with its fee and dev tax.
 - The CLP's `SwapExecuted`, `OrderCommitted`, `OrderSettled`, `OrderRefunded` and `OrderCancelled` events.
+- The trading program's `BookFeePaid` events: every order-book taker fee, with the cUSDC taken, the fee and the rate.
+- mint-redeem's `DecayWindowRolled` events: every decay window that closes, with the reason, γ before and after, and the move in bps.
 - `update_risk_state_v2` price pushes, which carry the source's publish time.
 - The `RevenueAttribution` account, which splits fees and volume between the keeper and external traders.
 

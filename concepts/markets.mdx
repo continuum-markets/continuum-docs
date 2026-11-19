@@ -48,7 +48,7 @@ Public fields you'll likely read:
 | `oracle_confidence` | u64 | Confidence band pushed with each price. On devnet it comes from a GJR-GARCH volatility model. |
 | `s_gamma_index` | u64 | γ, the short leg's volatility-decay index, scaled by 1e9 (0 reads as 1.0). On a market whose decay the program prices, it is γ at the open of the current decay window. |
 | `decay_open_price` / `decay_open_ts` / `decay_flags` | u64 / i64 / u8 | The current decay window's open price (1e6) and time, and the flags. Bit 0 set means the program prices decay for this market (`set_decay_mode`). 0 and 0 mean no window. See [NAV](/concepts/nav#volatility-decay). |
-| `book_fee_live_bps` / `book_fee_stale_bps` | u16 | Taker fee on order-book fills through the trading program while the price is live and while it is stale, at most 50 bps each, 0 by default. See [Order book](/flows/order-book#taker-fee). |
+| `book_fee_live_bps` / `book_fee_stale_bps` | u16 | Taker fee on order-book fills through the trading program while the price is live and while it is stale, at most 50 bps each, 0 by default and 5 on all 13 live markets. See [Order book](/flows/order-book#taker-fee). |
 | `keeper_authority` | Pubkey | Signer the program requires for the keeper's price, γ (on markets not in decay mode) and buffer-target updates. |
 | `dev_tax_pct` | u8 | Share of each fee sent to `fee_recipient` (10%). The rest stays in the vault. |
 

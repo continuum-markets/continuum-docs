@@ -51,7 +51,7 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
     To seed the books, the operator sends cUSDC to each pool's cUSDC vault for the bids. It also mints L and S as a pair, sending the L to the long book's synth vault and the S to the short book's. The first `set_pool_shape(base_price_1e6, asks, bids)` posts the bins and sets `enabled = true`. From then on, nothing can disable or freeze the pool.
   </Step>
   <Step title="Set the operating state">
-    The market moves to ProxyMode, where every devnet market runs. Committed orders stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; since 11 Oct 2026 they are on for every live market. The books don't depend on this flag, but fill only while the market's price is stale. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint.
+    The market moves to ProxyMode, where every devnet market runs. Committed orders stay off until the CLP authority sets `swap_guards.enabled` with `configure_swap`; since 11 Oct 2026 they are on for every live market. The books don't depend on this flag, but fill only while the market's price is stale. `create_token_metadata(name, symbol, uri)` writes the Metaplex metadata for each mint. Once the keeper has pushed a first price, the market authority runs `set_decay_mode(true)`, so the program prices the short's decay, and `set_book_fee` for the order-book taker fee. All 13 live markets run with both.
   </Step>
 </Steps>
 

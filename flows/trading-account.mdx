@@ -52,7 +52,7 @@ A trade draws on the account first. A book order uses that book's seat first, th
 
 After a fill, proceeds stay in the account, ready for the next trade. A committed order that can't fill is refunded to the account.
 
-An order that takes from the [order book](/flows/order-book#taker-fee) pays the market's taker fee out of the seat, if the market has one set. The fee does not count against the key's budget.
+An order that takes from the [order book](/flows/order-book#taker-fee) pays the market's taker fee out of the seat, 5 bps on all 13 live markets. The fee does not count against the key's budget.
 
 ## Staking S for the rebate
 
@@ -68,7 +68,7 @@ Staked S earns exactly while it is staked, because staking and unstaking each se
 ## Where a market order goes
 
 - While a market is closed, the pool's quotes and traders' orders are [one book](/flows/order-book#one-book-while-closed). A market order takes the cheapest offers first when you buy and the highest bids first when you sell, from either, in one transaction. At the same price, traders' orders fill first.
-- While a market is open, a market order is a committed order, estimated at the current price; it fills at the next one. Traders' orders take it instead only when they fill all of it now for less when you buy, or for more when you sell. While committed orders pause for a top-up, or one of yours is pending, the book still trades.
+- While a market is open, a market order is a committed order, estimated at the current price; it fills at the next one. Traders' orders take it instead only when they fill all of it now for less when you buy, or for more when you sell, counting the order-book fee. While committed orders pause for a top-up, or one of yours is pending, the book still trades.
 - A limit order rests on the order book. One priced through the pool's quote takes from the pool first, then rests the rest.
 
 The ticket shows what the order gets and where it fills from; there is no venue to pick.

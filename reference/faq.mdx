@@ -32,7 +32,7 @@ You can still lose part of it: to fees, to the short leg's volatility decay, to 
 Yes, in two ways:
 
 1. **Mint, then sell the short leg.** On QQQ at its 9 Oct 2026 price, 100 cUSDC mints about 0.0664 QQQL and 0.1637 QQQS after the fee. The QQQS is worth about 49.9 cUSDC at NAV; selling it with a committed order, less the spread, leaves you long QQQ with a cash buffer.
-2. **Buy directly.** While the market is open, send a committed order, which fills at NAV ± the posted commit spread at a price pushed after you commit. The app uses traders' orders on the [order book](/flows/order-book) instead when they fill all of it now for less. While the market is closed, the long leg's bin book and traders' orders form [one book](/flows/order-book#one-book-while-closed), and a buy takes the cheapest offers first from either.
+2. **Buy directly.** While the market is open, send a committed order, which fills at NAV ± the posted commit spread at a price pushed after you commit. The app uses traders' orders on the [order book](/flows/order-book) instead when they fill all of it now for less, counting the order-book fee. While the market is closed, the long leg's bin book and traders' orders form [one book](/flows/order-book#one-book-while-closed), and a buy takes the cheapest offers first from either.
 
 Buying directly is the usual path. Minting first is useful when you also want the short leg. → [Trade flow](/flows/trade).
 
@@ -44,7 +44,7 @@ The program mints and redeems user positions only in pairs, for solvency. Once m
 
 Perps use funding payments between longs and shorts to keep the perp price near the index. Continuum has no such transfer, so nobody pays for being on the crowded side.
 
-Holding is not free on both legs, though. The short leg carries a [volatility decay](/concepts/nav#volatility-decay) (the γ index), which pays for the convexity a long-short pair is exposed to. Unlike a funding rate, it tracks **realized volatility rather than positioning**. It only moves one way, so it never credits a holder, and it **never touches the long leg**.
+Holding is not free on both legs, though. The short leg carries a [volatility decay](/concepts/nav#volatility-decay) (the γ index), which pays for the convexity a long-short pair is exposed to. Unlike a funding rate, it tracks **realized volatility rather than positioning**. The index only ratchets down from one window to the next, so it never credits a holder, and it **never touches the long leg**.
 
 ## How do book prices stay close to NAV?
 
@@ -70,7 +70,7 @@ On mainnet, mostly yes. The keeper lends a market's collateral to USDC lending v
 
 ## Can I run my own keeper?
 
-Not today. The keeper's source and binary are not published, and each market's `keeper_authority` is a single pubkey that the market admin sets with `update_keeper_authority`. You can still run bots that need no keeper key: settling committed orders and trading the books are open to anyone. → [Keeper configuration](/keeper/running) · [Arb bot](/build/composability#2-arb-bot).
+Not today. The keeper's source and binary are not published, and each market's `keeper_authority` is a single pubkey that the market admin sets with `update_keeper_authority`. You can still run bots that need no keeper key: trading the bin books, posting and taking orders on the order books, and cancelling an expired committed order are open to anyone. Settling a committed order is not. → [Keeper configuration](/keeper/running) · [Arb bot](/build/composability#2-arb-bot).
 
 ## What chain / network is this on?
 

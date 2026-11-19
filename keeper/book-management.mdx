@@ -33,4 +33,4 @@ The free-float guard (on by default) watches venues that keep trading while the 
 
 ## Why the books are lean
 
-Toxic loss grows with deployed depth, while organic revenue is capped by demand, so depth beyond demand subsidizes arbitrage. That is why bid cUSDC is held at the next free-float book's depth and asks are trimmed to a ratio of the bids. `pool_swap` charges no swap fee, so a book earns only its spread; the protocol's other income is the mint and redeem fees and the committed-order spread.
+Toxic loss grows with deployed depth, while organic revenue is capped by demand, so depth beyond demand subsidizes arbitrage. That is why bid cUSDC is held at the next free-float book's depth and asks are trimmed to a ratio of the bids. `pool_swap` charges no swap fee, so a book earns only its spread; the protocol's other income is the mint and redeem fees, the committed-order spread and the order-book taker fee.
