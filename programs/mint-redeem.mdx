@@ -283,11 +283,11 @@ Switches decay priced by the program on or off for this market. Accounts: `marke
 - **On** needs a stored price above zero (`DecayModeNeedsPrice`, 6064). The window opens at the stored price and now, the deviation bit is clear and `s_gamma_index` is read as γ at the open, so the short at the stored price is worth what it was a moment before. From then on every keeper price write runs the [window rule](#decay-windows) and `set_s_gamma_index` is refused.
 - **Off** folds the open window at the stored price into `s_gamma_index`, clears the mode bit, the window and the deviation bit, and bumps `gamma_epoch`, so a keeper post computed before the fold cannot land after it. The short at the stored price is again unchanged. The fold emits `DecayWindowRolled` with reason 2.
 
-`DecayModeSet` carries the short's NAV at the stored price before and after the switch, equal by construction. The decay mode is per market; a market that is not switched behaves exactly as before. As of CUTOVER_TBD the markets in decay mode are CUTOVER_TBD.
+`DecayModeSet` carries the short's NAV at the stored price before and after the switch, equal by construction. The decay mode is per market; a market that is not switched behaves exactly as before. As of 19 November 2026 the markets in decay mode are all 13 live markets.
 
 #### `set_book_fee(params: SetBookFeeParams)`
 
-`SetBookFeeParams { live_bps: u16, stale_bps: u16 }` sets the taker fee rates the trading program charges on this market's order-book fills, in bps of the quote traded. Each must be at most 50 (`BookFeeTooHigh`, 6065). Both are 0 on a market that has never set them, which means no fee. As of CUTOVER_TBD the rates in force are CUTOVER_TBD. Accounts: `market`, `authority` (signer). Emits `BookFeeSet` with the old and new rates. See [Order-book fee](#order-book-fee).
+`SetBookFeeParams { live_bps: u16, stale_bps: u16 }` sets the taker fee rates the trading program charges on this market's order-book fills, in bps of the quote traded. Each must be at most 50 (`BookFeeTooHigh`, 6065). Both are 0 on a market that has never set them, which means no fee. As of 19 November 2026 the rates in force are 5 bps live and 5 bps stale on all 13 live markets. Accounts: `market`, `authority` (signer). Emits `BookFeeSet` with the old and new rates. See [Order-book fee](#order-book-fee).
 
 #### `apply_corporate_action(params: CorporateActionParams)`
 
