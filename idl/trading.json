@@ -1205,7 +1205,35 @@
         "within the session's budget, on the market's canonical book of an active",
         "market. Remaining accounts may carry up to two global groups (see",
         "manifest::GlobalGroup), so orders can fill makers' global orders; a",
-        "session-signed call puts the market's CanonicalBooks before them."
+        "session-signed call puts the market's CanonicalBooks before them.",
+        "",
+        "The book fee. The rate is the market's `book_fee_stale_bps` when its",
+        "price is more than 300 s old (`twap_updated_at`, the limit mint and",
+        "redeem use) or was never posted, else `book_fee_live_bps`. At a zero",
+        "rate nothing below applies. Above zero:",
+        "- a call with exactly one order, of type limit (0) or",
+        "immediate-or-cancel (1), and no cancels is a taker call. It pays",
+        "floor(quote traded with other traders · rate / 10,000) quote atoms,",
+        "withdrawn from the seat and sent to the treasury, and fails if the",
+        "seat cannot cover it. No fill, no fee. Self-trades pay nothing.",
+        "- any other call may only place post-only (2) orders and pays nothing.",
+        "",
+        "Remaining accounts, in this order:",
+        "1. the market's CanonicalBooks PDA, only when the session key signs;",
+        "2. the fee accounts: required for a taker call at a rate above zero,",
+        "allowed for a taker call at a zero rate (checked the same way, no",
+        "fee taken, nothing measured), never on any other call. They are",
+        "present when the first account here is an SPL Token account (165",
+        "bytes, owned by SPL Token); a global group starts with a mint.",
+        "trader quote  writable  an SPL Token account of the book's quote",
+        "mint owned by the trader PDA (its ATA)",
+        "quote vault   writable  the book's quote vault (from its header)",
+        "quote mint              the book's quote mint (the collateral)",
+        "treasury      writable  the CLP global vault: the associated token",
+        "account of GlobalClp ([b\"global_clp\"]",
+        "under the CLP program) for the quote mint",
+        "token program           SPL Token",
+        "3. zero, one or two global groups of five."
       ],
       "discriminator": [
         60,
@@ -2489,6 +2517,19 @@
       ]
     },
     {
+      "name": "BookFeePaid",
+      "discriminator": [
+        64,
+        34,
+        128,
+        185,
+        178,
+        243,
+        23,
+        80
+      ]
+    },
+    {
       "name": "CanonicalBooksSet",
       "discriminator": [
         209,
@@ -2824,6 +2865,36 @@
       "code": 6027,
       "name": "NotUpgradeAuthority",
       "msg": "Only the trading program's upgrade authority can set the canonical books"
+    },
+    {
+      "code": 6028,
+      "name": "BookFeeBatchNotPostOnly",
+      "msg": "While the market has a book fee, a call with more than one order or with cancels may only place post-only orders"
+    },
+    {
+      "code": 6029,
+      "name": "BookFeeAccountsMissing",
+      "msg": "A taker order on a market with a book fee must pass the five fee accounts (see place_orders)"
+    },
+    {
+      "code": 6030,
+      "name": "WrongBookFeeAccounts",
+      "msg": "The fee accounts must be the trader's quote token account, the book's quote vault, the quote mint, the treasury vault and the token program"
+    },
+    {
+      "code": 6031,
+      "name": "WrongTreasury",
+      "msg": "The book fee goes only to the protocol treasury: the GlobalClp's associated token account for the collateral mint"
+    },
+    {
+      "code": 6032,
+      "name": "BookFeeNotCovered",
+      "msg": "The seat's quote balance cannot cover the book fee"
+    },
+    {
+      "code": 6033,
+      "name": "BookFeeNotMeasured",
+      "msg": "Manifest's volume counters do not match the fill, so the book fee cannot be measured"
     }
   ],
   "types": [
@@ -2881,6 +2952,71 @@
           {
             "name": "amount",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BookFeePaid",
+      "docs": [
+        "A taker order paid the book fee (place_orders)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "market",
+            "docs": [
+              "The Manifest book."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "mr_market",
+            "docs": [
+              "The Continuum market whose rate applied."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "docs": [
+              "0 long, 1 short."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "direction",
+            "docs": [
+              "0 buy (a bid), 1 sell (an ask)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "taker_quote",
+            "docs": [
+              "Quote atoms the order traded with other traders."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "docs": [
+              "Quote atoms paid to the treasury: floor(taker_quote · rate_bps / 10,000)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "rate_bps",
+            "type": "u16"
+          },
+          {
+            "name": "session",
+            "type": "bool"
           }
         ]
       }
@@ -3848,6 +3984,58 @@
               "Most recent activated units boundary, retained after promotion and rescheduling."
             ],
             "type": "i64"
+          },
+          {
+            "name": "decay_open_price",
+            "docs": [
+              "Long price (1e6, stored units) at which the current decay window opened.",
+              "0 = no window: decay has never been priced by the program on this market."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "decay_open_ts",
+            "docs": [
+              "Chain time the current decay window opened. 0 = no window."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "decay_flags",
+            "docs": [
+              "`DECAY_MODE_BIT`: the program prices decay as a function of price (see",
+              "`Market::gamma_at`) and `s_gamma_index` holds γ at the window's open.",
+              "`DECAY_DEV_BIT`: the last price write sat 1% or more from the window's",
+              "open; a second such write in a row closes the window."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "book_fee_live_bps",
+            "docs": [
+              "Taker fee on order-book fills routed through the trading program, in bps",
+              "of the quote traded, while the price is live. 0 = no fee."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "book_fee_stale_bps",
+            "docs": [
+              "The same while the price is stale (the reference market is closed)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Spare room so the next fields need no realloc. Stays zero."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                7
+              ]
+            }
           }
         ]
       }

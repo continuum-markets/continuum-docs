@@ -6537,6 +6537,58 @@
               "Most recent activated units boundary, retained after promotion and rescheduling."
             ],
             "type": "i64"
+          },
+          {
+            "name": "decay_open_price",
+            "docs": [
+              "Long price (1e6, stored units) at which the current decay window opened.",
+              "0 = no window: decay has never been priced by the program on this market."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "decay_open_ts",
+            "docs": [
+              "Chain time the current decay window opened. 0 = no window."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "decay_flags",
+            "docs": [
+              "`DECAY_MODE_BIT`: the program prices decay as a function of price (see",
+              "`Market::gamma_at`) and `s_gamma_index` holds γ at the window's open.",
+              "`DECAY_DEV_BIT`: the last price write sat 1% or more from the window's",
+              "open; a second such write in a row closes the window."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "book_fee_live_bps",
+            "docs": [
+              "Taker fee on order-book fills routed through the trading program, in bps",
+              "of the quote traded, while the price is live. 0 = no fee."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "book_fee_stale_bps",
+            "docs": [
+              "The same while the price is stale (the reference market is closed)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Spare room so the next fields need no realloc. Stays zero."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                7
+              ]
+            }
           }
         ]
       }

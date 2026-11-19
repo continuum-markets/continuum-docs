@@ -2873,6 +2873,67 @@
       ]
     },
     {
+      "name": "set_book_fee",
+      "docs": [
+        "Set the order-book taker fee rates the trading program charges on this",
+        "market, in bps of the quote traded: one while the price is live, one",
+        "while it is stale. Each at most `MAX_BOOK_FEE_BPS`. Market authority."
+      ],
+      "discriminator": [
+        142,
+        218,
+        154,
+        126,
+        72,
+        255,
+        171,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "SetBookFeeParams"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "set_buffer_target",
       "docs": [
         "Keeper posts the DYNAMIC overcollateralization buffer (bps over parity) for this",
@@ -2927,6 +2988,75 @@
         {
           "name": "buffer_target_bps",
           "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "set_decay_mode",
+      "docs": [
+        "Switch decay priced by the program on or off (r66). Same signer as",
+        "`reanchor_gamma`: the market authority.",
+        "",
+        "On: needs a stored price above zero. The decay window opens at the",
+        "stored price and now, the dev bit is clear, and `s_gamma_index` becomes",
+        "γ at the window's open, so the short at the stored price is unchanged.",
+        "From then on every price write runs the window rule and",
+        "`set_s_gamma_index` is refused.",
+        "",
+        "Off: the open window is folded at the stored price into",
+        "`s_gamma_index`, then the bits and the window are cleared, so the short",
+        "at the stored price is again unchanged. `gamma_epoch` is bumped, so a",
+        "keeper post computed before the fold cannot land after it.",
+        "",
+        "Both directions are idempotent: a repeat changes nothing."
+      ],
+      "discriminator": [
+        82,
+        1,
+        55,
+        245,
+        103,
+        57,
+        217,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market.asset_symbol",
+                "account": "Market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "enabled",
+          "type": "bool"
         }
       ]
     },
@@ -3992,6 +4122,19 @@
       ]
     },
     {
+      "name": "BookFeeSet",
+      "discriminator": [
+        96,
+        250,
+        165,
+        143,
+        35,
+        101,
+        82,
+        21
+      ]
+    },
+    {
       "name": "CollateralFunded",
       "discriminator": [
         176,
@@ -4015,6 +4158,32 @@
         15,
         69,
         140
+      ]
+    },
+    {
+      "name": "DecayModeSet",
+      "discriminator": [
+        63,
+        175,
+        66,
+        166,
+        188,
+        167,
+        234,
+        9
+      ]
+    },
+    {
+      "name": "DecayWindowRolled",
+      "discriminator": [
+        67,
+        250,
+        149,
+        198,
+        210,
+        162,
+        229,
+        200
       ]
     },
     {
@@ -4411,6 +4580,21 @@
       "code": 6062,
       "name": "ExposureAccountsMissing",
       "msg": "A lopsided redemption must pass the exposure accounts: CLP, pool vaults, CLP token accounts"
+    },
+    {
+      "code": 6063,
+      "name": "GammaSetByPrice",
+      "msg": "The program prices decay on this market; set_s_gamma_index is refused"
+    },
+    {
+      "code": 6064,
+      "name": "DecayModeNeedsPrice",
+      "msg": "Decay priced by the program needs a stored price above zero"
+    },
+    {
+      "code": 6065,
+      "name": "BookFeeTooHigh",
+      "msg": "Order-book fee above MAX_BOOK_FEE_BPS"
     }
   ],
   "types": [
@@ -4490,6 +4674,37 @@
           {
             "name": "ts",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BookFeeSet",
+      "docs": [
+        "Emitted by `set_book_fee`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_live_bps",
+            "type": "u16"
+          },
+          {
+            "name": "old_stale_bps",
+            "type": "u16"
+          },
+          {
+            "name": "live_bps",
+            "type": "u16"
+          },
+          {
+            "name": "stale_bps",
+            "type": "u16"
           }
         ]
       }
@@ -4768,6 +4983,110 @@
               "adjustment would multiply a still-unsplit price and the 25% move guard",
               "would reject every push from the moment of arming until the ex-date."
             ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DecayModeSet",
+      "docs": [
+        "Emitted by every `set_decay_mode`. `changed` is false for a repeat.",
+        "`short_nav_before` and `short_nav_after` value the short at the stored",
+        "`price` either side of the switch; they are equal by construction."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "changed",
+            "type": "bool"
+          },
+          {
+            "name": "gamma_open",
+            "type": "u64"
+          },
+          {
+            "name": "open_price",
+            "type": "u64"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "short_nav_before",
+            "type": "u64"
+          },
+          {
+            "name": "short_nav_after",
+            "type": "u64"
+          },
+          {
+            "name": "gamma_epoch",
+            "type": "u32"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DecayWindowRolled",
+      "docs": [
+        "Emitted when a decay window closes: on a price write, or when",
+        "`set_decay_mode(false)` folds it. `reason`: 0 the clock closed it near its",
+        "open, 1 a second write in a row 1% or more from the open, 2 mode off.",
+        "`old_gamma` and `new_gamma` are γ at the old and the new open (1e9);",
+        "`move_bps` is `price` against `old_open_price`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": "u8"
+          },
+          {
+            "name": "old_gamma",
+            "type": "u64"
+          },
+          {
+            "name": "new_gamma",
+            "type": "u64"
+          },
+          {
+            "name": "old_open_price",
+            "type": "u64"
+          },
+          {
+            "name": "old_open_ts",
+            "type": "i64"
+          },
+          {
+            "name": "price",
+            "type": "u64"
+          },
+          {
+            "name": "move_bps",
+            "type": "i64"
+          },
+          {
+            "name": "ts",
             "type": "i64"
           }
         ]
@@ -5257,6 +5576,58 @@
               "Most recent activated units boundary, retained after promotion and rescheduling."
             ],
             "type": "i64"
+          },
+          {
+            "name": "decay_open_price",
+            "docs": [
+              "Long price (1e6, stored units) at which the current decay window opened.",
+              "0 = no window: decay has never been priced by the program on this market."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "decay_open_ts",
+            "docs": [
+              "Chain time the current decay window opened. 0 = no window."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "decay_flags",
+            "docs": [
+              "`DECAY_MODE_BIT`: the program prices decay as a function of price (see",
+              "`Market::gamma_at`) and `s_gamma_index` holds γ at the window's open.",
+              "`DECAY_DEV_BIT`: the last price write sat 1% or more from the window's",
+              "open; a second such write in a row closes the window."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "book_fee_live_bps",
+            "docs": [
+              "Taker fee on order-book fills routed through the trading program, in bps",
+              "of the quote traded, while the price is live. 0 = no fee."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "book_fee_stale_bps",
+            "docs": [
+              "The same while the price is stale (the reference market is closed)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Spare room so the next fields need no realloc. Stays zero."
+            ],
+            "type": {
+              "array": [
+                "u64",
+                7
+              ]
+            }
           }
         ]
       }
@@ -5744,6 +6115,32 @@
           },
           {
             "name": "Recovery"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetBookFeeParams",
+      "docs": [
+        "Arguments for `set_book_fee`, in ONE struct for the same toolchain reason as",
+        "`SetGammaParams`. The wire format is the two u16s in order."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "live_bps",
+            "docs": [
+              "Taker fee while the price is live, bps of the quote traded."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "stale_bps",
+            "docs": [
+              "Taker fee while the price is stale."
+            ],
+            "type": "u16"
           }
         ]
       }
