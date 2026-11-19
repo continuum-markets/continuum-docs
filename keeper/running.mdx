@@ -73,7 +73,6 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `CLMM_BUFFER_TARGETS_BPS` | unset | Overrides the posted buffer for listed markets, as `SYM:bps` pairs (`NVDA:1000,TSLA:1200`), clamped to 100 to 5,000 bps. It wins over the daily target the keeper reads from R2 (`cr-targets/latest.json`, written by the daily Monte Carlo job), which wins over the fixed fallback table; a market missing from that table posts 100 bps. |
 | `CLMM_REBALANCE_ENABLED` | `true` | Cross-market collateral rebalance. |
 | `GAMMA_DECAY_COEF` | `1.0` | γ calibration. Must be in (0, 1]; any other value aborts boot. No effect on a market whose decay the program prices: the program charges it, at coefficient 1. |
-| `GAMMA_JUMP_MODE` | `dryrun` | The γ jump step, which sends a γ write in the same transaction as a price push that moves the price 1% or more from the chain's, when the move is confirmed. `off`, `dryrun` (logs what it would do, changes nothing) or `live`. No effect on a market whose decay the program prices. |
 | `CLMM_GAMMA_DECAY_ENABLED` | removed | Setting it to any value aborts boot. γ decay has no switch. A market stops being metered by the keeper only when the program prices its decay (`set_decay_mode`). |
 
 ### Off-hours book

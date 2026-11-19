@@ -35,6 +35,8 @@ Every market set `initial_l_price` and `initial_s_price` to the same value, so i
 
 The keeper posts one fee as both the mint fee and the redeem fee. All devnet markets run in ProxyMode, which charges 1.5× the posted fee, so QQQ's 18 bps costs 27 bps.
 
+The order book can carry a separate taker fee, set per market with `set_book_fee` and zero until set (see [Order book](/flows/order-book#taker-fee)). As of CUTOVER_TBD the rates in force are CUTOVER_TBD. The same applies to decay: each market is either keeper-posted or priced by the program, as of CUTOVER_TBD CUTOVER_TBD (see [NAV](/concepts/nav#volatility-decay)).
+
 Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every live market, and they are the protocol's only venue while a market's price is live; traders' orders on the [order book](/flows/order-book) are open at any hour. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
 
 Each market's `Clp.oi_cap` is an exposure cap on how far traders can go net long or net short (0 means uncapped). The keeper re-sizes it every night, so read the live value from the chain. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap). The bin books charge no swap fee.

@@ -86,7 +86,7 @@ const market = await mintRedeem.account.market.fetch(marketPDA);
 const lNav = market.userTwapPrice; // 1e6; 0 means no price yet
 const GAMMA_ONE = new BN(1_000_000_000);
 // γ at the stored price: the posted index, or in decay mode gamma_at(lNav)
-// (gammaAt is defined in NAV math → Volatility decay)
+// (gammaAt is defined in Read state: /flows/read-state)
 const gamma = gammaAt(market, lNav);
 const sNav = lNav.isZero()
   ? new BN(0)

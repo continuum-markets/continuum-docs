@@ -123,6 +123,7 @@ The keeper's yield allocator counts the treasury as first-loss capital when it s
 
 - Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only when someone adds them. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. Profits deposited into the treasury reach a market through `backstop_market`, which the keeper calls when a market falls below 100% or stays short of its target. The keeper calls neither `donate_to_vault` nor `fund_collateral`.
 - Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient, which has been the treasury on every live market since 12 Oct 2026.
+- The order-book taker fee, on a market whose authority has set one, is paid by the taker from the trader's seat straight into the treasury (the global vault). It does not pass through the market's collateral vault. See [Order book](/flows/order-book#taker-fee).
 - Harvested yield goes into the market's own vault and is added to `total_collateral`, so it raises that market's collateral ratio. Collateral above the target can still move to the CLP with `withdraw_excess_to_clp`. Nothing is lent on devnet: the keeper's emulator harvests the yield its mainnet plan would earn, and every live market has `yield_enabled` set as of 11 Oct 2026.
 
 See [Solvency](/concepts/solvency) for how these channels affect the collateral ratio.

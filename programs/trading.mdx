@@ -21,7 +21,7 @@ The account instructions (`open_account`, `set_session`, `deposit`, `withdraw`, 
 **Who pays.** With a rate above 0:
 
 - A call with exactly one order, of type limit or immediate-or-cancel, and no cancels is a **taker call**. It pays `floor(quote traded with other traders × rate / 10,000)` quote atoms, taken from the trader's seat on the book and sent to the protocol treasury. A call that fills nothing pays nothing, and a self-trade pays nothing. If the seat's quote balance cannot cover the fee after the order, the call fails with `BookFeeNotCovered` and the order does not stand.
-- Any other call may only place post-only orders, and pays nothing. A call with several orders, or with a cancel, that includes a limit or immediate-or-cancel order fails with `BookFeeBatchNotPostOnly`. A client that cancels and takes in one transaction sends the cancel as its own `place_orders` instruction.
+- Any other call may only place post-only orders, and pays nothing. A call with several orders, or with a cancel, that includes a limit or immediate-or-cancel order fails with `BookFeeBatchNotPostOnly`. The program allows a call that only cancels (it needs no fee accounts), so a client that must cancel and then take can send the cancel as its own `place_orders` instruction.
 
 The fee is not counted against a trading key's budget.
 

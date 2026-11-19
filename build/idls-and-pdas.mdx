@@ -136,7 +136,7 @@ Some rows can show "no account", and that is expected:
 - `faucetMintAuthority` is a signing PDA that holds no data. It is the cUSDC mint's mint authority.
 - `registryEntry` is empty because the Registry holds no markets yet. Get market addresses from [Addresses](/reference/addresses).
 
-The `Market` account is allocated 891 bytes on devnet, and the struct can need up to 899. Its `collateral_vaults` list is variable-length, so read Market fields through the IDL, never at fixed offsets (see [Market account](/programs/mint-redeem#market-account)).
+The `Market` account is allocated 891 bytes on devnet, and the struct can need up to 976. Its `collateral_vaults` list is variable-length, so read Market fields through the IDL, never at fixed offsets (see [Market account](/programs/mint-redeem#market-account)).
 
 The two `market` seeds differ. mint-redeem uses the raw symbol bytes (`QQQ`), while the Registry uses the symbol uppercased and zero-padded to 16 bytes.
 
