@@ -46,8 +46,10 @@ Public fields you'll likely read:
 | `risk_state` | enum | `Normal` / `ProxyMode` / `Stress` / `Recovery`. Every devnet market runs in ProxyMode. |
 | `user_twap_price` / `twap_updated_at` | u64 / i64 | The keeper's latest reference price and when it was written. Despite the name it is a spot price, scaled by 1e6 and adjusted for corporate actions. Mint and redeem revert with `TwapNotAvailable` if it is 0 or more than 300 s old. |
 | `oracle_confidence` | u64 | Confidence band pushed with each price. On devnet it comes from a GJR-GARCH volatility model. |
-| `s_gamma_index` | u64 | γ, the short leg's volatility-decay index, scaled by 1e9 (0 reads as 1.0). |
-| `keeper_authority` | Pubkey | Signer the program requires for the keeper's price, γ and buffer-target updates. |
+| `s_gamma_index` | u64 | γ, the short leg's volatility-decay index, scaled by 1e9 (0 reads as 1.0). On a market whose decay the program prices, it is γ at the open of the current decay window. |
+| `decay_open_price` / `decay_open_ts` / `decay_flags` | u64 / i64 / u8 | The current decay window's open price (1e6) and time, and the flags. Bit 0 set means the program prices decay for this market (`set_decay_mode`). 0 and 0 mean no window. See [NAV](/concepts/nav#volatility-decay). |
+| `book_fee_live_bps` / `book_fee_stale_bps` | u16 | Taker fee on order-book fills through the trading program while the price is live and while it is stale, at most 50 bps each, 0 by default. See [Order book](/flows/order-book#taker-fee). |
+| `keeper_authority` | Pubkey | Signer the program requires for the keeper's price, γ (on markets not in decay mode) and buffer-target updates. |
 | `dev_tax_pct` | u8 | Share of each fee sent to `fee_recipient` (10%). The rest stays in the vault. |
 
 Full schema in the [mint-redeem reference](/programs/mint-redeem).

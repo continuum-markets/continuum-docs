@@ -61,6 +61,8 @@ claim()                         ── anyone, for a held order
     → pays the owner what a settle or cancel could not deliver
 ```
 
+The NAV a committed order fills at is the leg's NAV at the settling push, and for the short leg its γ is taken at that price. On a market whose decay the program prices, a short therefore fills at `S_open × (2 − P / open)`, with no keeper post to wait for (see [NAV](/concepts/nav#volatility-decay)).
+
 Since 11 Oct 2026, committed orders are the protocol's only venue while a market is open, and they run on every live market. `commit_swap` needs the market's swap guards (`swap_guards`) enabled and not frozen.
 
 How the venue behaves:

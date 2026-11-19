@@ -77,7 +77,7 @@ Small moves:            the pair's value barely changes
 Large moves either way: the pair gains, because L + S = P + K·γ / P is convex in P
 ```
 
-The convexity has a cost. The keeper lowers `s_gamma_index` (γ) in step with the market's realized variance, and `set_s_gamma_index` can only lower it, so the S leg loses value over time even if the price comes back. A pair gains from large moves and pays that decay while it waits for them.
+The convexity has a cost. γ is lowered in step with the market's realized variance, so the S leg loses value over time even if the price comes back. On a keeper-posted market the keeper lowers `s_gamma_index` with `set_s_gamma_index`, which can only lower it. On a market whose decay the program prices, the program's price write closes decay windows and lowers it, and the short is worth `S_open × (2 − P / open)` at every read (see [NAV](/concepts/nav#volatility-decay)). A pair gains from large moves and pays that decay while it waits for them.
 
 ### Equity against the dollar
 

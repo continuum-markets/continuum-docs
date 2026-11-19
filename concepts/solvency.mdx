@@ -13,7 +13,7 @@ Every user mint and redeem is **paired**. `mint_paired` deposits cUSDC and issue
 f(P) = P + K·γ / P        (P = L_NAV, K = initial_l_price × initial_s_price)
 ```
 
-A paired operation moves collateral and claims by the same amount at the moment it happens. After that the collateral stays put while the claims move with the price. `f` is convex, with its minimum at `P = √(K·γ)`. At a fixed γ, a position of value `v` minted at price `P_m` is later worth `(v/2)·(P/P_m + P_m/P)`, which is at least `v`, so its claim rises with any price move away from `P_m`. There is no user-facing single-sided mint; an unpaired mint would leave the vault holding a one-way bet.
+A paired operation moves collateral and claims by the same amount at the moment it happens. After that the collateral stays put while the claims move with the price. `f` is convex, with its minimum at `P = √(K·γ)`. At a fixed γ (on a program-priced market, within one window the short follows `S_open × (2 − P / open)` instead), a position of value `v` minted at price `P_m` is later worth `(v/2)·(P/P_m + P_m/P)`, which is at least `v`, so its claim rises with any price move away from `P_m`. There is no user-facing single-sided mint; an unpaired mint would leave the vault holding a one-way bet.
 
 ## The attack surface: the convexity gap
 
@@ -78,17 +78,19 @@ On chain the target gates only how much excess a market can shed to others (`wit
 
 ### 4. Volatility decay (the γ-index)
 
-The convexity the protocol is short lives entirely in the short leg: `S_NAV = K/P` is convex, and `L_NAV = P` is linear. γ is the live mechanism that charges for it. The keeper ratchets γ down by realized variance, which marks short claims down and raises the collateral ratio directly. At `GAMMA_DECAY_COEF` = 1.0 the charge is break-even against the short leg's convexity on a choppy path.
+The convexity the protocol is short lives entirely in the short leg: `S_NAV = K/P` is convex, and `L_NAV = P` is linear. γ is the live mechanism that charges for it. γ ratchets down by realized variance, which marks short claims down and raises the collateral ratio directly. Each market is on one of two paths. On a **keeper-posted** market the keeper meters the variance and posts γ, and at `GAMMA_DECAY_COEF` = 1.0 the charge is break-even against the short leg's convexity on a choppy path. On a market whose decay the **program prices**, the price write closes decay windows and every read values the short at `S_open × (2 − P / open)`, so the charge is exact at every read and there is no unposted balance between posts. The market authority switches a market with `set_decay_mode`; see [NAV → Volatility decay](/concepts/nav#volatility-decay) for both.
 
 ```
-S_NAV = (K / P) × γ          γ ratchets down by realized variance
+S_NAV = (K / P) × γ(P)       γ ratchets down by realized variance
 ```
 
-It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection. If collateral still falls short, the [treasury backstop](#treasury-backstop) tops the market up, and pro-rata redemption is the last resort. γ is always on with no kill switch, only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+On the keeper-posted path γ(P) is the posted γ. On the program-priced path it is `gamma_at(P)`, which follows P inside the open window.
+
+It charges **realized variance** and ignores direction. A smooth directional run barely moves γ, so it doesn't cover a single name trending away from its anchor. That case rests on lean depth, the committed spread, fees and asset selection. If collateral still falls short, the [treasury backstop](#treasury-backstop) tops the market up, and pro-rata redemption is the last resort. γ is always on with no kill switch on a keeper-posted market, and on a program-priced market it stays on until the authority switches it off. It only ratchets down, is floored at 0.5 per epoch, and **never touches longs**. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
 
 ### 5. `reanchor_gamma` is not a spot re-anchor
 
-`reanchor_gamma` renews γ's budget. Only the market authority can call it, at least 14 days after the previous one. It folds γ into `initial_s_price` and resets γ to 1.0, so every claim is unchanged at every price. It collects and returns nothing; it lets decay keep charging once γ nears its floor. It does not move the curve's minimum to the current price. A re-anchor to spot would revalue holders' positions, and the program has no instruction for it.
+`reanchor_gamma` renews γ's budget. Only the market authority can call it, at least 14 days after the previous one. It folds γ into `initial_s_price` and resets γ to 1.0, so every claim is unchanged at every price. On a program-priced market the γ it folds is γ at the window's open, and the open window stays open. It collects and returns nothing; it lets decay keep charging once γ nears its floor. It does not move the curve's minimum to the current price. A re-anchor to spot would revalue holders' positions, and the program has no instruction for it.
 
 ### 6. Exposure cap
 
@@ -118,7 +120,7 @@ What a trader sees depends on the venue. A committed order fills up to the room 
 Five channels push the ratio up over time:
 
 1. 90% of every mint and redeem fee stays in the vault, immediately.
-2. Each volatility-decay step marks short claims down.
+2. Each volatility-decay step marks short claims down. On a program-priced market that happens at every read, not only when a post lands.
 3. When the price moves back toward a position's mint price, its claim falls and the vault over-collateralizes passively.
 4. Collateral can be added directly. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. Neither grants a fee waiver or any other reward, and neither needs a fresh price. The CLP's `backstop_market` moves cUSDC from the treasury into a market's vault the same way. CLP trading profits reach a market's collateral only through these. The keeper calls `backstop_market` when a market falls below 100% or stays short of its target (see [Treasury backstop](#treasury-backstop)), and calls neither of the others. On 11 Oct 2026, `fund_collateral` brought 13 markets up to their 102% target; XAU was already above it.
 5. Harvested collateral yield is added to `total_collateral` by `harvest_collateral_yield`.

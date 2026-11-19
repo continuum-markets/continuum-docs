@@ -7,7 +7,7 @@ Continuum has three moving parts. Two are on-chain programs and one runs off-cha
 
 - `mint-redeem` issues and burns paired long and short tokens against cUSDC collateral at NAV. It also stores each market's price, risk state and solvency target.
 - `clp` is the protocol's trading and treasury program. It hosts both trading venues and the vaults that stock them.
-- The keeper is an off-chain service run by the protocol. It pushes prices on-chain, manages the bin books, settles committed orders, and posts fees and volatility decay.
+- The keeper is an off-chain service run by the protocol. It pushes prices on-chain, manages the bin books, settles committed orders, and posts fees and, on markets whose decay it still posts, volatility decay. On a market switched to decay priced by the program, the price write charges decay and the keeper posts none.
 
 ## The system at a glance
 
@@ -48,7 +48,7 @@ The only program a user writes to for issuance is `mint-redeem`:
 
 Both need at least 10 cUSDC of value and a keeper price push no more than 300 s old.
 
-NAV comes from one price `P` and a constant `K = initial_l_price × initial_s_price`. `L_NAV = P` and `S_NAV = K / P × γ`, where γ (at most 1) is the short leg's [volatility decay](/concepts/nav#volatility-decay). So `L_NAV × S_NAV = K·γ`, and as one leg rises the other falls reciprocally. A paired mint deposits exactly the NAV value of the tokens it creates. No user path mints one side alone; see [Solvency](/concepts/solvency).
+NAV comes from one price `P` and a constant `K = initial_l_price × initial_s_price`. `L_NAV = P` and `S_NAV = K / P × γ`, where γ (at most 1) is the short leg's [volatility decay](/concepts/nav#volatility-decay), taken at the price being valued. So `L_NAV × S_NAV = K·γ`, and as one leg rises the other falls reciprocally. A paired mint deposits exactly the NAV value of the tokens it creates. No user path mints one side alone; see [Solvency](/concepts/solvency).
 
 → [Paired tokens](/concepts/paired-tokens) · [NAV math](/concepts/nav) · [Full reference](/programs/mint-redeem)
 

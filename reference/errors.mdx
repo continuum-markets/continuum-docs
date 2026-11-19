@@ -78,6 +78,9 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6060 | `0x17ac` | `ExposureCapExceeded` | `This would push the market's net exposure past its cap` | No longer raised by `redeem_paired` or `request_redemption` since 14 Oct 2026, because they burn a balanced pair that moves traders' net position by less than \$1. The check stays in the code as a guard. The swap-path cap error is CLP 6045. |
 | 6061 | `0x17ad` | `ExposureAccountMismatch` | `An exposure account is not the market's CLP, pool synth vault or CLP token account` | No longer raised by redemptions since 14 Oct 2026, which take no exposure remaining accounts. Kept as a guard. It meant one of them had the wrong address, owner or mint. Pass the market's `Clp` account, then the pool long and short synth vaults, then the CLP's long and short token accounts. |
 | 6062 | `0x17ae` | `ExposureAccountsMissing` | `A lopsided redemption must pass the exposure accounts: CLP, pool vaults, CLP token accounts` | No longer raised by redemptions since 14 Oct 2026, which take no exposure remaining accounts (balanced burn). Kept as a guard. The swap-path missing-account error is CLP 6046. |
+| 6063 | `0x17af` | `GammaSetByPrice` | `The program prices decay on this market; set_s_gamma_index is refused` | `set_s_gamma_index` on a market in decay mode (`decay_flags` bit 0). The program charges decay inside the price write, so a keeper post would charge it twice. Switch the market back with `set_decay_mode(false)` first if a post is wanted. |
+| 6064 | `0x17b0` | `DecayModeNeedsPrice` | `Decay priced by the program needs a stored price above zero` | `set_decay_mode(true)` while `user_twap_price` is 0. The window opens at the stored price. |
+| 6065 | `0x17b1` | `BookFeeTooHigh` | `Order-book fee above MAX_BOOK_FEE_BPS` | `set_book_fee` with `live_bps` or `stale_bps` above 50. |
 
 ## clp
 
@@ -218,6 +221,12 @@ These come from the [order book](/flows/order-book), the [trading account](/flow
 | 6025 | `0x1789` | `MarketNotActive` | `A session key cannot trade a market that is not active` | A session-signed order, pool swap or committed order on an inactive market. Cancels still work. |
 | 6026 | `0x178a` | `InvalidProgramData` | `The program account does not match the program data account` | `set_canonical_books` with a program data account that isn't the trading program's. |
 | 6027 | `0x178b` | `NotUpgradeAuthority` | `Only the trading program's upgrade authority can set the canonical books` | `set_canonical_books` signed by anyone but the program's upgrade authority. |
+| 6028 | `0x178c` | `BookFeeBatchNotPostOnly` | `While the market has a book fee, a call with more than one order or with cancels may only place post-only orders` | `place_orders` on a market whose book fee rate in force is above 0, with a cancel or with more than one order, and any order that is not post-only. Send the cancel as its own call, or place post-only orders. |
+| 6029 | `0x178d` | `BookFeeAccountsMissing` | `A taker order on a market with a book fee must pass the five fee accounts (see place_orders)` | A taker call (one limit or immediate-or-cancel order, no cancels) at a rate above 0 without the five fee accounts. |
+| 6030 | `0x178e` | `WrongBookFeeAccounts` | `The fee accounts must be the trader's quote token account, the book's quote vault, the quote mint, the treasury vault and the token program` | One of the five fee accounts is not the one expected. |
+| 6031 | `0x178f` | `WrongTreasury` | `The book fee goes only to the protocol treasury: the GlobalClp's associated token account for the collateral mint` | The fee accounts' treasury is not the `GlobalClp` PDA's associated token account for the quote mint. |
+| 6032 | `0x1790` | `BookFeeNotCovered` | `The seat's quote balance cannot cover the book fee` | After the order, the seat's quote balance is below the fee. Deposit more quote to the seat. |
+| 6033 | `0x1791` | `BookFeeNotMeasured` | `Manifest's volume counters do not match the fill, so the book fee cannot be measured` | Manifest's quote-volume counters did not move the way the fee measurement needs. |
 
 ## Anchor errors below 6000
 
@@ -292,6 +301,10 @@ A mint needs a deposit of at least 10 cUSDC (`10_000_000` base units). A redeem 
 ### Mint or redeem fails with `Unauthorized` (6021)
 
 `devTokenAccount` must be a cUSDC token account owned by `market.feeRecipient`. Derive it with `getAssociatedTokenAddressSync(cusdcMint, market.feeRecipient, true)`; the `true` matters because a fee recipient can be a PDA.
+
+### `place_orders` fails with a book-fee error (6028 to 6033)
+
+These appear only on a market whose book fee rate in force is above 0 (see [the order-book fee](/programs/trading#the-order-book-fee)), or on a taker call that passes the fee accounts wrongly. Read `book_fee_live_bps` and `book_fee_stale_bps` from the `Market`; the stale rate applies when `twap_updated_at` is more than 300 s old. A call that takes from the book is one limit or immediate-or-cancel order with no cancels, and carries the five fee accounts. Anything else is post-only. The seat needs enough quote left after the fill for the fee (`BookFeeNotCovered`).
 
 ## See also
 

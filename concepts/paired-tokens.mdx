@@ -10,7 +10,7 @@ A Continuum position is a pair of SPL tokens: one long (`L`) and one short (`S`)
 When you call `mint_paired(collateral_amount)`, the program:
 
 1. Reads the price `P`, which is `L_NAV`, from the market's last keeper push (`user_twap_price`). In `Normal` mode it reads Pyth instead.
-2. Derives `S_NAV = K / P × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index.
+2. Derives `S_NAV = K / P × γ(P)`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index at that price. On a keeper-posted market γ is the posted index. On a market whose decay the program prices, it is `gamma_at(P)`, which follows P inside the open decay window (see [NAV math](/concepts/nav#volatility-decay)).
 3. Takes the mint fee, then splits the rest into two halves of equal **value**.
 4. Mints `(net / 2) / L_NAV` long tokens and `(net / 2) / S_NAV` short tokens. With worst-case quoting on, each leg is priced slightly against you; see [NAV math](/concepts/nav#worst-case-quoting).
 
@@ -32,7 +32,7 @@ Single-sided instructions do exist, but only for privileged signers. `keeper_min
 L_NAV × S_NAV = K × γ        K = initial_l_price × initial_s_price,  γ ≤ 1
 ```
 
-γ only ratchets down between re-anchors. `reanchor_gamma` folds γ into `initial_s_price` and resets γ to 1, which leaves the product unchanged. The invariant means:
+γ only ratchets down between re-anchors. `reanchor_gamma` folds γ into `initial_s_price` and resets γ to 1, which leaves the product unchanged. The invariant holds at the γ for each price. On a market whose decay the program prices, γ follows the price inside a decay window, so the short is worth `S_open × (2 − P / open)` there (see [NAV math](/concepts/nav#volatility-decay)). The invariant means:
 
 - As `L_NAV` rises, `S_NAV` falls **reciprocally**, in proportion to `1 / L_NAV`.
 - One L plus one S is worth `L_NAV + S_NAV`. That sum is lowest where `L_NAV = S_NAV = √(K·γ)`, which is the launch price before any decay, and grows as the price moves away in either direction.
@@ -128,4 +128,4 @@ Yes, in the sense that `redeem_paired` needs some of each leg: both `l_amount` a
 The program won't redeem one leg alone. Sell it with a committed order while the market is open or on its bin book while it is closed, or get some of the other leg and redeem the two together.
 
 **Q: Are there fees on transfers?**
-No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`). The keeper posts the same value for both, 10 to 39 bps across the 13 live markets as of 13 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.
+No. Continuum charges fees at mint and redeem (`mint_fee_bps`, `redeem_fee_bps`), and, where a market's authority has set one, a taker fee on orders that take from the [order book](/flows/order-book#taker-fee). The keeper posts the same value for both, 10 to 39 bps across the 13 live markets as of 13 Oct 2026, and the program multiplies it by 1.5 in `ProxyMode` (QQQ: 18 bps posted, 27 bps charged). Transfers are free at the protocol layer; you pay normal Solana fees only.

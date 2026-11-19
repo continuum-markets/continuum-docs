@@ -1,12 +1,12 @@
 ---
 title: Keeper
-description: The off-chain service that pushes prices, manages the bin books, settles committed orders, and posts fees, buffers and volatility decay.
+description: The off-chain service that pushes prices, manages the bin books, settles committed orders, and posts fees, buffers and, on markets whose decay it still posts, volatility decay.
 ---
 
 The **keeper** is an off-chain Rust service, run by the protocol, that drives Continuum's operational loops. Its source code is not published. This page describes how the protocol's keeper behaves and how it is configured.
 
 1. The price updater pushes each market's price and confidence band on-chain, and withholds the push when the source goes stale.
-2. The book manager (`clmm_pool.rs`) centres and reshapes the books, sizes the spread, refills and trims inventory, and posts the buffer, fees, committed spread and volatility decay.
+2. The book manager (`clmm_pool.rs`) centres and reshapes the books, sizes the spread, refills and trims inventory, and posts the buffer, fees, committed spread and, on markets that are not in decay mode, volatility decay.
 3. The commit settler cranks committed-order settlement, which anyone may do.
 4. The liquidity reallocator keeps each market's CLP vault at the cash it needs before its next top-up, holds the rest in the treasury, and backstops a market's collateral from the treasury when it falls below 100% or stays short of its target.
 5. The yield allocator decides how much of each market's collateral to lend, and where. It lends only on mainnet, and only when switched on.
@@ -48,7 +48,8 @@ Per market, each tick:
 - **Refills and trims** both ways. Each side's bid cUSDC holds at the depth its next free-float book will post (\$500 today): the pool vault's excess goes to the CLP vault, and bids that sellers spent are refilled from it (`clp_fund_pool_usdc`). Asks trim to at most 1.5× that target. Nothing refills while a book floats off-hours.
 - Posts one **free-float book** per side off-hours, anchored at the last price. Each side puts all its depth in one bin, the outermost within 1% of that price: the r55 study found that bins further out took no ordinary flow and only carried gap risk. The depth is sized to demand, max(\$500, min(the 99.9th percentile of one side's measured flow per closed period, a risk cap)). The risk cap limits what a gap at the 99.9th percentile of that market's daily move could cost the treasury's share for the market (r61), so a volatile market gets less. There are no fixed dollar ceilings. Until the keeper measures its own fills, flow comes from `CLMM_FREEFLOAT_FLOW_USD_<SYM>` and defaults to zero, so every side posts \$500. A guard can then pull the bin on the side that other venues show is stale. It never moves the centre or adds depth.
 - Posts each market's **buffer target** (`set_buffer_target`): the daily Monte Carlo target from the market's live state, or a fixed fallback if that is over 48 hours old. The same nightly job publishes each market's CLP stock share for imbalance control (see [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer)), only when it differs from the value on chain, and each market's exposure cap (see [Exposure caps](#exposure-caps)). Posts the **mint/redeem fee** (`update_market`, `clamp(fee_mult × half-spread, 10, 100)` bps, the same value for both) and the **committed spread** (`set_commit_spread`, `clamp(half-spread, 10, 500)` bps) once they move by at least 5 and 2 bps respectively. The keeper posts a committed spread on all 13 markets, and since 11 Oct 2026 every one accepts committed orders.
-- Posts the **short-leg volatility decay** (`set_s_gamma_index`). It is always on and has no switch. Charges accrue until they reach a 2e-4 posting gate, and the unposted balance is saved to R2 or `DATA_DIR`, so a restart doesn't discard it. A market that hasn't had a γ write for a day is posted anyway once at least 1e-6 is pending, so slow markets such as FX are charged at least daily. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+- Posts the **short-leg volatility decay** (`set_s_gamma_index`) on every market that is not in decay mode. It is always on and has no switch. Charges accrue until they reach a 2e-4 posting gate, and the unposted balance is saved to R2 or `DATA_DIR`, so a restart doesn't discard it. A market that hasn't had a γ write for a day is posted anyway once at least 1e-6 is pending, so slow markets such as FX are charged at least daily. See [NAV → Volatility decay](/concepts/nav#volatility-decay).
+- Leaves a market alone once the program prices its decay. Each tick it reads `decay_flags` from the Market account. With the bit set it does not meter, keep an unposted balance, post `set_s_gamma_index` (the program would refuse it with `GammaSetByPrice`), run its γ jump step or save a γ checkpoint; the price push goes alone and the program closes decay windows inside it. When the bit turns on while the keeper runs, it drops that market's balance, meter, held print and any pair in flight, and logs how much γ it had metered and not posted: at most one posting unit (2e-4) or a day of FX accrual. Nobody charges that balance. To keep it, let the keeper post first and switch after the post lands. When the bit turns off, the program has folded the open window into `s_gamma_index` and bumped `gamma_epoch`; the keeper resumes metering from that γ and epoch with nothing owed. Each market is on one path or the other. The decay-mode date and market list are CUTOVER_TBD.
 - Runs the **cross-market collateral rebalance**. It plans at the price the program checks, which is the stored price with γ applied to the short leg, and leaves each source one confidence band of margin above its target. A market within one confidence band of its target is left alone, since the next price can close that gap. Past the band it is filled to its target plus the band. Markets below 100% collateralization are filled first, then markets below their target, and each source's excess is split across the markets it can reach in proportion to their need. The program clamps each move to the source's excess above its own target.
 
 ### Commit settler (20 s idle, 5 s while orders pend)
@@ -89,7 +90,7 @@ The program decides how a change lands. A cut applies at once. A raise waits out
 
 ### Imbalance control (900 s)
 
-After the keeper's γ charge, a price move changes a market's claims by exactly (L − S) times the return, where L and S are the values of all its long and all its short tokens. Nothing moves the anchor, so the imbalance β = (L − S)/(L + S) drifts with the price, and the posted buffer has to cover a year of that drift. This task keeps β near zero with the protocol's own tokens. When β leaves its band (0.05), it redeems the CLP's surplus of the heavier leg at NAV through `vault_redeem_single`. Collateral and claims fall by the same amount and no fee is charged, so no holder's tokens change value. The cash lands in the CLP vault, and the reallocator returns it to the treasury.
+After the γ charge, a price move changes a market's claims by exactly (L − S) times the return, where L and S are the values of all its long and all its short tokens. Nothing moves the anchor, so the imbalance β = (L − S)/(L + S) drifts with the price, and the posted buffer has to cover a year of that drift. This task keeps β near zero with the protocol's own tokens. When β leaves its band (0.05), it redeems the CLP's surplus of the heavier leg at NAV through `vault_redeem_single`. Collateral and claims fall by the same amount and no fee is charged, so no holder's tokens change value. The cash lands in the CLP vault, and the reallocator returns it to the treasury.
 
 It acts only on a price under 240 s old, so not while a market is closed, and redeems at most \$50,000 per market per tick, nothing under \$100. It also owns the CLP's own stock. Each leg keeps a share of the market's claims, which the daily Monte Carlo job re-derives every night (0.5% until it has). It never redeems a leg below that share, and when both legs sit above it, it trims the matched excess with fee-free redemptions of equal value. The share is the cheapest trade-off between capital held and mint fees saved. It is computed from that night's re-centring events at the current volatility, 30 days of measured committed-order volume and the live mint fees. Yesterday's value stays while it is within 10% of the night's best. When the CLP holds too little of the heavier leg, it first mints pairs, with the cash coming from the treasury in the same transaction (the mint is skipped if that would leave the treasury below its liquid share). The CLP vault's own cash is the books' bid budget and is never touched. A pair mint splits the collateral 50/50 by value, so each leg gains the shortfall. Then it redeems the heavier leg's surplus: in effect a mint of the lighter leg. That costs about twice the mint fee on the value added, and 90% of the fee stays in the market's collateral.
 
@@ -179,7 +180,7 @@ Per-market config (`min_bps` / `floor_mult` / `fee_mult` / window) lives in the 
 
 ## Configuration
 
-Most keeper behavior sits behind env switches that default on. γ decay has none.
+Most keeper behavior sits behind env switches that default on. γ decay has none, and the only thing that stops the keeper metering it for a market is the program pricing it (`set_decay_mode`).
 
 | Switch | Default | Gates |
 |---|---|---|
@@ -207,7 +208,7 @@ Main tunables:
 | Variable | Default | Meaning |
 |---|---|---|
 | `PYTH_API_KEY` | unset | Pyth Hermes API key. Without it, Pyth requests fail and the keyless fallback, if enabled, prices the market |
-| `GAMMA_DECAY_COEF` | `1.0` | Scales the γ charge; must be in (0, 1]. Setting `CLMM_GAMMA_DECAY_ENABLED` to any value aborts boot |
+| `GAMMA_DECAY_COEF` | `1.0` | Scales the γ charge the keeper meters; must be in (0, 1]. No effect on a market whose decay the program prices, where the program charges it at coefficient 1. Setting `CLMM_GAMMA_DECAY_ENABLED` to any value aborts boot |
 | `UPDATE_INTERVAL_MS` | `15000` (`5000` in the Docker image) | Price updater cadence |
 | `HERMES_STALE_SECS` | `120` | Source-price age at which a push is withheld, for every source |
 | `CLMM_REPOSITION_BPS[_SYM]` | `20` | Largest drift gate before a reposition |
@@ -225,7 +226,7 @@ Not the protocol's: its source isn't published, and its privileged instructions 
 
 - `settle_swap` is keeper-only: the signer must be `clp.authority` or `market.keeper_authority`. `cancel_swap` and `claim` are open to anyone.
 - Paired arbitrage is open. Ordinary `mint_paired` / `redeem_paired` plus book trades need no privilege, and neither does `donate_to_vault`.
-- Pricing and book shaping are privileged. `update_risk_state_v2`, `set_buffer_target` and `set_s_gamma_index` require `market.keeper_authority`. `set_pool_shape` requires the pool's `authority`, fee posting through `update_market` requires `market.authority`, and `set_commit_spread` requires the CLP's `authority`.
+- Pricing and book shaping are privileged. `update_risk_state_v2`, `set_buffer_target` and `set_s_gamma_index` require `market.keeper_authority`. `set_decay_mode` and `set_book_fee` require `market.authority`; the keeper does not call them. `set_pool_shape` requires the pool's `authority`, fee posting through `update_market` requires `market.authority`, and `set_commit_spread` requires the CLP's `authority`.
 
 ## Dashboard
 

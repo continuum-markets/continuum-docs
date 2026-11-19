@@ -21,6 +21,8 @@ description: Continuum-specific terms in one place.
 
 **Bin step** - The spacing between bins, in bps. Books use a fine core step for the first `core_bins` bins and a wide wing step beyond. On the live books the core is 10 to 50 bps over 3 bins and the wings 200 to 700 bps.
 
+**Book fee (taker fee)** - A per-market fee on order-book fills made through the trading program's `place_orders`, set by the market authority with `set_book_fee(live_bps, stale_bps)`, at most 50 bps each and 0 by default. It is `floor(cUSDC taken from other traders × rate / 10,000)`, paid from the taker's seat to the treasury. Makers pay nothing. → [Order book](/flows/order-book#taker-fee).
+
 **bps** (basis points) - 1 bps = 0.01%. Fees are quoted in bps: `mint_fee_bps = 18` means 0.18%.
 
 **Buffer target** - A market's overcollateralization target over parity, `Market.buffer_target_bps`, which the keeper posts with `set_buffer_target`. The target collateral ratio is 100% plus the buffer. Since 12 Oct 2026 a job recomputes each market's buffer daily with a jump-diffusion Monte Carlo from its live leg imbalance, γ and volatility regime: at most a 1% chance a year of falling below 100%, never below 1%. On 12 Oct it ranged from 1% (FX) to 12.4% (TSLA). On chain it gates only how much excess a market can shed; mints and redeems don't depend on it. The program clamps any target to 101% to 150%. → [Solvency](/concepts/solvency#3-posted-overcollateralization-buffer).
@@ -35,13 +37,17 @@ description: Continuum-specific terms in one place.
 
 **Confidence interval** - The uncertainty band around a pushed price, stored as `Market.oracle_confidence`. On devnet it comes from a GJR-GARCH volatility model. Worst-case quoting widens mint and redeem quotes by it.
 
-**Constant-product invariant** - `L_NAV × S_NAV = K × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index. As one leg rises the other falls.
+**Constant-product invariant** - `L_NAV × S_NAV = K × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index at that price. As one leg rises the other falls.
 
 **CPI** (Cross-Program Invocation) - Solana's mechanism for one program to call another. The CLP calls mint-redeem by CPI to mint and redeem pairs from its own vault (`vault_mint_pairs`, `vault_redeem_pairs`).
 
 **cUSDC** - Continuum's devnet collateral mint (`B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`). On mainnet the collateral is real USDC. These docs say "cUSDC" to avoid confusion.
 
 ## D to L
+
+**Decay mode** - A per-market setting, switched by the market authority with `set_decay_mode`, in which the program prices volatility decay instead of the keeper posting it. `s_gamma_index` is then γ at the open of the current decay window, and the short is worth `S_open × (2 − P / open)` at any long price P. `Market.decay_flags` bit 0 is set. → [Volatility decay](/concepts/nav#volatility-decay).
+
+**Decay window** - The span between two closes of a market in decay mode, with an open price and an open time (`decay_open_price`, `decay_open_ts`). It closes inside the keeper's price write: on the first write 30 minutes or more after it opened if that write is within 1% of the open, or on the second of two writes in a row that are 1% or more from it. A close folds the move into γ and opens the next window at that price.
 
 **Drift gate (reposition gate)** - The move in a book's target centre that triggers a re-centre: 20 bps by default (`CLMM_REPOSITION_BPS`), cut further so the book moves before NAV reaches the floor of its first funded bin.
 
@@ -51,7 +57,9 @@ description: Continuum-specific terms in one place.
 
 **Free float** - The book the keeper posts while mint and redeem are frozen (last push over 300 s old): anchored at the last price, each side in one bin within 1% of it, sized to measured demand (\$500 a side until flow is measured) and limited by a risk cap on that market's share of the treasury. A guard can pull bins that other venues show have gone stale. → [Book management](/keeper/book-management).
 
-**γ index** - `Market.s_gamma_index`, the short leg's volatility-decay index (1e9 = 1.0), which multiplies its NAV. The keeper lowers it as realized volatility accrues (`set_s_gamma_index`); the program rejects writes that raise it or fall out of range. `reanchor_gamma` (authority only, at least 14 days apart) folds γ into `initial_s_price` and resets it to 1. It is not a reset to the spot price. → [Volatility decay](/concepts/nav#volatility-decay).
+**`gamma_at(P)`** - The program's γ for valuing the short at long price P: the posted γ on a keeper-posted market, and `γ_open × (1 − (P / open − 1)²)` on a market in decay mode, held at 0.5 at the lowest. Every short valuation in the program passes the price it values at.
+
+**γ index** - `Market.s_gamma_index`, the short leg's volatility-decay index (1e9 = 1.0), which multiplies its NAV. On a keeper-posted market the keeper lowers it as realized volatility accrues (`set_s_gamma_index`) and the program rejects writes that raise it or fall out of range. On a market in decay mode it is γ at the open of the current window, the program lowers it when a window closes, and `set_s_gamma_index` is refused. `reanchor_gamma` (authority only, at least 14 days apart) folds γ into `initial_s_price` and resets it to 1. It is not a reset to the spot price. → [Volatility decay](/concepts/nav#volatility-decay).
 
 **Guardian** - The freeze-only key on the CLP's `TreasuryPolicy`. It can freeze and unfreeze treasury withdrawals, cancel a pending loosening of the limits, and hand its role to a new key. It can't move funds. Only the guardian can unfreeze. → [Treasury](/programs/clp#treasury).
 
@@ -65,7 +73,7 @@ description: Continuum-specific terms in one place.
 
 **Keeper** - The off-chain Rust service the protocol runs: price pushes, book management, committed-order settlement, inventory moves and parameter posting. Its source is not published. → [Keeper overview](/keeper/overview).
 
-**`keeper_authority`** - The pubkey stored on `Market` that may push prices (`update_risk_state_v2`), post buffer targets and γ, rebalance collateral between markets, and call the keeper-only single-leg instructions.
+**`keeper_authority`** - The pubkey stored on `Market` that may push prices (`update_risk_state_v2`), post buffer targets and γ (on markets not in decay mode), rebalance collateral between markets, and call the keeper-only single-leg instructions.
 
 **L** (Long) - One half of a Continuum paired position. Rises in value as the underlying rises.
 
@@ -123,7 +131,7 @@ description: Continuum-specific terms in one place.
 
 **S** (Short) - One half of a Continuum paired position. Rises in value as the underlying falls.
 
-**`S_NAV`** - Short-leg NAV: `K / L_NAV × s_gamma_index / 1e9`, with `K = initial_l_price × initial_s_price`.
+**`S_NAV`** - Short-leg NAV: `K / L_NAV × γ(L_NAV)`, with `K = initial_l_price × initial_s_price`. γ is `s_gamma_index / 1e9` on a keeper-posted market and `gamma_at(L_NAV)` in decay mode.
 
 **Short rebate** - cUSDC paid to S staked from a trading account, at an annual rate on the staked S's value of `cap × ramp`. The cap is twice the market's realised collateral yield, and the ramp rises from 0 to 1 as traders' net long averages up to half the exposure cap. The rate can be 0, and nothing promises a return. → [Short rebate](/concepts/short-rebate).
 
@@ -149,7 +157,7 @@ description: Continuum-specific terms in one place.
 
 **Venue split** - Routing by market state: committed orders while a market's price is live, and the bin books while it is stale. The instant oracle swap (`clp_swap`) was retired on 11 Oct 2026. Both venues price off the same keeper-pushed NAV.
 
-**Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ`, redeem L at P − c and S at `K / (P + c) × γ`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
+**Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ(P − c)`, redeem L at P − c and S at `K / (P + c) × γ(P + c)`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
 
 **Yield allocator** - The keeper task that decides how much of each market's collateral to lend, and where, from live mainnet venue state. Each venue's total position across all markets is capped at first-loss capital divided by the venue failures to cover (1 by default). First-loss capital is the treasury plus half of all markets' collateral above 100%. It lends only on mainnet with `COLLATERAL_YIELD_ENABLED=true`. On devnet an emulator credits the interest its plan would earn. Every live market has `yield_enabled = true` as of 11 Oct 2026, and new markets start with it true. Harvested yield is added to the market's own collateral.
 

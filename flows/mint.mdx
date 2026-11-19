@@ -11,11 +11,12 @@ Prices and amounts use 6 decimals (`1_000_000` is 1 cUSDC). Every devnet market 
 
 ```
 K        = initial_l_price * initial_s_price
-γ        = s_gamma_index / 1e9                    // short-leg volatility decay, at most 1
+γ(x)      = s_gamma_index / 1e9, or gamma_at(x)    // short-leg volatility decay at long price x, at most 1
+                                                  // gamma_at(x) in decay mode: see NAV math
 c        = oracle_confidence * state_mult / 100   // 0 when worst_case_config.enabled is false
 
 L_quote  = P + c
-S_quote  = K / (P - c) * γ
+S_quote  = K / (P - c) * γ(P - c)
 
 fee_bps  = mint_fee_bps * state_mult / 100
 fee      = collateral_amount * fee_bps / 10_000
@@ -24,9 +25,9 @@ qty_L    = (net / 2) / L_quote
 qty_S    = (net - net / 2) / S_quote
 ```
 
-Every division rounds down. Both quotes run against the user. L is priced at `P + c`, above its NAV, and S at `K / (P - c) * γ`, above its NAV too, so the user gets slightly fewer of each. `state_mult` is 150 (1.5×) in `ProxyMode`; the other states are in the [risk-state table](#behavior-across-risk-states).
+Every division rounds down. Both quotes run against the user. L is priced at `P + c`, above its NAV, and S at `K / (P - c) * γ(P - c)`, above its NAV too, so the user gets slightly fewer of each. `state_mult` is 150 (1.5×) in `ProxyMode`; the other states are in the [risk-state table](#behavior-across-risk-states).
 
-A worked example: SPY's last push before the weekend, at 20:10 UTC on 9 Oct 2026, set `P` to 778.569999 with `oracle_confidence` 0.123159 and γ 0.99854103. That gives `c` = 0.184738, an L quote of 778.754737 and an S quote of 655.818093 (S's NAV was 655.662481). At those quotes a 1,000 cUSDC mint pays a 24 bps fee of 2.40 cUSDC and receives 0.640509 SPYL and 0.760576 SPYS.
+A worked example: SPY's last push before the weekend, at 20:10 UTC on 9 Oct 2026, set `P` to 778.569999 with `oracle_confidence` 0.123159 and γ 0.99854103 (SPY's decay was keeper-posted then, so γ was the same at every price). That gives `c` = 0.184738, an L quote of 778.754737 and an S quote of 655.818093 (S's NAV was 655.662481). At those quotes a 1,000 cUSDC mint pays a 24 bps fee of 2.40 cUSDC and receives 0.640509 SPYL and 0.760576 SPYS.
 
 QQQ is the exception. As of 10 Oct 2026 its `worst_case_config.enabled` is false, so `c` is 0 and both legs are quoted at NAV. The other 12 live markets have it on (read on chain, 13 Oct 2026).
 

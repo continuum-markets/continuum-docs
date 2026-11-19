@@ -41,15 +41,28 @@ const mintRedeem = new Program(mintRedeemIdl, { connection }); // read-only: no 
 const clp = new Program(clpIdl, { connection });
 
 const GAMMA_ONE = new BN(1_000_000_000);
+const GAMMA_FLOOR = new BN(500_000_000);
+
+// γ at long price p (the program's Market::gamma_at). With decay priced by the program
+// (decay_flags bit 0) s_gamma_index is γ at the window's open and γ follows p inside the window.
+function gammaAt(market: any, p: BN): BN {
+  const open: BN = market.decayOpenPrice;
+  const gammaOpen = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+  if ((market.decayFlags & 1) === 0 || open.isZero()) return gammaOpen;
+  const diff = p.gt(open) ? p.sub(open) : open.sub(p);
+  const r = BN.min(diff.mul(GAMMA_ONE).div(open), GAMMA_ONE);
+  const g = gammaOpen.mul(GAMMA_ONE.sub(r.mul(r).div(GAMMA_ONE))).div(GAMMA_ONE);
+  return BN.max(g, BN.min(GAMMA_FLOOR, gammaOpen));
+}
 const MAX_PRICE_AGE_SECS = 300; // mint and redeem revert with TwapNotAvailable past this
 
 // Each leg's NAV in 1e6 units, rounded like the program. null while the market has no price.
-function getNav(market: any): { lNav: BN; sNav: BN } | null {
+function getNav(market: any): { lNav: BN; sNav: BN; gamma: BN } | null {
   const p: BN = market.userTwapPrice; // spot price, corporate-action adjusted
   if (p.isZero()) return null;
-  const gamma = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+  const gamma = gammaAt(market, p);
   const k = market.initialLPrice.mul(market.initialSPrice);
-  return { lNav: p, sNav: k.div(p).mul(gamma).div(GAMMA_ONE) };
+  return { lNav: p, sNav: k.div(p).mul(gamma).div(GAMMA_ONE), gamma };
 }
 
 const [marketPda] = PublicKey.findProgramAddressSync(
@@ -74,7 +87,7 @@ console.log({
   riskState,
   lNav: nav && nav.lNav.toNumber() / 1e6,
   sNav: nav && nav.sNav.toNumber() / 1e6,
-  gamma: market.sGammaIndex.toNumber() / 1e9,
+  gamma: nav && nav.gamma.toNumber() / 1e9, // γ at the stored price
   confidenceBps: nav && +((market.oracleConfidence.toNumber() / nav.lNav.toNumber()) * 10_000).toFixed(1),
   priceAgeSec,
   mintRedeemOpen: nav !== null && priceAgeSec <= MAX_PRICE_AGE_SECS && riskState !== "stress",
@@ -114,8 +127,10 @@ NAV is derived, not stored:
 
 ```
 L_NAV = P
-S_NAV = K / P * γ        // K = initial_l_price * initial_s_price, γ = s_gamma_index / 1e9
+S_NAV = K / P * γ(P)     // K = initial_l_price * initial_s_price
 ```
+
+γ(P) is `s_gamma_index / 1e9` on a market whose decay the keeper posts. On a market whose decay the program prices (`decay_flags` bit 0), `s_gamma_index` is γ at the open of the current window and γ(P) is `gamma_at(P)`, which `gammaAt` above computes (see [NAV](/concepts/nav#volatility-decay)). Reading `s_gamma_index` alone on such a market gives the short's value at the window's open price, not at P.
 
 `P` is `user_twap_price`, and `getNav` above computes both legs with the program's integer rounding. A price of 0 means the market has no price yet. Mint and redeem revert then, and the app leaves the market out. Don't fall back to the `initial_l_price` field.
 

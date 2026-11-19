@@ -1,6 +1,6 @@
 ---
 title: trading
-description: Trading accounts over the Manifest order books and the pool, plus the short rebate, with its accounts, seven instructions, events and errors, grouped by who may sign.
+description: Trading accounts over the Manifest order books and the pool, the taker fee on order-book fills, and the short rebate, with accounts, instructions, events and errors, grouped by who may sign.
 ---
 
 The trading program holds one rules account and one trader address per wallet. The wallet funds the account, and a browser trading key trades from it without a wallet prompt. The program also runs the [short rebate](/concepts/short-rebate), which pays cUSDC to S staked from a trading account.
@@ -10,7 +10,36 @@ Devnet ID: Anyy78cCJqapwvvFsignmQ45an5PCg9HfeDhDtAPNfmA
 IDL: idl/trading.json
 ```
 
-The account instructions (`open_account`, `set_session`, `deposit`, `withdraw`, `place_orders`, `swap_pool`, `commit_order` and the rest) are listed on [Trading account](/flows/trading-account#program) and [Order book](/flows/order-book). This page covers the rebate.
+The account instructions (`open_account`, `set_session`, `deposit`, `withdraw`, `place_orders`, `swap_pool`, `commit_order` and the rest) are listed on [Trading account](/flows/trading-account#program) and [Order book](/flows/order-book). This page covers the order-book fee that `place_orders` charges and the rebate.
+
+## The order-book fee
+
+`place_orders` charges a taker fee on what an order takes from a Manifest book. The rates are per market, set by the market authority with mint-redeem's `set_book_fee` (see [the rates on the Market](/programs/mint-redeem#order-book-fee)), and are 0 until set. As of CUTOVER_TBD the rates in force are CUTOVER_TBD (live and stale bps per market). Makers pay nothing, and orders placed on Manifest directly, outside this program, pay nothing.
+
+**The rate.** `place_orders` reads the market's `book_fee_stale_bps` when its price is more than 300 s old (`twap_updated_at`, the limit mint and redeem use) or was never posted, and `book_fee_live_bps` otherwise. Each is at most 50 bps. At a rate of 0 nothing below applies.
+
+**Who pays.** With a rate above 0:
+
+- A call with exactly one order, of type limit or immediate-or-cancel, and no cancels is a **taker call**. It pays `floor(quote traded with other traders × rate / 10,000)` quote atoms, taken from the trader's seat on the book and sent to the protocol treasury. A call that fills nothing pays nothing, and a self-trade pays nothing. If the seat's quote balance cannot cover the fee after the order, the call fails with `BookFeeNotCovered` and the order does not stand.
+- Any other call may only place post-only orders, and pays nothing. A call with several orders, or with a cancel, that includes a limit or immediate-or-cancel order fails with `BookFeeBatchNotPostOnly`. A client that cancels and takes in one transaction sends the cancel as its own `place_orders` instruction.
+
+The fee is not counted against a trading key's budget.
+
+**Fee accounts.** A taker call passes five more remaining accounts, after the market's `CanonicalBooks` account when a trading key signs, and before any global groups:
+
+| # | Account | Rule |
+|---|---|---|
+| 0 | Trader quote token account (writable) | An SPL Token account of the book's quote mint (cUSDC on devnet) owned by the trader PDA, normally its associated token account. The fee only passes through it |
+| 1 | Quote vault (writable) | The book's quote vault, from its header |
+| 2 | Quote mint | The book's quote mint |
+| 3 | Treasury (writable) | The CLP's global vault: the associated token account of the `GlobalClp` PDA (`[b"global_clp"]` under the CLP program) for the quote mint |
+| 4 | Token program | SPL Token |
+
+They are required for a taker call at a rate above 0 (`BookFeeAccountsMissing`). A taker call may also pass them at a rate of 0, where they are checked and no fee is taken, so a client does not need to track the rate. They are never passed on any other call. The program tells them from a global group by its first account: a 165-byte account owned by SPL Token starts the fee group, and a global group starts with a mint. A wrong account fails with `WrongBookFeeAccounts`, and a treasury other than the one above with `WrongTreasury`.
+
+**How the fill is measured.** Manifest keeps two quote-volume counters that move only when orders match, one on the market and one on each seat. The program reads both before and after the order, and the quote traded with other traders is twice the market's change minus the seat's change. It is capped by how far the seat's quote balance moved. If the counters do not fit how Manifest keeps them, the call fails with `BookFeeNotMeasured`.
+
+When a fee is paid the program emits `BookFeePaid`.
 
 ## Accounts
 
@@ -110,12 +139,13 @@ Accounts: `authority` (signer), `account`, `trader`, `mr_market`, `clp`, `rebate
 | `RebateStaked` | `owner`, `market`, `amount`, `units` |
 | `RebateUnstaked` | `owner`, `market`, `amount`, `units` |
 | `RebateClaimed` | `owner`, `market`, `amount` |
+| `BookFeePaid` | `owner`, `market` (the Manifest book), `mr_market` (the Continuum market whose rate applied), `side` (0 long, 1 short), `direction` (0 buy, 1 sell), `taker_quote`, `fee`, `rate_bps`, `session` |
 
 In `RebateRefreshed`, `exposure` is traders' net position E in cUSDC atoms (0 while the market is uncapped), and `pot_free` is the pot's cUSDC not yet committed to the index.
 
 ## Errors
 
-The rebate adds two errors to the trading program's list.
+The rebate adds two errors to the trading program's list. The order-book fee adds six, 6028 to 6033, which are in [Errors](/reference/errors#trading).
 
 | Code | Hex | Name | Raised when |
 |---|---|---|---|

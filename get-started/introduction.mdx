@@ -36,7 +36,7 @@ Long and short tokens are standard SPL tokens, so other programs and apps can us
 
 A user calls `mint_paired(collateral_amount)` on the [`mint-redeem`](/programs/mint-redeem) program. The program reads the price that the keeper last pushed to the `Market` account and takes the mint fee. It sends the deposit to the market's collateral vault, except for a dev tax of 10% of the fee. Then it mints long (`L`) and short (`S`) tokens, each worth half of the deposit after the fee.
 
-The long leg is priced at the asset price P, adjusted for any corporate action. The short leg is priced at `K / P × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index. So `L × S = K × γ`, and as one leg rises the other falls. Mint and redeem also quote each leg against the user by the oracle confidence band. This worst-case quoting is on for every market except QQQ (as of 10 Oct 2026).
+The long leg is priced at the asset price P, adjusted for any corporate action. The short leg is priced at `K / P × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index at that price. So `L × S = K × γ`, and as one leg rises the other falls. Mint and redeem also quote each leg against the user by the oracle confidence band. This worst-case quoting is on for every market except QQQ (as of 10 Oct 2026).
 
 To exit, the user calls `redeem_paired(l_amount, s_amount)` with both amounts above zero. The program burns the largest value-balanced pair inside them, leaves the rest of the larger leg in the wallet, and pays collateral at NAV, less the redeem fee. In between, both tokens trade on Continuum's own venues: committed orders while the market is open, and a bin book per leg for instant trades while it is closed. A committed order fills at NAV ± the posted commit spread (at least 10 bps), at a price pushed after the order was placed.
 
@@ -67,7 +67,7 @@ The keeper runs off-chain. It signs price pushes as each market's `keeper_author
 ## Core invariants you can rely on
 
 1. **Paired mint and redeem.** User mints always create both legs, and user redeems always burn both. The single-leg mint and redeem instructions require the keeper authority.
-2. **NAV on chain.** `L = P` and `S = K / P × γ`. γ starts at 1, and `set_s_gamma_index` rejects any write that raises it.
+2. **NAV on chain.** `L = P` and `S = K / P × γ`. γ starts at 1 and only moves down: `set_s_gamma_index` rejects any write that raises it, and on a market whose decay the program prices, γ follows the price inside the current decay window and the program's price write closes the window.
 3. **Fresh-price gate.** Mint and redeem revert with `TwapNotAvailable` when the pushed price is 0 or more than 300 s old. In the `Stress` risk state both are blocked by default.
 4. **No redemption race.** If a vault ever falls below 100% collateralized, redeem pays each holder their NAV claim times the collateral ratio, so early redeemers cannot drain it.
 

@@ -9,18 +9,18 @@ NAV (net asset value) is what each long and short token is worth in cUSDC **at t
 
 ```
 L_NAV = P
-S_NAV = K / P × γ        K = initial_l_price × initial_s_price,   γ = s_gamma_index / 1e9
+S_NAV = K / P × γ(P)     K = initial_l_price × initial_s_price
 ```
 
 `P` is `market.user_twap_price`: the last price the keeper pushed with mint-redeem `update_risk_state_v2`, scaled to 1e6. Despite its name it is a spot price, and the program has already adjusted it for [corporate actions](#corporate-actions). There is no fallback price. Mint and redeem revert with `TwapNotAvailable` if `P` is 0 or the push is more than 300 s old.
 
-γ is the short leg's volatility-decay index, between 0.5 and 1.0 (an unset index of 0 reads as 1.0). It only moves down, so the product `L_NAV × S_NAV = K·γ` falls below `K` as decay accrues. See [Volatility decay](#volatility-decay).
+γ is the short leg's volatility-decay index, between 0.5 and 1.0 (an unset index of 0 reads as 1.0). On a market whose decay the keeper posts, γ(P) is `s_gamma_index / 1e9` at every P. On a market whose decay the program prices, γ(P) depends on P: `s_gamma_index / 1e9` is γ at the open of the current decay window and `gamma_at(P)` takes it from there. Either way it only moves down between re-anchors, so the product `L_NAV × S_NAV` falls below `K` as decay accrues. See [Volatility decay](#volatility-decay). The examples below use γ = 1.
 
 `initial_l_price` and `initial_s_price` are set when a market is created, and every live market launched with the two equal. QQQ launched at 480, so `K = 480 × 480 = 230,400`. If QQQ moves 10% to 528 with γ = 1, then `S_NAV = 230,400 / 528 = 436.36`. `initial_s_price` can change later, because `reanchor_gamma` folds γ into it.
 
 ## Why constant-product
 
-The relationship `L_NAV × S_NAV = K·γ` gives the pair four properties:
+The relationship `L_NAV × S_NAV = K·γ` (with γ at that price) gives the pair four properties:
 
 1. Pair value has a floor. `L_NAV + S_NAV` is lowest where `L_NAV = S_NAV = √(K·γ)`, which is the launch price before any decay, and grows as the price moves away in either direction. It can't collapse to zero.
 2. No positioning-driven funding. A perp DEX uses funding to pay whoever holds the unpopular side. Continuum issues both legs together, and the reciprocal NAV move takes the place of that payment. The short leg still pays [volatility decay](#volatility-decay) for the pair's convexity.
@@ -82,14 +82,50 @@ A paired position has **near-zero delta** around its mint price. Its value curve
 
 ## Volatility decay
 
-All of the pair's convexity lives in the **short** leg. `L_NAV = P` is linear (`d²L/dP² = 0`), while `S_NAV = K/P` is convex (`d²S/dP² = 2K/P³ > 0`). The protocol is the counterparty to that convexity, so it is **short volatility** on the short side. The γ-index charges for it:
+All of the pair's convexity lives in the **short** leg. `L_NAV = P` is linear (`d²L/dP² = 0`), while `S_NAV = K/P` is convex (`d²S/dP² = 2K/P³ > 0`). The protocol is the counterparty to that convexity, so it is **short volatility** on the short side. The γ-index charges for it. The charge is the same payoff on every market, the short's exposure resetting to −1x of the move over each window, but **each market is on one of two paths**: the keeper posts it, or the program prices it. The market authority switches a market from one to the other with `set_decay_mode`.
+
+| | Keeper-posted | Priced by the program |
+|---|---|---|
+| Who writes γ | The keeper, with `set_s_gamma_index` | Nobody. The price write closes windows |
+| `s_gamma_index` holds | γ now, as of the last post | γ at the open of the current window |
+| γ at price P | `s_gamma_index / 1e9` | `gamma_at(P)`, a function of P |
+| Short is worth | `K / P × γ` | `S_open × (2 − P / open)` |
+| Lag | Up to the next post | None. Exact at every read |
+| `set_s_gamma_index` | Allowed | Refused (`GammaSetByPrice`, 6063) |
+| Keeper meters and posts | Yes | No |
+
+Which path a market is on is on its `Market` account (`decay_flags`, bit 0). As of CUTOVER_TBD the program prices decay on: CUTOVER_TBD (date and market list). Every other market stays keeper-posted until its authority switches it.
+
+### Priced by the program
+
+Say a decay window opened when the long price was `open` and `s_gamma_index` was γ_open. At any long price P:
 
 ```
-S_NAV = K / P × γ        γ = s_gamma_index / 1e9
+gamma_at(P) = γ_open × (1 − (P / open − 1)²)
+S_NAV       = K / P × gamma_at(P) = S_open × (2 − P / open)        S_open = K / open × γ_open
 ```
+
+So the short is worth exactly −1x of the move since the window opened: up 1% in P is down 1% of `S_open` in the short, and a move back to `open` restores it. This holds at every read, with no keeper write and no lag. Mint, redeem, their worst-case quotes at P ± c, the collateral-ratio checks, the CLP's committed fills and the trading program's rebate all call `gamma_at` at the price they value at, so they agree. Inside one window, one L plus one S is worth `P + S_open × (2 − P / open)`, which is linear in P. The 0.5 floor would stop the short following the −1x line at a move of about 71% from the open (sooner if γ_open is already below 1). The price write keeps the stored price well inside that: it moves at most 25% a call, and a second write 1% or more from the open closes the window, so after any write the stored price is within about 26% of the open.
+
+A window closes inside the keeper's price write (`update_risk_state` and `update_risk_state_v2`), in the same transaction as the price:
+
+- **Time close.** The first write 30 minutes or more after the window opened, if that write is within 1% of `open`.
+- **Confirmed close.** The second of two writes in a row that are both 1% or more from `open`. The first one only sets a flag; however long ago it was, it still counts, and a write within 1% clears it. One bad print therefore moves the short while it stands and leaves no charge once the next write corrects it. A reverting 3% print that is written once charges nothing.
+
+A close sets γ_open to `gamma_at` at the closing price and opens the next window at that price and time, so the short is continuous across the close. The program logs and emits `DecayWindowRolled` with the reason, the old and new γ and the move in bps. On average the charge costs a short nothing: it removes the convexity `K/P` would otherwise give it. It shows as a loss when the price ends near where it started and as a gain over a plain short when it trends. A replay of 20 live market series against the keeper's meter put the pooled difference in charge at −0.6 ± 6.6 bp a year, which is within noise. The replay treats 30 s samples as writes, so it is not a log of real price writes.
+
+- It stays on until the authority switches it off. `set_decay_mode(false)` folds the open window at the stored price into `s_gamma_index`, so the short at the stored price is unchanged, and bumps `gamma_epoch`.
+- `set_decay_mode(true)` opens the first window at the stored price, with `s_gamma_index` as γ_open, so the short is unchanged at the moment of the switch. It needs a stored price above zero (`DecayModeNeedsPrice`, 6064).
+- `reanchor_gamma` still works, on the same terms as below. It folds γ_open into `initial_s_price` and leaves the open window where it is.
+- It is not a funding rate. No cash moves between holders. **Long positions never pay it.**
+
+### Posted by the keeper
+
+On a market that has not been switched, the keeper meters the charge and posts it:
 
 - It is always on. The keeper posts it with `set_s_gamma_index`, and nothing turns it off: a keeper started with `CLMM_GAMMA_DECAY_ENABLED` set to any value refuses to boot. `GAMMA_DECAY_COEF` (default 1.0, which is break-even) scales the charge and must be in (0, 1], so it can't zero it either.
 - It charges realized variance and ignores direction. The keeper measures the price close to close over 30-minute windows and banks each window's squared return as decay, which makes the short leg exactly −1x of each window's move. A window also closes early, and is charged at once, when a move holds: a single tick of more than 1% that the next sample confirms, or a price that sits 1% or more from the window's open on two consecutive samples. The keeper posts when the banked total passes 2e-4, or once a day when at least 1e-6 is owed and nothing has been posted for a day. On average the charge costs a short nothing: it removes exactly the convexity `K/P` would otherwise give it. It shows as a loss when the price ends near where it started, and as a gain over a plain short when it trends.
+- Between posts the short is overvalued by the balance the keeper has banked and not yet posted. That lag is what the program-priced path removes.
 - It only ratchets down, and bad writes are rejected rather than clamped. `set_s_gamma_index` rejects a value above the current γ (`GammaMustRatchetDown`), a value outside [0.5, 1.0] (`GammaOutOfRange`), and a write computed against an old epoch (`GammaEpochMismatch`). So γ can fall by at most 50% within one epoch.
 - `reanchor_gamma` starts a new epoch. Only the market authority can call it, at least 14 days after the last one. It sets `initial_s_price` to `initial_s_price × γ` and resets γ to 1.0, which leaves every claim unchanged at every price. What it renews is the decay budget. It is not a re-anchor to the current spot price.
 - It is not a funding rate. No cash moves between holders; γ is a mark on the short token's value. An instant mint→redeem round trip at a fixed γ is unaffected, and **long positions never pay it**. The app labels it "volatility decay" on the short side.
@@ -113,12 +149,16 @@ pub struct Market {
     // ...
     pub oracle_confidence: u64,   // 1e6; absolute half-width of the confidence band
     // ... keeper authority, dev tax, yield fields, buffer_target_bps ...
-    pub s_gamma_index: u64,       // 1e9 fixed point; 0 reads as 1.0
+    pub s_gamma_index: u64,       // 1e9 fixed point; 0 reads as 1.0; γ at the window's open in decay mode
     // ...
-    pub gamma_epoch: u32,         // bumped by reanchor_gamma
+    pub gamma_epoch: u32,         // bumped by reanchor_gamma and set_decay_mode(false)
     // ...
     pub price_adjust_num: u64,    // cumulative corporate-action ratio; 0/0 reads as 1/1
     pub price_adjust_den: u64,
+    // ...
+    pub decay_open_price: u64,    // 1e6; long price at which the decay window opened; 0 = no window
+    pub decay_open_ts: i64,       // unix seconds the window opened
+    pub decay_flags: u8,          // bit 0: program prices decay; bit 1: last write was 1%+ from the open
     // ...
 }
 ```
@@ -135,10 +175,23 @@ const market = await mintRedeem.account.market.fetch(marketPDA);
 const lNav = market.userTwapPrice;
 if (lNav.isZero()) throw new Error("no price pushed yet");
 
-// Short NAV includes the γ decay index (1e9 = 1.0). An unset index (0) reads as 1.0.
+// Short NAV includes the γ decay index (1e9 = 1.0). An unset index (0) reads as 1.0. In decay mode γ depends on the price.
 const GAMMA_ONE = new BN(1_000_000_000);
-const gamma = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
-const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav).mul(gamma).div(GAMMA_ONE);
+const GAMMA_FLOOR = new BN(500_000_000);
+
+// gamma_at(P): the posted index, or in decay mode γ_open × (1 − (P / open − 1)²),
+// the program's integer steps, each rounded down.
+function gammaAt(market: any, price: BN): BN {
+  const gammaOpen = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+  const open: BN = market.decayOpenPrice;
+  if ((market.decayFlags & 1) === 0 || open.isZero()) return gammaOpen;
+  const diff = price.gt(open) ? price.sub(open) : open.sub(price);
+  const r = BN.min(diff.mul(GAMMA_ONE).div(open), GAMMA_ONE);        // |P − open| / open, 1e9
+  const charge = r.mul(r).div(GAMMA_ONE);
+  const g = gammaOpen.mul(GAMMA_ONE.sub(charge)).div(GAMMA_ONE);
+  return BN.max(g, BN.min(GAMMA_FLOOR, gammaOpen));
+}
+const sNav = market.initialLPrice.mul(market.initialSPrice).div(lNav).mul(gammaAt(market, lNav)).div(GAMMA_ONE);
 
 const fresh = Date.now() / 1000 - market.twapUpdatedAt.toNumber() <= 300;
 ```
@@ -153,8 +206,10 @@ The long NAV is linear in price (`L_NAV = P`) but the short NAV is **inverse** (
 
 | | Long leg (`L_NAV`) | Short leg (`S_NAV`) |
 |---|---|---|
-| **Mint** (user buys) | `P + c` → fewer L | `K / (P − c) × γ` is higher → fewer S |
-| **Redeem** (user sells) | `P − c` → less out | `K / (P + c) × γ` is lower → less out |
+| **Mint** (user buys) | `P + c` → fewer L | `K / (P − c) × γ(P − c)` is higher → fewer S |
+| **Redeem** (user sells) | `P − c` → less out | `K / (P + c) × γ(P + c)` is lower → less out |
+
+On a keeper-posted market `γ(P − c)` and `γ(P + c)` are the same posted γ. On a market whose decay the program prices, γ is taken at the shifted price too, as `gamma_at` of that price.
 
 A paired mint→redeem round trip therefore returns **less** than the deposit at any confidence. As of 13 Oct 2026 worst-case quoting is on for the 12 other live markets and off for QQQ, which quotes both legs at mid NAV.
 

@@ -30,7 +30,7 @@ Traders' net position E is measured at NAV from on-chain balances:
 E = (L supply − CLP-held L) · l_nav − (S supply − CLP-held S) · s_nav
 ```
 
-CLP-held for a leg is the balance of the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. A paired mint splits the deposit by value between the two legs, so it never moves E. A committed buy of L, a book buy of L and a committed sell of S back to the CLP all raise E. The reverse trades lower it. Redemptions burn a balanced pair, so they move E by less than \$1.
+`s_nav` includes γ taken at that same price: the posted γ on a keeper-posted market, and `gamma_at(price)` on a market whose decay the program prices (see [NAV](/concepts/nav#volatility-decay)). CLP-held for a leg is the balance of the pool's synth vault for that leg plus the CLP's own token account for it. E above 0 means traders are net long and the treasury is net short. A paired mint splits the deposit by value between the two legs, so it never moves E. A committed buy of L, a book buy of L and a committed sell of S back to the CLP all raise E. The reverse trades lower it. Redemptions burn a balanced pair, so they move E by less than \$1.
 
 A change ΔE is allowed when the cap is 0 or when E + ΔE stays inside [min(−cap, E), max(cap, E)]. Nobody can push E further past the cap than it already is, and a trade that shrinks it always passes, even when a price move has carried E past the cap with no trade at all.
 
@@ -280,7 +280,7 @@ Opens a committed order. It escrows `amount_in` (cUSDC for buys, synth for sells
 
 #### `settle_swap()` (`clp.authority` or `market.keeper_authority`)
 
-Fills a pending order at NAV ± `max(clp.commit_spread_bps, 10)` bps, with NAV from `Market.user_twap_price` at settle time. Any other signer fails with `SettleKeeperOnly` (6047). The keeper settles at the first push it sees after the commit, so the owner can't pick the price. It requires:
+Fills a pending order at NAV ± `max(clp.commit_spread_bps, 10)` bps, with NAV from `Market.user_twap_price` at settle time, the short leg's γ taken at that price (`gamma_at`). The quote, the exposure check and the collateral floor all use it, so on a market whose decay the program prices a short fills at `S_open × (2 − P / open)`. Any other signer fails with `SettleKeeperOnly` (6047). The keeper settles at the first push it sees after the commit, so the owner can't pick the price. It requires:
 
 - `now ≤ expires_at`, else `OrderExpired`.
 - `market.twap_updated_at > order.created_at`, else `NoFreshOraclePush`. Any push after the commit qualifies, not only the first.

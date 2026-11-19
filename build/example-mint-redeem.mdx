@@ -64,12 +64,26 @@ function stateMult(m: any, normal: number, proxy: number, stress: number, now: n
 }
 
 // Worst-case NAVs (1e6) and fee rates, computed the way mint-redeem does.
+// γ at long price x: the program's Market::gamma_at. On a market whose decay the program prices
+// (decay_flags bit 0), s_gamma_index is γ at the window's open and γ follows x inside the window.
+function gammaAt(m: any, x: bigint): bigint {
+  const g = big(m.sGammaIndex);
+  const open = g === 0n || g > ONE ? ONE : g; // 0 means unset: read as 1.0
+  const o = big(m.decayOpenPrice);
+  if ((m.decayFlags & 1) === 0 || o === 0n) return open;
+  const diff = x > o ? x - o : o - x;
+  let r = (diff * ONE) / o;
+  if (r > ONE) r = ONE;
+  const g2 = (open * (ONE - (r * r) / ONE)) / ONE;
+  const floor = open < 500_000_000n ? open : 500_000_000n;
+  return g2 > floor ? g2 : floor;
+}
+
 function quote(m: any, now: number) {
   const P = big(m.userTwapPrice);
   const K = big(m.initialLPrice) * big(m.initialSPrice);
-  const g = big(m.sGammaIndex);
-  const gamma = g === 0n || g > ONE ? ONE : g; // 0 means unset: read as 1.0
-  const sNav = (price: bigint) => ((K / price) * gamma) / ONE;
+  const gamma = gammaAt(m, P); // γ at the stored price
+  const sNav = (price: bigint) => ((K / price) * gammaAt(m, price)) / ONE; // γ at the price each quote uses
   const wc = m.worstCaseConfig;
   const c = wc.enabled
     ? (big(m.oracleConfidence) *

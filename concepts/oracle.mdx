@@ -37,6 +37,8 @@ update_risk_state_v2(new_risk_state, user_twap_price, oracle_confidence, source_
 - **`new_risk_state`** is the keeper's risk regime for the market. See [Risk states](/concepts/risk-states).
 - **`source_publish_time`** is when the source published the price. The program rejects a push whose publish time is in the future or more than 300 s old (`OraclePriceUnavailable`), and stores it as `twap_updated_at`. When the keeper can't verify the publish time it sends 0, and the program stores the current on-chain time instead.
 
+On a market whose decay the program prices, the same write also runs the decay window rule on the stored price, so a charge lands in the transaction that moves the price. See [Volatility decay](/concepts/nav#volatility-decay).
+
 Two rails bound each write:
 
 - On-chain, the program rejects any price move over 25% from the stored price in one push (`MAX_TWAP_MOVE_BPS`), so a compromised keeper key can't teleport NAV. The first push to a market is exempt.
@@ -83,7 +85,9 @@ const market = await mintRedeem.account.market.fetch(marketPDA);
 
 const lNav = market.userTwapPrice; // 1e6; 0 means no price yet
 const GAMMA_ONE = new BN(1_000_000_000);
-const gamma = market.sGammaIndex.isZero() ? GAMMA_ONE : BN.min(market.sGammaIndex, GAMMA_ONE);
+// γ at the stored price: the posted index, or in decay mode gamma_at(lNav)
+// (gammaAt is defined in NAV math → Volatility decay)
+const gamma = gammaAt(market, lNav);
 const sNav = lNav.isZero()
   ? new BN(0)
   : market.initialLPrice.mul(market.initialSPrice).div(lNav).mul(gamma).div(GAMMA_ONE);

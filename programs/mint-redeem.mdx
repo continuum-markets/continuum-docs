@@ -1,9 +1,9 @@
 ---
 title: mint-redeem
-description: The Market account, paired mint and redeem at NAV, the keeper's price and γ writes, and market administration, grouped by who can call each instruction.
+description: The Market account, paired mint and redeem at NAV, the keeper's price writes, decay priced by the program or posted by the keeper, the order-book fee rates, and market administration, grouped by who can call each instruction.
 ---
 
-The mint-redeem program holds one `Market` account per synthetic asset, mints and burns its L and S tokens, and keeps the market's collateral ledger. Users call `mint_paired` and `redeem_paired`. The keeper writes the price, the confidence band, γ and the buffer target. The market authority configures and maintains the market.
+The mint-redeem program holds one `Market` account per synthetic asset, mints and burns its L and S tokens, and keeps the market's collateral ledger. Users call `mint_paired` and `redeem_paired`. The keeper writes the price, the confidence band and the buffer target, and posts γ on every market that is not in decay mode. The market authority configures and maintains the market, switches a market's decay between the keeper-posted path and the program-priced path with `set_decay_mode`, and sets its order-book taker fee with `set_book_fee`.
 
 ```
 Devnet ID: 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
@@ -17,7 +17,7 @@ Devnet ID: 5MBjhNUUguLTPNR5WG6YBUUw7vUcxQ14ARw3NsS3rKu4
 seeds = [b"market", asset_symbol]   // raw symbol bytes, e.g. "QQQ"
 ```
 
-The account is at most 899 bytes: an 8-byte discriminator plus `Market::INIT_SPACE`, which reserves room for a 10-byte symbol and five `collateral_vaults` entries. `collateral_vaults` is a variable-length `Vec` (empty on every live market), so the fields after it have no fixed byte offsets. Decode the account with the IDL rather than reading at offsets. Devnet markets are allocated 891 bytes (10 Oct 2026); the data fits because the list is empty.
+The account is at most 976 bytes: an 8-byte discriminator plus `Market::INIT_SPACE`, which reserves room for a 10-byte symbol and five `collateral_vaults` entries. `collateral_vaults` is a variable-length `Vec` (empty on every live market), so the fields after it have no fixed byte offsets. Decode the account with the IDL rather than reading at offsets. Devnet markets are allocated 891 bytes (10 Oct 2026); the data fits because the list is empty. The decay-window and book-fee fields added by r66 take 77 more bytes and still fit, so no market needs `realloc_market` for them.
 
 Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 
@@ -58,11 +58,11 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `total_yield_harvested` | u64 | Cumulative harvested yield. |
 | `yield_enabled` | bool | Gates `deploy_collateral_to_yield` and `harvest_collateral_yield`. `initialize_market` sets it to true. It is true on all 13 live markets as of 13 Oct 2026. |
 | `buffer_target_bps` | u16 | Keeper-posted buffer over parity. The target ratio is 10,000 plus this value clamped to 100 to 5,000 bps; 0 reads as 200 (a 102% target). |
-| `s_gamma_index` | u64 | γ at 1e9 scale. 0 reads as 1.0. Moves only down, never below 0.5. |
+| `s_gamma_index` | u64 | γ at 1e9 scale. 0 reads as 1.0. Moves only down, never below 0.5, until `reanchor_gamma` resets it to 1.0. On a keeper-posted market it is γ at every price. On a market in decay mode it is γ at the open of the current decay window, and the short's γ at any price comes from `gamma_at` (see [NAV and worst-case quotes](#nav-and-worst-case-quotes)). |
 | `gamma_day_start_ts` | i64 | Start of the current γ day bucket (telemetry). |
-| `gamma_day_decay_1e9` | u64 | γ decay inside the current day bucket. Telemetry only; no cap is enforced. |
-| `gamma_last_write_ts` | i64 | Time of the last accepted γ write. |
-| `gamma_epoch` | u32 | Incremented by `reanchor_gamma`. `set_s_gamma_index` must quote it. |
+| `gamma_day_decay_1e9` | u64 | γ decay inside the current day bucket. Telemetry only; no cap is enforced. A closed decay window adds its step here too. |
+| `gamma_last_write_ts` | i64 | Time of the last accepted γ write, or of the last decay window the program closed. |
+| `gamma_epoch` | u32 | Incremented by `reanchor_gamma` and by `set_decay_mode(false)`. `set_s_gamma_index` must quote it. |
 | `reanchor_count` | u32 | Re-anchors so far. |
 | `genesis_s_price` | u64 | `initial_s_price` before the first re-anchor; 0 until one happens. |
 | `last_reanchor_ts` | i64 | Time of the last re-anchor; 0 if none. |
@@ -73,8 +73,16 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `price_adjust_pending_den` | u64 | Armed ratio, denominator. |
 | `price_adjust_effective_ts` | i64 | When the armed ratio takes effect; 0 if none is armed. |
 | `price_adjust_last_effective_ts` | i64 | Most recent units boundary. Keeper prices with an earlier source time are rejected. |
+| `decay_open_price` | u64 | Long price (1e6, stored units) at which the current decay window opened. 0 means no window: the program has never priced decay on this market. |
+| `decay_open_ts` | i64 | Chain time the current decay window opened. 0 means no window. |
+| `decay_flags` | u8 | Bit 0 (`DECAY_MODE_BIT`): the program prices decay on this market. Bit 1 (`DECAY_DEV_BIT`): the last price write sat 1% or more from the window's open, so a second such write in a row closes the window. |
+| `book_fee_live_bps` | u16 | Taker fee on order-book fills made through the trading program's `place_orders`, in bps of the quote traded, while the price is live. 0 means no fee. At most 50. |
+| `book_fee_stale_bps` | u16 | The same fee while the price is stale (see [Order-book fee](#order-book-fee)). At most 50. |
+| `reserved` | [u64; 7] | Spare room for later fields. Stays zero. |
 
-Anchor TS decodes `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `gammaDayDecay1E9` and `shortPayoffCapC1E9`; every other field is plain camelCase (`userTwapPrice`).
+Anchor TS decodes `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `gammaDayDecay1E9` and `shortPayoffCapC1E9`; every other field is plain camelCase (`userTwapPrice`, `decayOpenPrice`, `bookFeeLiveBps`).
+
+All six r66 fields read as zero on a market that has never been switched, which means no decay mode and no fee. A market that was never switched prices its short exactly as before.
 
 ### RedemptionRequest
 
@@ -116,15 +124,36 @@ In `ProxyMode`, `Stress` and `Recovery`, mint and redeem price from `user_twap_p
 
 ### NAV and worst-case quotes
 
-With P the price above, L = P and S = K / P × γ, where K = `initial_l_price × initial_s_price` and γ = `s_gamma_index` / 1e9.
+With P the price above, L = P and S = K / P × γ(P), where K = `initial_l_price × initial_s_price`. γ(P) is the program's `Market::gamma_at(P)`:
 
-Mint and redeem quote each leg against the user. Let c be `oracle_confidence` times the state's confidence multiplier: 1.5× in `ProxyMode`, 3× in `Stress`, 1× in `Normal`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). A mint prices L at P + c and S at K / (P − c) × γ. A redeem prices L at P − c and S at K / (P + c) × γ. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 10 Oct 2026 it is off on QQQ.
+- **Keeper-posted market** (decay mode off): γ(P) = `s_gamma_index` / 1e9 at every P, as before.
+- **Market in decay mode** (`decay_flags` bit 0 set, `decay_open_price` above 0): γ(P) = γ_open × (1 − (P / open − 1)²), with γ_open = `s_gamma_index` / 1e9 and open = `decay_open_price`. It never rises above γ_open and is held at 0.5 at the lowest. While the floor does not bind, the short is worth S_open × (2 − P / open), where S_open = K / open × γ_open: exactly −1x of the move since the window opened, at every read and at any P, with no keeper write.
+
+Every place the program values the short at a price passes that price to `gamma_at`, not the stored price: the mint and redeem NAVs, the worst-case quotes below, the collateral-ratio checks and the keeper's rebalance check. The CLP's committed-order settle and exposure checks and the trading program's rebate use it too.
+
+Mint and redeem quote each leg against the user. Let c be `oracle_confidence` times the state's confidence multiplier: 1.5× in `ProxyMode`, 3× in `Stress`, 1× in `Normal`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). A mint prices L at P + c and S at K / (P − c) × γ(P − c). A redeem prices L at P − c and S at K / (P + c) × γ(P + c). On a keeper-posted market γ is the same at both. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 10 Oct 2026 it is off on QQQ.
 
 ### Fees
 
 The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). No waiver or discount applies, and donating earns none. The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
 
 The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account, the treasury on every live market since 12 Oct 2026. The rest stays in the vault and counts in `total_collateral`.
+
+### Decay windows
+
+In decay mode the price write closes decay windows. `update_risk_state` and `update_risk_state_v2` both run the rule after they store the price, in the same transaction, so a charge lands with the price that causes it. Let open be `decay_open_price`, and let a write be a deviation when it sits 1% or more from open. A window closes:
+
+- on the first write 30 minutes (1,800 s) or more after `decay_open_ts`, if that write is not a deviation. This is the time close.
+- on the second of two writes in a row that are both deviations. This is the confirmed close. The first deviation only sets bit 1 of `decay_flags`. However long ago the previous write was, a flag it set still counts. A write that is not a deviation clears the flag. A single bad print therefore moves the short while it stands and leaves no charge behind once the next write corrects it.
+
+A write 1% or more from open never closes a window by the time rule.
+A close folds the move into γ: `s_gamma_index` becomes γ at the price of the closing write, `decay_open_price` and `decay_open_ts` become that price and the chain time, and the flag clears. Each step rounds down: with r = |P − open| × 1e9 / open (capped at 1e9), charge = r² / 1e9 and γ = γ_open × (1e9 − charge) / 1e9. The close emits `DecayWindowRolled` and adds its step to the γ day telemetry. The keeper does not push while a market is closed, so no window closes then.
+
+Because every read uses `gamma_at(P)`, a window that is still open already charges: the short at any price is S_open × (2 − P / open), and closing it only moves the open to the new price. The price write does not require a source time newer than the stored one, only one that is not in the future, within 300 s and after the latest corporate-action boundary, so an older print inside those limits counts as a write.
+
+### Order-book fee
+
+The trading program charges a taker fee on order-book fills routed through its `place_orders`, at the rates stored on the Market: `book_fee_live_bps` while the price is live and `book_fee_stale_bps` when it is not. The price counts as stale when `user_twap_price` is 0 or `twap_updated_at` is more than 300 s old, the same limit that mint and redeem use. Each rate is at most 50 bps (`MAX_BOOK_FEE_BPS`), and both are 0 until the market authority sets them with `set_book_fee`. The fee itself is taken and sent in the trading program; see [the trading program](/programs/trading#the-order-book-fee) and [the order book](/flows/order-book#taker-fee).
 
 ### Limits
 
@@ -181,11 +210,11 @@ Burns L or S from the signer's own token account with no payout, which lowers th
 
 #### `update_risk_state_v2(new_risk_state: RiskState, user_twap_price: u64, oracle_confidence: u64, source_publish_time: i64)`
 
-The keeper's price write. It maps the price and the confidence through the corporate-action ratio, then stores them with the risk state and sets `twap_updated_at` to `source_publish_time`. It rejects a source time in the future, more than 300 s old or before the latest corporate-action boundary. It also rejects a price of 0, a move of more than 25% from the stored price, and any move out of `Stress` except to `Recovery`. `update_risk_state(new_risk_state, user_twap_price, oracle_confidence)` does the same without a source time and stamps `twap_updated_at` with the chain time.
+The keeper's price write. It maps the price and the confidence through the corporate-action ratio, then stores them with the risk state and sets `twap_updated_at` to `source_publish_time`. It rejects a source time in the future, more than 300 s old or before the latest corporate-action boundary. It also rejects a price of 0, a move of more than 25% from the stored price, and any move out of `Stress` except to `Recovery`. On a market in decay mode it then runs the [decay window rule](#decay-windows) on the stored price. `update_risk_state(new_risk_state, user_twap_price, oracle_confidence)` does the same without a source time and stamps `twap_updated_at` with the chain time.
 
 #### `set_s_gamma_index(params: SetGammaParams)`
 
-`SetGammaParams { s_gamma_index: u64, expected_epoch: u32 }` posts γ at 1e9 scale. Bad writes are rejected, never clamped: a value outside 0.5 to 1.0 (`GammaOutOfRange`), a value above the current γ (`GammaMustRatchetDown`), or an `expected_epoch` other than `gamma_epoch` (`GammaEpochMismatch`). There is no per-write or per-day cap. γ is always on; the keeper refuses to boot if `CLMM_GAMMA_DECAY_ENABLED` is set.
+`SetGammaParams { s_gamma_index: u64, expected_epoch: u32 }` posts γ at 1e9 scale. Bad writes are rejected, never clamped: a value outside 0.5 to 1.0 (`GammaOutOfRange`), a value above the current γ (`GammaMustRatchetDown`), or an `expected_epoch` other than `gamma_epoch` (`GammaEpochMismatch`). There is no per-write or per-day cap. A market in decay mode refuses it with `GammaSetByPrice` (6063), because every price write already charges decay and a keeper post on top would charge the same move twice. The keeper does not send it for such a market. On every other market γ is always on; the keeper refuses to boot if `CLMM_GAMMA_DECAY_ENABLED` is set.
 
 #### `set_buffer_target(buffer_target_bps: u16)`
 
@@ -245,6 +274,21 @@ Sets `yield_ceiling_bps` (at most 10,000) and `yield_enabled`.
 
 Folds γ into the short anchor: `initial_s_price` becomes `floor(initial_s_price × γ)`, γ resets to 1.0 and `gamma_epoch` goes up by one. Every holder's claim stays the same at every price; the fold only resets how far γ can still fall. It does not reset the anchor to the spot price. Calls must be at least 14 days apart. Emits `GammaReanchored`. As of 10 Oct 2026 no market has been re-anchored.
 
+In decay mode the γ it folds is `s_gamma_index`, which is γ at the window's open. The window itself is left as it is, with its open price and time, and γ at its open becomes 1.0 on the new anchor, so the short is unchanged at every price the 0.5 floor does not bind. It does not fold the decay the open window has accrued since it opened; that is folded when the window closes.
+
+#### `set_decay_mode(enabled: bool)`
+
+Switches decay priced by the program on or off for this market. Accounts: `market`, `authority` (signer). Both directions are idempotent: a repeat changes nothing, and `DecayModeSet` reports `changed = false`.
+
+- **On** needs a stored price above zero (`DecayModeNeedsPrice`, 6064). The window opens at the stored price and now, the deviation bit is clear and `s_gamma_index` is read as γ at the open, so the short at the stored price is worth what it was a moment before. From then on every keeper price write runs the [window rule](#decay-windows) and `set_s_gamma_index` is refused.
+- **Off** folds the open window at the stored price into `s_gamma_index`, clears the mode bit, the window and the deviation bit, and bumps `gamma_epoch`, so a keeper post computed before the fold cannot land after it. The short at the stored price is again unchanged. The fold emits `DecayWindowRolled` with reason 2.
+
+`DecayModeSet` carries the short's NAV at the stored price before and after the switch, equal by construction. The decay mode is per market; a market that is not switched behaves exactly as before.
+
+#### `set_book_fee(params: SetBookFeeParams)`
+
+`SetBookFeeParams { live_bps: u16, stale_bps: u16 }` sets the taker fee rates the trading program charges on this market's order-book fills, in bps of the quote traded. Each must be at most 50 (`BookFeeTooHigh`, 6065). Both are 0 on a market that has never set them, which means no fee. Accounts: `market`, `authority` (signer). Emits `BookFeeSet` with the old and new rates. See [Order-book fee](#order-book-fee).
+
 #### `apply_corporate_action(params: CorporateActionParams)`
 
 `CorporateActionParams { ratio_num, ratio_den, effective_ts }`, as new shares to old shares (a 2-for-1 split is 2:1). It folds the ratio into `price_adjust_num` and `price_adjust_den` and touches no price, supply or collateral. From then on each incoming keeper price is multiplied by the ratio before it is stored, which keeps P continuous across the split. An `effective_ts` at or before now applies immediately. A later time, up to 400 days ahead, arms the ratio for the ex-date; only one action can be armed at a time. Ratios beyond 1,000:1 are rejected. Emits `CorporateActionApplied`. As of 10 Oct 2026 no action is armed.
@@ -279,7 +323,7 @@ Creates Metaplex metadata for the market's L or S mint. The Market PDA signs as 
 
 #### `realloc_market()`
 
-Grows a `Market` account to 899 bytes after an upgrade that adds fields, with the signer paying the extra rent. It checks the owner, the discriminator and the `authority` stored at bytes 8 to 40. An account that is already large enough is left alone.
+Grows a `Market` account to 976 bytes after an upgrade that adds fields, with the signer paying the extra rent. It checks the owner, the discriminator and the `authority` stored at bytes 8 to 40. An account that is already large enough is left alone.
 
 #### `close_market_admin()`
 
@@ -313,6 +357,9 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 | Event | Emitted by | Fields |
 |---|---|---|
 | `PairedActionExecuted` | every paired mint and redeem, including the CLP's CPI calls | `user`, `market`, `collateral_mint`, `long_mint`, `short_mint`, `action` (0 mint, 1 redeem), `is_keeper`, `collateral_amount` (paid in or out), `gross_collateral_amount` (before the fee), `long_amount`, `short_amount`, `fee_amount`, `dev_tax`, `long_decimals`, `short_decimals` |
+| `DecayWindowRolled` | a keeper price write that closes a decay window, and `set_decay_mode(false)` | `market`, `reason` (0 the clock closed it near its open, 1 a second write in a row 1% or more from the open, 2 mode switched off), `old_gamma`, `new_gamma` (γ at the old and the new open, 1e9), `old_open_price`, `old_open_ts`, `price` (the closing price), `move_bps` (`price` against `old_open_price`, signed), `ts` |
+| `DecayModeSet` | `set_decay_mode` | `market`, `enabled`, `changed` (false for a repeat), `gamma_open`, `open_price`, `price`, `short_nav_before`, `short_nav_after`, `gamma_epoch`, `ts` |
+| `BookFeeSet` | `set_book_fee` | `market`, `old_live_bps`, `old_stale_bps`, `live_bps`, `stale_bps` |
 | `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
 | `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
 | `CollateralFunded` | `fund_collateral` and `fund_collateral_from` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |
@@ -328,7 +375,7 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 
 ## Errors
 
-mint-redeem errors run from 6000 to 6062. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Codes 6053 to 6059 come from the redemption requests and the treasury advance, and 6060 to 6062 from the exposure cap. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
+mint-redeem errors run from 6000 to 6065. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Codes 6053 to 6059 come from the redemption requests and the treasury advance, 6060 to 6062 from the exposure cap, and 6063 to 6065 from decay priced by the program and the order-book fee. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
 
 ## TypeScript
 
@@ -351,7 +398,12 @@ const market = await program.account.market.fetch(marketPda);
 
 const p = market.userTwapPrice.toNumber() / 1e6; // L NAV in cUSDC
 const k = (market.initialLPrice.toNumber() / 1e6) * (market.initialSPrice.toNumber() / 1e6);
-const gamma = market.sGammaIndex.isZero() ? 1 : market.sGammaIndex.toNumber() / 1e9;
+const gammaOpen = market.sGammaIndex.isZero() ? 1 : market.sGammaIndex.toNumber() / 1e9;
+// gamma at the stored price: the posted index, or in decay mode the window formula
+const inDecayMode = (market.decayFlags & 1) !== 0 && !market.decayOpenPrice.isZero();
+const r = inDecayMode ? market.userTwapPrice.toNumber() / market.decayOpenPrice.toNumber() - 1 : 0;
+// float approximation of the program's integer steps
+const gamma = Math.max(inDecayMode ? gammaOpen * (1 - r * r) : gammaOpen, Math.min(0.5, gammaOpen));
 const age = Math.floor(Date.now() / 1000) - market.twapUpdatedAt.toNumber();
 
 console.log("risk state:", Object.keys(market.riskState)[0]);

@@ -52,6 +52,8 @@ A trade draws on the account first. A book order uses that book's seat first, th
 
 After a fill, proceeds stay in the account, ready for the next trade. A committed order that can't fill is refunded to the account.
 
+An order that takes from the [order book](/flows/order-book#taker-fee) pays the market's taker fee out of the seat, if the market has one set. The fee does not count against the key's budget.
+
 ## Staking S for the rebate
 
 The [short rebate](/concepts/short-rebate) pays cUSDC to S that is staked from your trading account. S in your wallet, in a book seat or in the account's token account earns nothing until it is staked.
@@ -104,7 +106,7 @@ One cost never comes back: each book seat, and each book slot an order once need
 | `withdraw_sol` | Owner | Trader's rent SOL → owner |
 | `close_account` | Owner | Closes the empty token accounts and the rules account, and sends their rent and the trader's SOL to the owner |
 | `claim_seat`, `deposit_to_market`, `withdraw_from_market` | Owner or key | Manifest seats. For a key, `claim_seat` takes the market's `CanonicalBooks` account as `remaining[0]` |
-| `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market. A key must pass the rules account as writable, and the market's `CanonicalBooks` account as the first remaining account |
+| `place_orders` | Owner or key | Manifest orders and cancels; up to two global groups (mint, global, global vault, market vault, token program) as remaining accounts, each checked against the market. A key must pass the rules account as writable, and the market's `CanonicalBooks` account as the first remaining account. While the market's [book fee](/programs/trading#the-order-book-fee) rate is above zero, a call that takes from the book is one limit or immediate-or-cancel order with no cancels and passes five fee accounts after the `CanonicalBooks` account and before any global group; any other call may only place post-only orders |
 | `swap_pool` | Owner or key | The CLP's `pool_swap` from the account. On a capped market, pass the pool long and short synth vaults and the CLP's long and short token accounts as remaining accounts; `swap_pool` hands them on to `pool_swap` for the [exposure cap](/flows/trade#exposure-cap). A key must pass the rules account as writable |
 | `commit_order` | Owner or key | The CLP's `commit_swap` from the account; the order's owner is the trader address. A key must pass the rules account as writable |
 | `open_rebate_position` | Anyone | Opens the account's [rebate position](/programs/trading#open_rebate_position) for a market |

@@ -10,7 +10,8 @@ Mint, redeem and committed orders all price from the market's `Market` account i
 | `user_twap_price` | 1e6 | The reference price P. |
 | `twap_updated_at` | Unix seconds | When the keeper last wrote P. Mint and redeem revert 300 s after it. |
 | `oracle_confidence` | 1e6 | The confidence band, before the risk-state multiplier. |
-| `s_gamma_index` | 1e9 | γ, the volatility decay on the short leg. 0 means unset and reads as 1.0. |
+| `s_gamma_index` | 1e9 | γ, the volatility decay on the short leg. 0 means unset and reads as 1.0. On a market whose decay the program prices it is γ at the open of the current decay window, not γ at P. |
+| `decay_open_price`, `decay_flags` | 1e6, bit field | The open price of the current decay window, and bit 0 set when the program prices decay. See `gammaAt` below. |
 | `initial_l_price`, `initial_s_price` | 1e6 | Their product is the constant K. |
 | `worst_case_config`, `risk_fee_config`, `risk_state` | | Confidence and fee multipliers, and the current risk state. |
 
@@ -64,12 +65,26 @@ function stateMult(m: any, normal: number, proxy: number, stress: number, now: n
   return BigInt(stress - Math.floor(((stress - normal) * t) / 3600));
 }
 
+// γ at long price x: the program's Market::gamma_at. On a market whose decay the program prices
+// (decay_flags bit 0), s_gamma_index is γ at the window's open and γ follows x inside the window.
+function gammaAt(m: any, x: bigint): bigint {
+  const g = big(m.sGammaIndex);
+  const open = g === 0n || g > ONE ? ONE : g; // 0 means unset: read as 1.0
+  const o = big(m.decayOpenPrice);
+  if ((m.decayFlags & 1) === 0 || o === 0n) return open;
+  const diff = x > o ? x - o : o - x;
+  let r = (diff * ONE) / o;
+  if (r > ONE) r = ONE;
+  const g2 = (open * (ONE - (r * r) / ONE)) / ONE;
+  const floor = open < 500_000_000n ? open : 500_000_000n;
+  return g2 > floor ? g2 : floor;
+}
+
 function prices(m: any, now: number) {
   const P = big(m.userTwapPrice); // 1e6, corporate-action adjusted
   const K = big(m.initialLPrice) * big(m.initialSPrice);
-  const g = big(m.sGammaIndex);
-  const gamma = g === 0n || g > ONE ? ONE : g; // 0 means unset: read as 1.0
-  const sNav = (p: bigint) => ((K / p) * gamma) / ONE;
+  const gamma = gammaAt(m, P); // γ at the stored price
+  const sNav = (p: bigint) => ((K / p) * gammaAt(m, p)) / ONE; // γ at the price each quote uses
   const wc = m.worstCaseConfig;
   const mult = stateMult(m, wc.normalConfidenceMultiplier, wc.proxyConfidenceMultiplier,
     wc.stressConfidenceMultiplier, now);
@@ -101,7 +116,7 @@ for (let i = 0; i < symbols.length; i++) {
 }
 ```
 
-Output on Saturday 10 Oct 2026 at 19:32 UTC. The underlying markets were closed, so every price was stale:
+Output on Saturday 10 Oct 2026 at 19:32 UTC, when every market's decay was keeper-posted. The underlying markets were closed, so every price was stale:
 
 ```
 QQQ  proxyMode  age 83828s  fresh false

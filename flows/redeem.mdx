@@ -23,7 +23,7 @@ Before 14 Oct 2026 a lopsided offer was burned as sent. That made it an instant 
 
 ```
 L_quote  = P - c
-S_quote  = K / (P + c) * γ
+S_quote  = K / (P + c) * γ(P + c)
 gross    = l_amount * L_quote + s_amount * S_quote     // must be at least 10 cUSDC
 payout   = min(gross, gross * total_collateral / total_claims)
 
@@ -32,7 +32,7 @@ fee      = payout * fee_bps / 10_000
 return   = payout - fee
 ```
 
-`P`, `c`, `K`, γ and `state_mult` mean the same as on [Mint](/flows/mint#math): the spot price, the confidence band, the constant product, the short-leg decay and the risk-state multiplier (1.5× in `ProxyMode`). The quotes run against the user again: L is priced below its NAV at `P - c`, and S below its NAV at `K / (P + c) * γ`. Every division rounds down.
+`P`, `c`, `K`, γ and `state_mult` mean the same as on [Mint](/flows/mint#math): the spot price, the confidence band, the constant product, the short-leg decay and the risk-state multiplier (1.5× in `ProxyMode`). γ(x) is the decay at long price x: the posted γ on a keeper-posted market, and `gamma_at(x)` on a market whose decay the program prices. The quotes run against the user again: L is priced below its NAV at `P - c`, and S below its NAV at `K / (P + c) * γ(P + c)`. Every division rounds down.
 
 `total_claims` values every outstanding L and S at the same quotes. While the vault holds at least that much, `payout` equals `gross`. If it holds less, every redeemer gets the same pro-rata share (see [below](#under-collateralization-pro-rata-redemption)). The fee is charged on `payout`.
 

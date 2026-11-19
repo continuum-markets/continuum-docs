@@ -19,7 +19,7 @@ The CLP's own inventory is never in a trading account, so it never earns.
 
 ## How much
 
-The rebate accrues continuously on the value of the staked S, at an annual rate:
+The rebate accrues continuously on the value of the staked S, at an annual rate. The value is S's NAV at the market's stored price, with γ taken at that price. That is the posted γ on a keeper-posted market and `gamma_at` of the stored price on a market whose decay the program prices (see [NAV](/concepts/nav#volatility-decay)):
 
 ```
 rate = cap × ramp

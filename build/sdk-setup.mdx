@@ -202,7 +202,7 @@ Mint and redeem need the user's cUSDC, L and S token accounts and the fee recipi
 
 ### Decimals
 
-cUSDC, L and S use 6 decimals, and prices in `Market` are scaled to 1e6. `s_gamma_index` (γ) is scaled to 1e9, and so are the prices in the oracle program's `OracleConfig`. Divide by the right power of ten before display, and multiply by `10 ** 6` when you build token amounts.
+cUSDC, L and S use 6 decimals, and prices in `Market` are scaled to 1e6. `s_gamma_index` (γ) is scaled to 1e9, `decay_open_price` like the other `Market` prices to 1e6, and so are the prices in the oracle program's `OracleConfig`. Divide by the right power of ten before display, and multiply by `10 ** 6` when you build token amounts.
 
 ## See also
 
