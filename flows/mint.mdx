@@ -13,21 +13,24 @@ Prices and amounts use 6 decimals (`1_000_000` is 1 cUSDC). Every devnet market 
 K        = initial_l_price * initial_s_price
 γ(x)      = s_gamma_index / 1e9, or gamma_at(x)    // short-leg volatility decay at long price x, at most 1
                                                   // gamma_at(x) in decay mode: see NAV math
-c        = oracle_confidence * state_mult / 100   // 0 when worst_case_config.enabled is false
+c        = oracle_confidence * band_sigmas_x100 * isqrt(age * 1_000_000 / band_horizon_secs) / 100_000
+                                                  // band rule on; age = now - the price's stamp, at least 0
+                                                  // rule off (both band fields 0): oracle_confidence * state_mult / 100
+                                                  // 0 when worst_case_config.enabled is false
 
 L_quote  = P + c
 S_quote  = K / (P - c) * γ(P - c)
 
-fee_bps  = mint_fee_bps * state_mult / 100
+fee_bps  = mint_fee_bps * fee_mult / 100          // fee_mult is 100 on every live market
 fee      = collateral_amount * fee_bps / 10_000
 net      = collateral_amount - fee
 qty_L    = (net / 2) / L_quote
 qty_S    = (net - net / 2) / S_quote
 ```
 
-Every division rounds down. Both quotes run against the user. L is priced at `P + c`, above its NAV, and S at `K / (P - c) * γ(P - c)`, above its NAV too, so the user gets slightly fewer of each. `state_mult` is 150 (1.5×) in `ProxyMode`; the other states are in the [risk-state table](#behavior-across-risk-states).
+Every division rounds down. Both quotes run against the user. L is priced at `P + c`, above its NAV, and S at `K / (P - c) * γ(P - c)`, above its NAV too, so the user gets slightly fewer of each. `isqrt` is the integer square root, rounded down. `age` is the chain time now minus the price's own stamp, `twap_updated_at`, floored at 0. Since 20 Nov 2026 every live market has `band_sigmas_x100` 200 and `band_horizon_secs` 30, so `c` is `oracle_confidence` × 2 × sqrt(age / 30 s): 1.414× at 15 s, 2× at 30 s and 4× at 120 s. The risk state plays no part in `c`. `state_mult` applies only to a market whose band fields are both 0, and `fee_mult` is the multiplier stored for the current state in `risk_fee_config`. The reasoning is on [Risk states](/concepts/risk-states#fee-and-price-band).
 
-A worked example: SPY's last push before the weekend, at 20:10 UTC on 9 Oct 2026, set `P` to 778.569999 with `oracle_confidence` 0.123159 and γ 0.99854103 (SPY's decay was keeper-posted then, so γ was the same at every price). That gives `c` = 0.184738, an L quote of 778.754737 and an S quote of 655.818093 (S's NAV was 655.662481). At those quotes a 1,000 cUSDC mint pays a 24 bps fee of 2.40 cUSDC and receives 0.640509 SPYL and 0.760576 SPYS.
+A worked example, from before the 20 Nov 2026 change, when `c` was `oracle_confidence` × 1.5 and the fee was 1.5× the posted fee: SPY's last push before the weekend, at 20:10 UTC on 9 Oct 2026, set `P` to 778.569999 with `oracle_confidence` 0.123159 and γ 0.99854103 (SPY's decay was keeper-posted then, so γ was the same at every price). That gives `c` = 0.184738, an L quote of 778.754737 and an S quote of 655.818093 (S's NAV was 655.662481). At those quotes a 1,000 cUSDC mint pays a 24 bps fee of 2.40 cUSDC and receives 0.640509 SPYL and 0.760576 SPYS.
 
 QQQ is the exception. As of 10 Oct 2026 its `worst_case_config.enabled` is false, so `c` is 0 and both legs are quoted at NAV. The other 12 live markets have it on (read on chain, 13 Oct 2026).
 
@@ -35,7 +38,7 @@ QQQ is the exception. As of 10 Oct 2026 its `worst_case_config.enabled` is false
 
 The keeper posts one fee per market and writes it to both `mint_fee_bps` and `redeem_fee_bps`. The value is `clamp(fee_mult × half-spread, 10, 100)` bps. The half-spread comes from the keeper's volatility model for that market, and `fee_mult` defaults to 1.0. As of 13 Oct 2026 the posted fees on the 13 live markets run from 10 bps (EUR, GBP, JPY) to 39 bps (TSLA); QQQ posts 18 bps, SPY 16 and NVDA 31.
 
-The program multiplies the posted fee by the risk-state multiplier. In `ProxyMode`, which every devnet market is in, that is 1.5×, so QQQ's 18 bps is charged as 27 bps. The multiplier never lowers a fee.
+The program multiplies the posted fee by the multiplier stored for the risk state. Since 20 Nov 2026 that multiplier is 1× in every state on every live market, so a posted 18 bps is charged as 18 bps. The multiplier never lowers a fee.
 
 The dev tax, `fee × dev_tax_pct / 100`, goes to the fee recipient; `dev_tax_pct` is 10 on every market (10 Oct 2026). Since 12 Oct 2026 every live market's fee recipient is the treasury → [Addresses → Fee recipient](/reference/addresses#fee-recipient). The other 90% of the fee stays in the collateral vault and counts toward `total_collateral`, where it backs the market. Nothing waives or discounts it, and donating to a vault earns no waiver.
 
@@ -142,14 +145,14 @@ See the [full error catalog](/reference/errors).
 
 ## Behavior across risk states
 
-| Risk state | Price | Fee and confidence multiplier | Mint |
+| Risk state | Price | Mint |
 |---|---|---|---|
-| `Normal` | The market's oracle account | 1× | Allowed |
-| `ProxyMode` (every devnet market) | `user_twap_price`, at most 300 s old | 1.5× | Allowed |
-| `Stress` | `user_twap_price`, at most 300 s old | 3× | Blocked by default |
-| `Recovery` | `user_twap_price`, at most 300 s old | Falls linearly from 3× to 1× over the hour after `risk_state_updated_at` | Allowed |
+| `Normal` | The market's oracle account | Allowed |
+| `ProxyMode` (every devnet market) | `user_twap_price`, at most 300 s old | Allowed |
+| `Stress` | `user_twap_price`, at most 300 s old | Blocked by default |
+| `Recovery` | `user_twap_price`, at most 300 s old | Allowed |
 
-These multipliers are surcharges. No state discounts the fee, and there is no size throttle outside `Stress`. `risk_state_updated_at` changes only when the state does, so the `Recovery` multiplier keeps falling while the keeper pushes prices. See [Risk states](/concepts/risk-states).
+The state picks the price and whether mint is open. It does not change the fee or the band: the fee is the posted fee and the band follows the age of the price. There is no size throttle outside `Stress`. See [Risk states](/concepts/risk-states).
 
 ## What you receive
 

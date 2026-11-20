@@ -9,11 +9,12 @@ Mint, redeem and committed orders all price from the market's `Market` account i
 |---|---|---|
 | `user_twap_price` | 1e6 | The reference price P. |
 | `twap_updated_at` | Unix seconds | When the keeper last wrote P. Mint and redeem revert 300 s after it. |
-| `oracle_confidence` | 1e6 | The confidence band, before the risk-state multiplier. |
+| `oracle_confidence` | 1e6 | The confidence band, before the age rule or the multiplier. |
 | `s_gamma_index` | 1e9 | γ, the volatility decay on the short leg. 0 means unset and reads as 1.0. On a market whose decay the program prices it is γ at the open of the current decay window, not γ at P. |
 | `decay_open_price`, `decay_flags` | 1e6, bit field | The open price of the current decay window, and bit 0 set when the program prices decay. See `gammaAt` below. |
 | `initial_l_price`, `initial_s_price` | 1e6 | Their product is the constant K. |
-| `worst_case_config`, `risk_fee_config`, `risk_state` | | Confidence and fee multipliers, and the current risk state. |
+| `band_sigmas_x100`, `band_horizon_secs` | | The price band rule: standard deviations times 100 and the horizon in seconds. Both 0 means off. |
+| `worst_case_config`, `risk_fee_config`, `risk_state` | | The old confidence multipliers (used only when the band rule is off), the fee multipliers, and the current risk state. |
 
 Despite its name, `user_twap_price` is a spot price, not a time-weighted average. The keeper writes it with mint-redeem's `update_risk_state_v2`, already adjusted for corporate actions, and the same call stamps `twap_updated_at`.
 
@@ -26,14 +27,14 @@ L NAV = P
 S NAV = K / P × γ        where K = initial_l_price × initial_s_price
 ```
 
-Mint and redeem don't trade at NAV. They quote each leg against the user, with c = `oracle_confidence` × the confidence multiplier for the current risk state:
+Mint and redeem don't trade at NAV. They quote each leg against the user, with c = `oracle_confidence` × `band_sigmas_x100` / 100 × sqrt(age / `band_horizon_secs`), where `age` is the seconds since `twap_updated_at`:
 
 | | L | S |
 |---|---|---|
 | Mint (the user pays) | P + c | K / (P − c) × γ |
 | Redeem (the user receives) | P − c | K / (P + c) × γ |
 
-The multipliers live in `worst_case_config`: 1× in Normal, 1.5× in ProxyMode and 3× in Stress. In Recovery the multiplier falls from 3× to 1× over one hour. Every devnet market runs in ProxyMode. When `worst_case_config.enabled` is false, c is 0 and both legs trade at NAV; as of 10 Oct 2026 that is true for QQQ only. Fees are separate and use `risk_fee_config` (see [Mint and redeem example](/build/example-mint-redeem)).
+The risk state plays no part in c. Since 20 Nov 2026 every live market has `band_sigmas_x100` 200 and `band_horizon_secs` 30, so c is 2 × `oracle_confidence` at a price 30 s old and 4 × at 120 s. A price read the second it was stamped has no band. If both band fields are 0, the old rule applies: c is `oracle_confidence` times a multiplier from `worst_case_config`, 1× in Normal, 1.5× in ProxyMode and 3× in Stress, falling from 3× to 1× over one hour in Recovery. When `worst_case_config.enabled` is false, c is 0 and both legs trade at NAV; as of 10 Oct 2026 that is true for QQQ only. Fees are separate and use `risk_fee_config`, which is 1× in every state on every live market (see [Mint and redeem example](/build/example-mint-redeem)).
 
 ## Sample
 
@@ -54,7 +55,7 @@ const mintRedeem: any = new Program(idl, { connection }); // fetched IDL: untype
 const big = (x: { toString(): string }) => BigInt(x.toString());
 const fmt = (x: bigint) => (Number(x) / 1e6).toFixed(6);
 
-// Risk-state multiplier in percent (150 = 1.5x). Recovery falls linearly
+// Stored multiplier for the current state, in percent (100 = 1x). Recovery falls linearly
 // from the Stress value to the Normal value over one hour.
 function stateMult(m: any, normal: number, proxy: number, stress: number, now: number) {
   const state = Object.keys(m.riskState)[0];
@@ -63,6 +64,33 @@ function stateMult(m: any, normal: number, proxy: number, stress: number, now: n
   if (state === "stress") return BigInt(stress);
   const t = Math.min(Math.max(now - m.riskStateUpdatedAt.toNumber(), 0), 3600);
   return BigInt(stress - Math.floor(((stress - normal) * t) / 3600));
+}
+
+// Integer square root, rounded down.
+function isqrt(n: bigint): bigint {
+  if (n < 2n) return n;
+  let x = n;
+  let y = (x + 1n) / 2n;
+  while (y < x) { x = y; y = (x + n / x) / 2n; }
+  return x;
+}
+
+// Price band c (1e6). With the band rule on (both band fields above 0), c grows with the
+// age of the price and the risk state plays no part. With it off, the old multiplier applies.
+function band(m: any, now: number): bigint {
+  // An older IDL has no band fields: they sit in the low 32 bits of reserved[0].
+  const w = big(m.reserved[0]);
+  const sigmas = m.bandSigmasX100 !== undefined ? big(m.bandSigmasX100) : w & 0xffffn;
+  const horizon = m.bandHorizonSecs !== undefined ? big(m.bandHorizonSecs) : (w >> 16n) & 0xffffn;
+  const conf = big(m.oracleConfidence);
+  const wc = m.worstCaseConfig;
+  if (!wc.enabled) return 0n; // quoting switched off on this market: no band under either rule
+  if (sigmas > 0n && horizon > 0n) {
+    const age = BigInt(Math.max(now - m.twapUpdatedAt.toNumber(), 0));
+    return (conf * sigmas * isqrt((age * 1_000_000n) / horizon)) / 100_000n;
+  }
+  return (conf * stateMult(m, wc.normalConfidenceMultiplier, wc.proxyConfidenceMultiplier,
+    wc.stressConfidenceMultiplier, now)) / 100n;
 }
 
 // γ at long price x: the program's Market::gamma_at. On a market whose decay the program prices
@@ -85,10 +113,7 @@ function prices(m: any, now: number) {
   const K = big(m.initialLPrice) * big(m.initialSPrice);
   const gamma = gammaAt(m, P); // γ at the stored price
   const sNav = (p: bigint) => ((K / p) * gammaAt(m, p)) / ONE; // γ at the price each quote uses
-  const wc = m.worstCaseConfig;
-  const mult = stateMult(m, wc.normalConfidenceMultiplier, wc.proxyConfidenceMultiplier,
-    wc.stressConfidenceMultiplier, now);
-  const c = wc.enabled ? (big(m.oracleConfidence) * mult) / 100n : 0n;
+  const c = band(m, now);
   const age = now - m.twapUpdatedAt.toNumber();
   return {
     P, c, gamma, age, fresh: P > 0n && age <= MAX_AGE,

@@ -27,18 +27,18 @@ S_quote  = K / (P + c) * γ(P + c)
 gross    = l_amount * L_quote + s_amount * S_quote     // must be at least 10 cUSDC
 payout   = min(gross, gross * total_collateral / total_claims)
 
-fee_bps  = redeem_fee_bps * state_mult / 100
+fee_bps  = redeem_fee_bps * fee_mult / 100
 fee      = payout * fee_bps / 10_000
 return   = payout - fee
 ```
 
-`P`, `c`, `K`, γ and `state_mult` mean the same as on [Mint](/flows/mint#math): the spot price, the confidence band, the constant product, the short-leg decay and the risk-state multiplier (1.5× in `ProxyMode`). γ(x) is the decay at long price x: the posted γ on a keeper-posted market, and `gamma_at(x)` on a market whose decay the program prices. The quotes run against the user again: L is priced below its NAV at `P - c`, and S below its NAV at `K / (P + c) * γ(P + c)`. Every division rounds down.
+`P`, `c`, `K`, γ and `fee_mult` mean the same as on [Mint](/flows/mint#math): the spot price, the price band (which grows with the age of the price), the constant product, the short-leg decay and the fee multiplier (1× in every state on every live market since 20 Nov 2026). γ(x) is the decay at long price x: the posted γ on a keeper-posted market, and `gamma_at(x)` on a market whose decay the program prices. The quotes run against the user again: L is priced below its NAV at `P - c`, and S below its NAV at `K / (P + c) * γ(P + c)`. Every division rounds down.
 
 `total_claims` values every outstanding L and S at the same quotes. While the vault holds at least that much, `payout` equals `gross`. If it holds less, every redeemer gets the same pro-rata share (see [below](#under-collateralization-pro-rata-redemption)). The fee is charged on `payout`.
 
-The fee is the same posted value as the mint fee: QQQ posted 18 bps on 10 Oct 2026 and charged 27 bps in `ProxyMode`. A tenth of the fee (`dev_tax`) goes to the fee recipient, and the rest stays in the vault. See [Mint fees](/flows/mint#fees).
+The fee is the same posted value as the mint fee: QQQ posted 18 bps on 10 Oct 2026, and since 20 Nov 2026 the charged fee is the posted fee. A tenth of the fee (`dev_tax`) goes to the fee recipient, and the rest stays in the vault. See [Mint fees](/flows/mint#fees).
 
-A worked example with QQQ's last push before the weekend, at 20:15 UTC on 9 Oct 2026: L's NAV was 751.27 cUSDC and S's was 304.599737, with γ at 0.99321461. QQQ quotes at NAV because its worst-case quoting is off. At that price, redeeming 0.663742 QQQL with 1.637066 QQQS gives a gross of 997.299325 cUSDC, a 27 bps fee of 2.692708 and a return of 994.606617 cUSDC.
+A worked example, from before the 20 Nov 2026 change, when the fee was 1.5× the posted fee, with QQQ's last push before the weekend, at 20:15 UTC on 9 Oct 2026: L's NAV was 751.27 cUSDC and S's was 304.599737, with γ at 0.99321461. QQQ quotes at NAV because its worst-case quoting is off. At that price, redeeming 0.663742 QQQL with 1.637066 QQQS gives a gross of 997.299325 cUSDC, a 27 bps fee of 2.692708 and a return of 994.606617 cUSDC.
 
 ## Price freshness
 
@@ -98,7 +98,7 @@ If you minted and then sold one side, you hold the other side alone, and the pro
 
 If you hold both legs, in any ratio, one `redeem_paired` burns the largest balanced pair of them, and the rest of the larger leg stays in your wallet. In the app, the redeem form previews the balanced pair, shows what would be left, and offers a button to sell it in Trade. **Max** redeems the largest balanced pair. Your profit or loss is all the cUSDC you received, from redeems and sales, minus what you paid to mint.
 
-For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee was 27 bps as of 10 Oct 2026. A committed sale pays the commit spread, 18 bps on QQQ that day, one leg at a time. The bin books trade only while mint and redeem are frozen; there the first bins of a QQQ book sit one 20 bps core step from the book's centre, which the keeper shifts with the CLP's inventory, and larger sales walk into wider bins.
+For a pair, compare the redeem fee with the cost of selling. QQQ's redeem fee is its posted fee, 18 bps on 10 Oct 2026 (it was charged at 1.5× that before 20 Nov 2026). A committed sale pays the commit spread, 18 bps on QQQ that day, one leg at a time. The bin books trade only while mint and redeem are frozen; there the first bins of a QQQ book sit one 20 bps core step from the book's centre, which the keeper shifts with the CLP's inventory, and larger sales walk into wider bins.
 
 ### Close position
 
@@ -139,14 +139,14 @@ A redeem can never pay out more than the vault holds, because `gross` can't exce
 
 ## Behavior across risk states
 
-| Risk state | Price | Fee and confidence multiplier | Redeem |
+| Risk state | Price | Redeem |
 |---|---|---|---|
-| `Normal` | The market's oracle account | 1× | Allowed |
-| `ProxyMode` (every devnet market) | `user_twap_price`, at most 300 s old | 1.5× | Allowed |
-| `Stress` | `user_twap_price`, at most 300 s old | 3× | Blocked by default |
-| `Recovery` | `user_twap_price`, at most 300 s old | Falls linearly from 3× to 1× over the hour after `risk_state_updated_at` | Allowed |
+| `Normal` | The market's oracle account | Allowed |
+| `ProxyMode` (every devnet market) | `user_twap_price`, at most 300 s old | Allowed |
+| `Stress` | `user_twap_price`, at most 300 s old | Blocked by default |
+| `Recovery` | `user_twap_price`, at most 300 s old | Allowed |
 
-`Stress` blocks redeem unless the market's `allow_redeem_in_stress` is true, and it is false on every live market. The `Recovery` multiplier behaves as described on [Mint](/flows/mint#behavior-across-risk-states).
+`Stress` blocks redeem unless the market's `allow_redeem_in_stress` is true, and it is false on every live market. `Recovery` quotes exactly like `ProxyMode`; see [Mint](/flows/mint#behavior-across-risk-states).
 
 ## Errors
 

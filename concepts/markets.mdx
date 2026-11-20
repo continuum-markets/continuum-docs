@@ -37,7 +37,7 @@ Public fields you'll likely read:
 | `collateral_vault` | Pubkey | Token account holding the backing cUSDC: the Market PDA's cUSDC ATA on every live market. |
 | `oracle_address` | Pubkey | The market's `OracleConfig` PDA, passed to mint and redeem as `oracle`. The keeper doesn't update it on devnet, so it is not a price source. |
 | `fee_recipient` | Pubkey | Owner of the cUSDC account (`devTokenAccount`) that receives the dev tax. |
-| `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees the keeper posts, `clamp(fee_mult × half-spread, 10, 100)` bps. The risk-state multiplier applies on top. |
+| `mint_fee_bps` / `redeem_fee_bps` | u16 | Fees the keeper posts, `clamp(fee_mult × half-spread, 10, 100)` bps. The risk-state multiplier applies on top; it is 1× on every live market. |
 | `initial_l_price` / `initial_s_price` | u64 | Prices set at init, scaled by 1e6. Their product is the constant `K`. `reanchor_gamma` can fold γ into `initial_s_price`. |
 | `total_l_supply` / `total_s_supply` | u64 | Outstanding supply on each side. |
 | `total_collateral` | u64 | This market's collateral ledger figure, not a token balance. |

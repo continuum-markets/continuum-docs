@@ -45,11 +45,11 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `is_active` | bool | False blocks mint, redeem, donations and keeper single-side instructions. |
 | `bump` | u8 | PDA bump. |
 | `risk_state` | RiskState | `Normal`, `ProxyMode`, `Stress` or `Recovery`. Every devnet market is in `ProxyMode`. |
-| `risk_state_updated_at` | i64 | Chain time of the last change of risk state, first set by `initialize_market`. Since 11 Oct 2026, a keeper write that keeps the same state leaves it unchanged, so the `Recovery` surcharge decays from the moment the market enters `Recovery`. |
-| `risk_fee_config` | RiskFeeConfig | `proxy_fee_multiplier` (150), `stress_fee_multiplier` (300), `stress_mint_cap` (0), `allow_mint_in_stress` and `allow_redeem_in_stress` (both false). Values are the defaults and the live settings. |
+| `risk_state_updated_at` | i64 | Chain time of the last change of risk state, first set by `initialize_market`. Since 11 Oct 2026, a keeper write that keeps the same state leaves it unchanged, so the `Recovery` clock runs from the moment the market enters `Recovery`. |
+| `risk_fee_config` | RiskFeeConfig | `proxy_fee_multiplier`, `stress_fee_multiplier`, `stress_mint_cap` (0), `allow_mint_in_stress` and `allow_redeem_in_stress` (both false). The multipliers default to 150 and 300. Since 20 Nov 2026 both are 100 (1×) on every live market. |
 | `user_twap_price` | u64 | The price P, written by the keeper. A spot price despite the name, adjusted for corporate actions. |
 | `twap_updated_at` | i64 | Source publish time of that price. Mint and redeem need it to be at most 300 s old. |
-| `worst_case_config` | WorstCaseQuotingConfig | `enabled`, plus confidence multipliers for `Normal`, `ProxyMode` and `Stress` (100, 150, 300). |
+| `worst_case_config` | WorstCaseQuotingConfig | `enabled`, plus confidence multipliers for `Normal`, `ProxyMode` and `Stress` (100, 150, 300). They apply only to a market whose band rule is off; see `band_sigmas_x100`. |
 | `oracle_confidence` | u64 | Confidence band c, adjusted like the price. |
 | `keeper_authority` | Pubkey | Keeper signer. |
 | `dev_tax_pct` | u8 | Percent of each fee sent to the fee recipient (10 on every market). |
@@ -78,7 +78,10 @@ Fields in IDL order. Prices and amounts are 1e6 fixed point (6 decimals).
 | `decay_flags` | u8 | Bit 0 (`DECAY_MODE_BIT`): the program prices decay on this market. Bit 1 (`DECAY_DEV_BIT`): the last price write sat 1% or more from the window's open, so a second such write in a row closes the window. |
 | `book_fee_live_bps` | u16 | Taker fee on order-book fills made through the trading program's `place_orders`, in bps of the quote traded, while the price is live. 0 means no fee. At most 50. |
 | `book_fee_stale_bps` | u16 | The same fee while the price is stale (see [Order-book fee](#order-book-fee)). At most 50. |
-| `reserved` | [u64; 7] | Spare room for later fields. Stays zero. |
+| `band_sigmas_x100` | u16 | Width of the price band in standard deviations times 100 (200 is 2). Set by `configure_price_band`. 0 together with `band_horizon_secs` turns the band rule off. 200 on all 13 live markets since 20 Nov 2026. |
+| `band_horizon_secs` | u16 | The horizon, in seconds, over which `oracle_confidence` is one standard deviation. 30 on all 13 live markets. |
+| `band_reserved` | u32 | Spare. Stays zero. |
+| `reserved` | [u64; 6] | Spare room for later fields. Stays zero. The three band fields above were carved out of its first word on 20 Nov 2026, so no account was resized. A client on an older IDL reads `band_sigmas_x100` from the low 16 bits of that word and `band_horizon_secs` from the next 16. |
 
 Anchor TS decodes `gamma_day_decay_1e9` and `short_payoff_cap_c_1e9` as `gammaDayDecay1E9` and `shortPayoffCapC1E9`; every other field is plain camelCase (`userTwapPrice`, `decayOpenPrice`, `bookFeeLiveBps`).
 
@@ -131,11 +134,21 @@ With P the price above, L = P and S = K / P × γ(P), where K = `initial_l_price
 
 Every place the program values the short at a price passes that price to `gamma_at`, not the stored price: the mint and redeem NAVs, the worst-case quotes below, the collateral-ratio checks and the keeper's rebalance check. The CLP's committed-order settle and exposure checks and the trading program's rebate use it too.
 
-Mint and redeem quote each leg against the user. Let c be `oracle_confidence` times the state's confidence multiplier: 1.5× in `ProxyMode`, 3× in `Stress`, 1× in `Normal`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). A mint prices L at P + c and S at K / (P − c) × γ(P − c). A redeem prices L at P − c and S at K / (P + c) × γ(P + c). On a keeper-posted market γ is the same at both. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 10 Oct 2026 it is off on QQQ.
+Mint and redeem quote each leg against the user by a band c. With the band rule on (`band_sigmas_x100` and `band_horizon_secs` both above 0, as on every live market since 20 Nov 2026):
+
+```
+c = oracle_confidence × band_sigmas_x100 × isqrt(age × 1_000_000 / band_horizon_secs) / 100_000
+```
+
+`age` is the chain time now minus the price's own stamp, floored at 0: `twap_updated_at` for the stored keeper price, or the oracle print's publish time when the program reads the oracle itself in `Normal`. `isqrt` is the integer square root, rounded down. This is `(sigmas_x100 / 100) × oracle_confidence × sqrt(age / horizon)`. `oracle_confidence` is read as one standard deviation of the price over the horizon. The risk state plays no part in c. A price read the second it was stamped has no band. With 2 standard deviations over 30 s, c is 1.414× `oracle_confidence` at age 15 s, 2× at 30 s, 2.83× at 60 s and 4× at 120 s. The reasoning is on [Risk states](/concepts/risk-states#fee-and-price-band).
+
+With the rule off (both fields 0), c is `oracle_confidence` times the state's multiplier from `worst_case_config`: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). No live market is in that case.
+
+A mint prices L at P + c and S at K / (P − c) × γ(P − c). A redeem prices L at P − c and S at K / (P + c) × γ(P + c). On a keeper-posted market γ is the same at both. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 20 Nov 2026 it is off on QQQ and on on the other twelve live markets. With it off c is 0 under either rule.
 
 ### Fees
 
-The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). No waiver or discount applies, and donating earns none. The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31 and EUR, GBP and JPY 10 bps, so QQQ is charged 27 bps in `ProxyMode`.
+The charged fee is `mint_fee_bps` or `redeem_fee_bps` times the state's fee multiplier from `risk_fee_config`. The multiplier is 1× in `Normal`. Since 20 Nov 2026 `proxy_fee_multiplier` and `stress_fee_multiplier` are both 100 on every live market, so the charged fee is the posted fee in every state. The program default is 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). No waiver or discount applies, and donating earns none. The keeper posts both fees through `update_market` as `clamp(fee_mult × half-spread, 10, 100)` bps, using its own half-spread estimate for the market (`fee_mult` defaults to 1.0). As of 10 Oct 2026 the posted fees are QQQ 18, SPY 16, NVDA 31 and EUR, GBP and JPY 10 bps, and each is charged as posted.
 
 The mint fee comes out of the deposit; the redeem fee comes out of the gross payout after any haircut. `dev_tax_pct` (10%) of each fee goes to the fee recipient's cUSDC account, the treasury on every live market since 12 Oct 2026. The rest stays in the vault and counts in `total_collateral`.
 
@@ -260,11 +273,15 @@ Rotate the keeper signer, repoint the oracle account (validated like `initialize
 
 #### `configure_risk_fees(params: ConfigureRiskFeesParams)`
 
-`ConfigureRiskFeesParams { proxy_fee_multiplier, stress_fee_multiplier, stress_mint_cap, allow_mint_in_stress, allow_redeem_in_stress }`, every field optional. Sets the fields of `risk_fee_config`; a field left `None` is unchanged. Multipliers use 100 = 1×. The struct holds the separate arguments the instruction took until 11 Oct 2026, with the same fields in the same order, so the bytes on the wire are unchanged.
+`ConfigureRiskFeesParams { proxy_fee_multiplier, stress_fee_multiplier, stress_mint_cap, allow_mint_in_stress, allow_redeem_in_stress }`, every field optional. Sets the fields of `risk_fee_config`; a field left `None` is unchanged. Multipliers use 100 = 1×. Since 20 Nov 2026 both multipliers are 100 on every live market. The struct holds the separate arguments the instruction took until 11 Oct 2026, with the same fields in the same order, so the bytes on the wire are unchanged.
 
 #### `configure_worst_case_quoting(enabled?, normal_multiplier?, proxy_multiplier?, stress_multiplier?)`
 
-Sets `worst_case_config`. Multipliers use 100 = 1×.
+Sets `worst_case_config`. Multipliers use 100 = 1×. They apply only to a market whose price band is off.
+
+#### `configure_price_band(sigmas_x100: u16, horizon_secs: u16)`
+
+Sets `band_sigmas_x100` and `band_horizon_secs`. The accounts are `market` (writable) and `authority` (signer). `sigmas_x100` must be 50 to 1000 (0.5 to 10 standard deviations) and `horizon_secs` 1 to 3600, or both 0, which turns the band rule off so that the `worst_case_config` multipliers apply again. Anything else fails with `InvalidPriceBand` (6066). It emits `PriceBandSet`. To undo it on a market, call `configure_price_band(0, 0)` and set the fee multipliers back to 150 and 300 with `configure_risk_fees`.
 
 #### `configure_yield_ceiling(ceiling_bps?, enabled?)`
 
@@ -360,6 +377,7 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 | `DecayWindowRolled` | a keeper price write that closes a decay window, and `set_decay_mode(false)` | `market`, `reason` (0 the clock closed it near its open, 1 a second write in a row 1% or more from the open, 2 mode switched off), `old_gamma`, `new_gamma` (γ at the old and the new open, 1e9), `old_open_price`, `old_open_ts`, `price` (the closing price), `move_bps` (`price` against `old_open_price`, signed), `ts` |
 | `DecayModeSet` | `set_decay_mode` | `market`, `enabled`, `changed` (false for a repeat), `gamma_open`, `open_price`, `price`, `short_nav_before`, `short_nav_after`, `gamma_epoch`, `ts` |
 | `BookFeeSet` | `set_book_fee` | `market`, `old_live_bps`, `old_stale_bps`, `live_bps`, `stale_bps` |
+| `PriceBandSet` | `configure_price_band` | `market`, `old_sigmas_x100`, `old_horizon_secs`, `sigmas_x100`, `horizon_secs` |
 | `GammaReanchored` | `reanchor_gamma` | `market`, `epoch`, `folded_gamma`, `old_initial_s_price`, `new_initial_s_price`, `genesis_s_price`, `reanchor_count`, `ts` |
 | `CorporateActionApplied` | `apply_corporate_action` | `market`, `ratio_num`, `ratio_den`, `old_price_adjust_num`, `old_price_adjust_den`, `new_price_adjust_num`, `new_price_adjust_den`, `effective_ts`, `armed`, `price_at_apply`, `ts` |
 | `CollateralFunded` | `fund_collateral` and `fund_collateral_from` | `market`, `amount`, `total_collateral` (after the top-up), `ts` |
@@ -375,7 +393,7 @@ Manage the `collateral_vaults` list. Mint and redeem don't read it, and it is em
 
 ## Errors
 
-mint-redeem errors run from 6000 to 6065. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Codes 6053 to 6059 come from the redemption requests and the treasury advance, 6060 to 6062 from the exposure cap, and 6063 to 6065 from decay priced by the program and the order-book fee. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
+mint-redeem errors run from 6000 to 6066. Codes 6029 and 6030 are reserved placeholders that are never raised. Codes 6048 to 6052 belonged to the unified vault and are no longer returned; they stay in the enum so later codes don't shift. Codes 6053 to 6059 come from the redemption requests and the treasury advance, 6060 to 6062 from the exposure cap, 6063 to 6065 from decay priced by the program and the order-book fee, and 6066 from the price band. Every code, with its message and cause, is in [Errors](/reference/errors#mint-redeem).
 
 ## TypeScript
 

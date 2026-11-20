@@ -101,7 +101,7 @@ S_NAV = (initial_l_price × initial_s_price) / L_NAV × γ(L_NAV)
 |---|---|---|
 | `mint_fee_bps` | On `mint_paired` | Keeper-posted `clamp(fee_mult × half-spread, 10, 100)` bps. As of 13 Oct 2026 it runs from 10 (EUR, GBP, JPY) to 39 (TSLA); QQQ is 18. |
 | `redeem_fee_bps` | On `redeem_paired` | Same value as the mint fee. |
-| Risk-state multiplier | On mint and redeem fees | 1.5× in ProxyMode, where every devnet market runs, so QQQ is charged 27 bps. |
+| Risk-state multiplier | On mint and redeem fees | 1× in every state on every live market since 20 Nov 2026, so the charged fee is the posted fee. |
 | Book spread | On `pool_swap` | The bin prices themselves; there is no swap fee. |
 | Order-book taker fee | On an order that takes from a Manifest book through the trading program | `floor(cUSDC taken × rate / 10,000)`, from the taker's seat to the treasury. The rate is per market, live or stale, at most 50 bps and 0 until the market authority sets it. Makers pay nothing, and orders placed on Manifest directly pay nothing. As of 19 November 2026: 5 bps on all 13 live markets. See [Order book](/flows/order-book#taker-fee). |
 | Committed spread | On committed-order fills | NAV ± `max(commit_spread_bps, 10)` bps: 18 on QQQ, 15 on SPY and 18 on XAU as of 10 Oct 2026. Every live market accepts committed orders since 11 Oct 2026. |

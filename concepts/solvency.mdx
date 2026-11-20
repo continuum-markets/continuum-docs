@@ -19,7 +19,7 @@ A paired operation moves collateral and claims by the same amount at the moment 
 
 With no external venue to trade against, the only riskless extraction is the **paired round trip**: mint a pair, wait for the price to move, redeem. Its gross profit is that convexity gap.
 
-Structurally, the protocol is **short the pair's convexity**, which means short volatility. Two charges work against the round trip. Volatility decay marks the short leg down by the realized variance of the path, and the fee hurdle taxes every mint and redeem. The keeper posts fees from 10 to 100 bps (10 to 39 bps across the 13 live markets as of 13 Oct 2026), the program multiplies them by 1.5 in `ProxyMode`, and the round trip pays them twice, plus the worst-case markup.
+Structurally, the protocol is **short the pair's convexity**, which means short volatility. Two charges work against the round trip. Volatility decay marks the short leg down by the realized variance of the path, and the fee hurdle taxes every mint and redeem. The keeper posts fees from 10 to 100 bps (10 to 39 bps across the 13 live markets as of 13 Oct 2026), the program charges them at 1× in every state since 20 Nov 2026 (it multiplied them by 1.5 in `ProxyMode` before), and the round trip pays them twice, plus the price band.
 
 The result splits by asset class. For a broad index trading near its anchor price, the gap over realistic horizons stays below the hurdle. For a high-growth single name on an NVDA-like path, a flat at-NAV venue alone *can* be drained at scale: the gap compounds with the trend, and volatility decay barely charges a smooth trend. That is why the defenses below exist, and why single-name listings need all of them.
 
@@ -37,10 +37,10 @@ The keeper posts each market's mint and redeem fee from realized volatility:
 
 ```
 fee_bps     = clamp(fee_mult × half_spread, 10, 100)      fee_mult = 1.0 on every market
-charged_bps = fee_bps × risk-state multiplier             1.5× in ProxyMode
+charged_bps = fee_bps × risk-state multiplier             1× in every state since 20 Nov 2026
 ```
 
-`half_spread` is the long book's half-spread from the keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free), and the keeper posts the result as both the mint and the redeem fee. QQQ posts 18 bps and is charged 27 bps on devnet. Of every fee, 90% stays in the market's collateral vault, raising the collateral ratio directly, and 10% is the dev tax. Higher vol means a bigger convexity gap and a proportionally higher hurdle.
+`half_spread` is the long book's half-spread from the keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free), and the keeper posts the result as both the mint and the redeem fee. The charged fee is the posted fee. Of every fee, 90% stays in the market's collateral vault, raising the collateral ratio directly, and 10% is the dev tax. Higher vol means a bigger convexity gap and a proportionally higher hurdle.
 
 ### 3. Posted overcollateralization buffer
 

@@ -33,7 +33,7 @@ On 12 Oct 2026 the CLP's own holdings, which had been about \$16.6M across these
 
 Every market set `initial_l_price` and `initial_s_price` to the same value, so its constant K is that price squared. No market has been re-anchored yet.
 
-The keeper posts one fee as both the mint fee and the redeem fee. All devnet markets run in ProxyMode, which charges 1.5× the posted fee, so QQQ's 18 bps costs 27 bps.
+The keeper posts one fee as both the mint fee and the redeem fee. Since 20 Nov 2026 the fee multiplier is 1× in every risk state, so the charged fee is the posted fee.
 
 The order book can carry a separate taker fee, set per market with `set_book_fee` and zero until set (see [Order book](/flows/order-book#taker-fee)). As of 19 November 2026 the rates in force are 5 bps live and 5 bps stale on every live market. The same applies to decay: each market is either keeper-posted or priced by the program, and as of 19 November 2026 all 13 are priced by the program (see [NAV](/concepts/nav#volatility-decay)).
 

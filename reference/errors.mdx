@@ -81,6 +81,7 @@ Codes 6029 and 6030 are reserved placeholders: the γ rate caps they reported we
 | 6063 | `0x17af` | `GammaSetByPrice` | `The program prices decay on this market; set_s_gamma_index is refused` | `set_s_gamma_index` on a market in decay mode (`decay_flags` bit 0). The program charges decay inside the price write, so a keeper post would charge it twice. Switch the market back with `set_decay_mode(false)` first if a post is wanted. |
 | 6064 | `0x17b0` | `DecayModeNeedsPrice` | `Decay priced by the program needs a stored price above zero` | `set_decay_mode(true)` while `user_twap_price` is 0. The window opens at the stored price. |
 | 6065 | `0x17b1` | `BookFeeTooHigh` | `Order-book fee above MAX_BOOK_FEE_BPS` | `set_book_fee` with `live_bps` or `stale_bps` above 50. |
+| 6066 | `0x17b2` | `InvalidPriceBand` | `Price band: 0.5 to 10 standard deviations over 1 to 3600 s, or both zero for off` | `configure_price_band` with `sigmas_x100` outside 50 to 1000 or `horizon_secs` outside 1 to 3600, unless both are 0. |
 
 ## clp
 

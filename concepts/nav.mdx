@@ -38,7 +38,7 @@ position_value_cUSDC = n_L × L_NAV + n_S × S_NAV
 For a position minted from `mint_amount` cUSDC, ignoring the worst-case markup:
 
 ```
-fee_bps             = mint_fee_bps × risk-state multiplier
+fee_bps             = mint_fee_bps × fee multiplier (1× on every live market)
 mint_value_per_side = mint_amount × (1 - fee_bps / 10_000) / 2
 n_L                 = mint_value_per_side / L_NAV_at_mint
 n_S                 = mint_value_per_side / S_NAV_at_mint
@@ -48,7 +48,7 @@ At mint time the position is worth `mint_amount × (1 - fee_bps / 10_000)`: your
 
 ## How position value moves with the underlying
 
-Take a 100 cUSDC QQQ mint at 480, with `K = 230,400`, γ = 1, no confidence markup, and a 27 bps fee (QQQ's 18 bps posted fee × 1.5 in `ProxyMode`, as of 10 Oct 2026):
+Take a 100 cUSDC QQQ mint at 480, with `K = 230,400`, γ = 1, no confidence markup, and a 27 bps fee (QQQ's 18 bps posted fee × 1.5 in `ProxyMode`, as charged on 10 Oct 2026, before the fee multiplier was set to 1× on 20 Nov 2026):
 
 ```
 mint_value_per_side = 100 × 0.9973 / 2 = 49.865 cUSDC
@@ -200,7 +200,7 @@ The 6-decimal scaling means `lNav.toNumber() / 1e6` gives a human-readable price
 
 ## Worst-case quoting
 
-With worst-case quoting on (`worst_case_config.enabled`, the default), mint and redeem price each leg against the user. The band is `c = oracle_confidence × m`, where `m` is the risk state's confidence multiplier: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and falling back from 3× in `Recovery`. The full table is on [Risk states](/concepts/risk-states#fee-and-confidence-multipliers).
+With worst-case quoting on (`worst_case_config.enabled`, the default), mint and redeem price each leg against the user. Since 20 Nov 2026 the band is `c = (sigmas_x100 / 100) × oracle_confidence × sqrt(age / horizon_secs)`, where `age` is the time since the price's own stamp and the risk state plays no part. If a market's band fields are both 0, the old rule applies: `c = oracle_confidence × m`, with `m` the risk state's confidence multiplier from `worst_case_config`. The rule and an example table are on [Risk states](/concepts/risk-states#fee-and-price-band).
 
 The long NAV is linear in price (`L_NAV = P`) but the short NAV is **inverse** (`S_NAV = K/P × γ`), so a single widened price can't protect both legs. Each leg is quoted at the price that moves *against* the user:
 

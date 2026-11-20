@@ -75,7 +75,7 @@ OIL was withdrawn on 30 Aug 2026. Its `Market` account is still marked active, b
 
 ### The keeper pushes every price
 
-Every devnet market runs in the `ProxyMode` risk state, which multiplies fees and the confidence band by 1.5. In ProxyMode the programs price from `Market.user_twap_price`, which the keeper writes with mint-redeem `update_risk_state_v2`, together with `twap_updated_at`. Despite its name, `user_twap_price` is a spot price, scaled to 1e6 and adjusted for corporate actions. The oracle program's `OracleConfig` is not updated on devnet, so do not read it for live prices.
+Every devnet market runs in the `ProxyMode` risk state. Since 20 Nov 2026 the state changes neither the fee nor the price band. In ProxyMode the programs price from `Market.user_twap_price`, which the keeper writes with mint-redeem `update_risk_state_v2`, together with `twap_updated_at`. Despite its name, `user_twap_price` is a spot price, scaled to 1e6 and adjusted for corporate actions. The oracle program's `OracleConfig` is not updated on devnet, so do not read it for live prices.
 
 Pyth's public price endpoint now requires an API key, so the devnet keeper prices markets from a free public quote source. A GJR-GARCH volatility model sets the confidence band. Each price is checked against Hyperliquid before it is pushed, and a disagreement blocks the push. Hyperliquid can veto a price but never sets one; if it is unreachable, the price goes through unchecked. Mainnet will use Pyth (Pyth Pro).
 

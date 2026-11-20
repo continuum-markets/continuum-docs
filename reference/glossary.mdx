@@ -35,7 +35,7 @@ description: Continuum-specific terms in one place.
 
 **Committed order** - The open-hours venue, at any size. `commit_swap(side, direction, amount_in, min_out, nonce)` escrows the input, which fills at NAV ± `max(commit_spread_bps, 10)` bps at any keeper push after the commit. The keeper posts `clamp(half-spread, 10, 500)` bps; on 10 Oct 2026 that was 18 on QQQ, 15 on SPY and 18 on XAU. Since 11 Oct 2026 every live market accepts committed orders. A fill waits while the market is below its collateral floor or the price fails the oracle checks. After the 180 s TTL, anyone can send `cancel_swap` to refund an unfilled order to its owner, and the keeper does so about 5 s after expiry. → [Trade flow](/flows/trade).
 
-**Confidence interval** - The uncertainty band around a pushed price, stored as `Market.oracle_confidence`. On devnet it comes from a GJR-GARCH volatility model. Worst-case quoting widens mint and redeem quotes by it.
+**Confidence interval** - The uncertainty band around a pushed price, stored as `Market.oracle_confidence`. On devnet it comes from a GJR-GARCH volatility model. The price band is built from it.
 
 **Constant-product invariant** - `L_NAV × S_NAV = K × γ`, where `K = initial_l_price × initial_s_price` and γ is the short leg's volatility-decay index at that price. As one leg rises the other falls.
 
@@ -83,7 +83,7 @@ description: Continuum-specific terms in one place.
 
 ## M to R
 
-**`mint_fee_bps`** - Per-market mint fee, posted by the keeper as `clamp(fee_mult × half-spread, 10, 100)` bps. As of 13 Oct 2026: QQQ 18, SPY 16, NVDA 31, TSLA 39, EUR/GBP/JPY 10. The risk-state multiplier applies on top (1.5× in ProxyMode), and 10% of the fee is a dev tax.
+**`mint_fee_bps`** - Per-market mint fee, posted by the keeper as `clamp(fee_mult × half-spread, 10, 100)` bps. As of 13 Oct 2026: QQQ 18, SPY 16, NVDA 31, TSLA 39, EUR/GBP/JPY 10. The risk-state multiplier applies on top (1× in every state on every live market since 20 Nov 2026), and 10% of the fee is a dev tax.
 
 **`mint_paired`** - User-facing instruction. Deposits at least 10 cUSDC and returns L and S at NAV, half the net value each. → [Mint flow](/flows/mint).
 
@@ -107,9 +107,11 @@ description: Continuum-specific terms in one place.
 
 **PDA** (Program Derived Address) - Solana's deterministic pubkey derived from seeds. Continuum has many: `Market`, `Clp`, `OracleConfig` and others. → [PDA derivations](/build/idls-and-pdas#pda-derivation-cheatsheet).
 
+**Price band** - The width `c` that mint and redeem quote against. `c = (band_sigmas_x100 / 100) × oracle_confidence × sqrt(age / band_horizon_secs)`, where `age` is the time since the price's own stamp. A fresh price has no band, and the band grows as the price ages. The risk state plays no part. All 13 live markets use 2 standard deviations over 30 s since 20 Nov 2026. Set with `configure_price_band`. → [Risk states](/concepts/risk-states#fee-and-price-band).
+
 **Protective skew** - The spread engine's trend response: the side a continuing trend would hit widens with the drift z-score, and the other side never tightens below the symmetric shape. An antisymmetric variant, which also tightened the other side, failed in backtests.
 
-**ProxyMode** - The risk state every devnet market runs in. The programs price from `Market.user_twap_price`, and fees and the confidence band are multiplied by 1.5. → [Risk states](/concepts/risk-states).
+**ProxyMode** - The risk state every devnet market runs in. The programs price from `Market.user_twap_price`, and fees and the price band no longer depend on the state. → [Risk states](/concepts/risk-states).
 
 **Pyth** - The oracle network mainnet will use (Pyth Pro). On devnet the keeper prices markets from a free public quote source, because Pyth's public price endpoint now needs an API key.
 
@@ -117,7 +119,7 @@ description: Continuum-specific terms in one place.
 
 **Rebate pot** - The per-market cUSDC account at `["rebate_pot", market]` in the trading program that the [short rebate](/concepts/short-rebate) pays from. The keeper funds it from the treasury, never beyond the collateral yield the market has harvested since the rebate opened, and the reward index allocates no more than the pot has received.
 
-**Recovery** - The risk state after Stress. The fee and confidence multiplier falls from 3× to 1× over the hour after the market enters Recovery.
+**Recovery** - The risk state after Stress. It quotes exactly like ProxyMode. The keeper holds it for an hour after Stress.
 
 **`redeem_fee_bps`** - Per-market redeem fee. The keeper posts the same value as `mint_fee_bps`.
 
@@ -125,7 +127,7 @@ description: Continuum-specific terms in one place.
 
 **Registry** - The on-chain symbol-to-market index (`Hss7QZ46RcrV4ta63q2EM2Wf1Pzbjnd5FNjaTTDZHnau`). It is deployed and initialized, but it holds no markets and nothing reads it yet. Its only venue type is `BinBook`. → [Registry program](/programs/registry).
 
-**`risk_state`** - `Normal`, `ProxyMode`, `Stress` or `Recovery`, stored on `Market` and written by the keeper with `update_risk_state_v2`. Devnet markets are always in `ProxyMode`. Fee and confidence multipliers: 1×, 1.5×, 3×, and 3× falling to 1× over 1 hour. → [Risk states](/concepts/risk-states).
+**`risk_state`** - `Normal`, `ProxyMode`, `Stress` or `Recovery`, stored on `Market` and written by the keeper with `update_risk_state_v2`. Devnet markets are always in `ProxyMode`. The state picks the price source and whether mint and redeem are open. It no longer changes the fee or the price band. → [Risk states](/concepts/risk-states).
 
 ## S to Z
 
@@ -157,7 +159,7 @@ description: Continuum-specific terms in one place.
 
 **Venue split** - Routing by market state: committed orders while a market's price is live, and the bin books while it is stale. The instant oracle swap (`clp_swap`) was retired on 11 Oct 2026. Both venues price off the same keeper-pushed NAV.
 
-**Worst-case quoting** - Mint and redeem price each leg against the user by `c = oracle_confidence × state multiplier`: mint values L at P + c and S at `K / (P − c) × γ(P − c)`, redeem L at P − c and S at `K / (P + c) × γ(P + c)`. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 10 Oct 2026.
+**Worst-case quoting** - Mint and redeem price each leg against the user by a price band c: mint values L at P + c and S at `K / (P − c) × γ(P − c)`, redeem L at P − c and S at `K / (P + c) × γ(P + c)`. See **Price band**. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 20 Nov 2026. With it off there is no band.
 
 **Yield allocator** - The keeper task that decides how much of each market's collateral to lend, and where, from live mainnet venue state. Each venue's total position across all markets is capped at first-loss capital divided by the venue failures to cover (1 by default). First-loss capital is the treasury plus half of all markets' collateral above 100%. It lends only on mainnet with `COLLATERAL_YIELD_ENABLED=true`. On devnet an emulator credits the interest its plan would earn. Every live market has `yield_enabled = true` as of 11 Oct 2026, and new markets start with it true. Harvested yield is added to the market's own collateral.
 

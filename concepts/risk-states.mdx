@@ -1,9 +1,9 @@
 ---
 title: Risk states
-description: The per-market risk regime, the fee and confidence surcharges each state applies, why devnet runs in ProxyMode, and the staleness gate that freezes mint and redeem off-hours.
+description: The per-market risk regime, what each state decides, how the price band and the fee work, why devnet runs in ProxyMode, and the staleness gate that freezes mint and redeem off-hours.
 ---
 
-Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#market-account) account. The keeper writes it with each price push (`update_risk_state_v2`). The state sets two surcharges, one on the fee and one on the confidence band, and decides whether mint and redeem are open at all. A separate staleness gate freezes mint and redeem when pushes stop, most often because the underlying market has closed.
+Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#market-account) account. The keeper writes it with each price push (`update_risk_state_v2`). The state says which price mint and redeem use and whether they are open at all. It no longer changes the fee or the price band. A separate staleness gate freezes mint and redeem when pushes stop, most often because the underlying market has closed.
 
 <Note>
   On devnet, every market runs in **`ProxyMode`** all the time, by design. `ProxyMode` means the program prices off the keeper-pushed `user_twap_price` instead of reading a Pyth account. `Normal` is the mainnet steady state, where mint and redeem read Pyth directly.
@@ -20,26 +20,37 @@ Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#marke
 
 `Stress` blocks both sides because `allow_mint_in_stress` and `allow_redeem_in_stress` default to false, and both are false on all markets, 14 when checked on 10 Oct 2026 and 13 live now. The market authority can turn either on with `configure_risk_fees`. A mint in `Stress` is then also held to `stress_mint_cap` per transaction. That cap is 0 (no cap) on every market.
 
-## Fee and confidence multipliers
+## Fee and price band
 
-Each state multiplies the market's posted fee and its confidence band. Both multipliers are surcharges on top of the posted values, and every live setting is 1× or more.
+The fee is the market's posted fee in every state. Since 20 Nov 2026 both fee multipliers (`proxy_fee_multiplier` and `stress_fee_multiplier`) are 1× on every live market, so a posted 18 bps is charged as 18 bps. Before, in `ProxyMode`, it was charged as 27. The market authority can change them with `configure_risk_fees`.
 
-| State | Fee multiplier | Confidence multiplier |
-|---|---|---|
-| `Normal` | 1× | 1× |
-| `ProxyMode` | 1.5× (`proxy_fee_multiplier`) | 1.5× (`proxy_confidence_multiplier`) |
-| `Stress` | 3× (`stress_fee_multiplier`), if trading is allowed | 3× (`stress_confidence_multiplier`) |
-| `Recovery` | Falls from 3× to 1× over 1 hour | Falls from 3× to 1× over 1 hour |
+The price band `c` that mint and redeem quote against does not depend on the state either. The band rule is set on all 13 live markets, and under it `c` grows with the age of the price:
 
-These are the defaults, and the values on every live market as of 10 Oct 2026. The market authority sets the fee multipliers with `configure_risk_fees` and the confidence multipliers with `configure_worst_case_quoting`. The confidence multiplier applies only where worst-case quoting is on; see [NAV math](/concepts/nav#worst-case-quoting).
+```
+c = (sigmas_x100 / 100) × oracle_confidence × sqrt(age / horizon_secs)
+```
 
-On devnet the 1.5× fee multiplier always applies: QQQ posts an 18 bps fee and is charged 27 bps.
+`age` is the chain time now minus the price's own stamp, never below 0. The stamp is `twap_updated_at` for the keeper's stored price, or the publish time of the oracle print when the program reads the oracle itself in `Normal`. `oracle_confidence` is read as one standard deviation of the price over `horizon_secs`. On devnet it is the keeper's GJR-GARCH forecast for a 30-second bar. The market authority sets `sigmas_x100` and `horizon_secs` with `configure_price_band`. All 13 live markets use 2 standard deviations over 30 seconds. The band applies only where worst-case quoting is on (`worst_case_config.enabled`) and a confidence is posted. Quoting is off on QQQ and on on the other twelve (read 20 Nov 2026), so QQQ quotes with no band.
 
-The `Recovery` decline is linear and starts when the market enters `Recovery`. The program sets `risk_state_updated_at` only when the state changes, so later pushes in `Recovery` don't restart the clock. The keeper holds `Recovery` for an hour after leaving `Stress`, so the surcharge is back to 1× by the time the keeper moves the market to its next state.
+A price read the second it was stamped has no band. At one horizon the band is `sigmas` standard deviations. At four horizons it is twice that. With 2 standard deviations over 30 s:
+
+| Price age | Band as a multiple of `oracle_confidence` |
+|---|---|
+| 15 s | 1.414× |
+| 30 s | 2× |
+| 60 s | 2.83× |
+| 120 s | 4× |
+| 300 s | 6.32× |
+
+Why an age rule: a replay of ten weekdays of the keeper's own prices found that the move while a price stood grew with the square root of the time it stood. At the same average width, the age rule covered 86% of those moves and the flat 1.5× band covered 73%. At 2 standard deviations it covers 91%. Currency and metal prices are about 52 s old when used, and stock prices about 16 s.
+
+If a market's band rule is off (`band_sigmas_x100` and `band_horizon_secs` both 0), the old rule applies: `oracle_confidence` times the multiplier in `worst_case_config`, set with `configure_worst_case_quoting`. No live market is in that case. The formulas are on [Mint](/flows/mint#math) and in [NAV math](/concepts/nav#worst-case-quoting).
+
+`Recovery` now quotes exactly like `ProxyMode`. It stays a separate state, and the keeper still holds it for an hour after leaving `Stress`.
 
 ### Transition rules
 
-The on-chain transition matrix stops a compromised keeper from skipping recovery: **`Stress` can only move to `Recovery`** (or stay in `Stress`). A direct `Stress` → `Normal` or `Stress` → `ProxyMode` jump is rejected, which would otherwise drop the surcharge from 3× straight away. Every other transition is allowed: `ProxyMode` and `Recovery` move freely, and `Normal` can be entered from any state except `Stress`. Each push is also capped on price (a 25% move limit); see [Oracle](/concepts/oracle#what-one-push-contains).
+The on-chain transition matrix stops a compromised keeper from skipping recovery: **`Stress` can only move to `Recovery`** (or stay in `Stress`). A direct `Stress` → `Normal` or `Stress` → `ProxyMode` jump is rejected. The rule is unchanged, but it no longer protects a surcharge, because the fee multipliers are 1× and the band ignores the state. Every other transition is allowed: `ProxyMode` and `Recovery` move freely, and `Normal` can be entered from any state except `Stress`. Each push is also capped on price (a 25% move limit); see [Oracle](/concepts/oracle#what-one-push-contains).
 
 ## The staleness chain (off-hours behavior)
 
@@ -61,7 +72,7 @@ If you only check one thing before you submit a mint or redeem, check `market.tw
 
 ### `ProxyMode` (devnet)
 
-Operate normally. Fees carry the 1.5× surcharge, and quotes carry a 1.5× confidence markup on both legs, usually a few bps. If you run a bot, remember that a mint or redeem needs a push no more than 300 s old.
+Operate normally. The fee is the posted fee, and the band on both legs grows with the age of the price. If you run a bot, remember that a mint or redeem needs a push no more than 300 s old.
 
 ### `Stress`
 
@@ -71,7 +82,7 @@ Mint and redeem are blocked by default (`MintNotAllowedInStress`, `RedeemNotAllo
 
 ### `Recovery`
 
-Mint and redeem reopen. Fees and confidence markups start at 3× and fall evenly to 1× over the first hour.
+Mint and redeem reopen. They quote exactly as in `ProxyMode`.
 
 ## Reading risk state
 

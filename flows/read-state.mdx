@@ -140,7 +140,7 @@ Mint and redeem don't fill at NAV. They quote each leg against the user by the c
 
 `twapUpdatedAt` holds the publish time of the price the keeper pushed, or the push's block time if the keeper gave none. Mint and redeem revert with `TwapNotAvailable` when that is more than 300 s ago or the price is 0, and `Stress` blocks both. The `priceAgeSec` and `mintRedeemOpen` fields in the sample check exactly these conditions. While the underlying market is closed the keeper normally withholds pushes, which is why the output above shows a closed market on a Saturday.
 
-`oracleConfidence` is the keeper's confidence band in price units (1e6), from a GJR-GARCH volatility model. The program widens mint and redeem quotes by the band times the risk-state multiplier (1.5× in `ProxyMode`) on every market with worst-case quoting on. Before a push, the keeper checks each price against Hyperliquid and holds the push if they disagree.
+`oracleConfidence` is the keeper's confidence band in price units (1e6), from a GJR-GARCH volatility model. The program widens mint and redeem quotes by a band that grows with the age of the price: the confidence times `band_sigmas_x100` / 100 times sqrt(age / `band_horizon_secs`). The risk state plays no part. See [Risk states](/concepts/risk-states#fee-and-price-band). Before a push, the keeper checks each price against Hyperliquid and holds the push if they disagree.
 
 ## Batch-fetch all 13 markets
 

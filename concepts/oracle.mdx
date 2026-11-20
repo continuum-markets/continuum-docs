@@ -71,7 +71,7 @@ While frozen:
 
 The confidence band feeds two mechanisms:
 
-1. Mint and redeem price each leg off `P + c` or `P − c`, whichever is worse for the user, where `c = oracle_confidence` × the risk state's confidence multiplier. See [worst-case quoting](/concepts/nav#worst-case-quoting).
+1. Mint and redeem price each leg off `P + c` or `P − c`, whichever is worse for the user, where `c = oracle_confidence` × `band_sigmas_x100` / 100 × sqrt(age / `band_horizon_secs`), and `age` is the time since the price's own stamp. The risk state plays no part. See [worst-case quoting](/concepts/nav#worst-case-quoting).
 2. The keeper's [spread engine](/concepts/keeper#the-spread-engine-model-free) includes `oracle_conf + fixed` in its max-of-floors stack, so the books never quote inside the band.
 
 ## Reading prices from a client
