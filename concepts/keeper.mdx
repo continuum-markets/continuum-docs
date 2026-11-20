@@ -14,6 +14,16 @@ The **keeper** is an off-chain Rust service, run by the protocol, that drives Co
 
 The keeper is **not in your transaction**. User mints, redeems and trades go straight to the on-chain programs. But mint and redeem rely on its pushes: both revert with `TwapNotAvailable` when the last push is more than 300 s old.
 
+## Collateral token
+
+Each market's collateral is the token its `Market` account names, and the keeper follows the market. It derives a market's CLP vault, the treasury vault that backs it, the fee account, a redeemer's payout account and its own working account from that market's token. The treasury is one vault per token (the GlobalClp PDA's account for that mint), and a market draws on, and returns to, the treasury of its own token only.
+
+Limits of the current build:
+
+- It operates a market only if its collateral is a classic SPL Token mint with six decimals, and takes one unit as worth one dollar. A market on any other mint is skipped, with one error naming it.
+- The treasury's rate-limited withdrawal and the funding of the short rebate serve one token, because the on-chain treasury policy has a single destination account.
+- Every live market uses the same token, so the per-token paths for a second token have run in tests only.
+
 ## Task inventory
 
 ### Price updater (every 5 s in the Docker image)
@@ -98,7 +108,7 @@ It has run live since 12 Oct 2026, after a few hours in dry-run. The daily colla
 
 ### Yield allocator (300 s)
 
-The allocator is the only part of the keeper that lends collateral. Each tick it reads the USDC reserves of three mainnet venues straight from chain: Kamino's main market, Save's main pool and Jupiter Lend Earn. MarginFi is disabled: the keeper's decoder expects a 1,864 byte `Bank`, the live account is 3,912 bytes and fails to decode, so it was in no plan anyway, and it was removed on 13 Oct 2026. From each reserve it rebuilds the venue's interest-rate curve, so it knows how far the supply rate falls as the protocol's own deposit pushes utilization down. It plans on a blended rate, 25% today's rate and 75% the venue's 30-day mean, so a one-day spike doesn't pull collateral.
+The allocator is the only part of the keeper that lends collateral. It plans once per collateral token, and each token has its own list of venues. USDC's list is built in: each tick the allocator reads the USDC reserves of three mainnet venues straight from chain, Kamino's main market, Save's main pool and Jupiter Lend Earn. Another token's list comes from `YIELD_VENUES_<mint>`, each reserve is checked to hold that token, and a token with no list lends nothing. MarginFi is disabled: the keeper's decoder expects a 1,864 byte `Bank`, the live account is 3,912 bytes and fails to decode, so it was in no plan anyway, and it was removed on 13 Oct 2026. From each reserve it rebuilds the venue's interest-rate curve, so it knows how far the supply rate falls as the protocol's own deposit pushes utilization down. It plans on a blended rate, 25% today's rate and 75% the venue's 30-day mean, so a one-day spike doesn't pull collateral.
 
 Its limits are derived from stated assumptions:
 
@@ -118,7 +128,7 @@ Inside those limits it fills the venues in order of marginal rate, so every fund
 
 Until 11 Oct 2026 the venue cap was half of each market's own collateral above 100%. At the 102% target that left about 3% of collateral lendable. On 11 Oct 2026 the new rule was measured against live mainnet venues for the 14 devnet markets of that date, which held \$19.2M of collateral. With the \$5.53M funded treasury, the plan lent about two-thirds of that collateral, held back by Jupiter Lend's venue cap of \$5.7M. Later that day the liquidity reallocator returned \$12.99M of idle CLP cash, taking the treasury to \$18.52M and first-loss capital to \$18.73M. The plan now lends 69.9%, the same share in every market, and earns 3.07% on all of it, about \$589,000 a year. Each market's liquid share is what binds now, not venue capacity. Kamino and MarginFi stopped at their exit caps, and Jupiter Lend and Save share the rest where their marginal rates meet. On 12 Oct 2026 the protocol's own holdings were cut to working size, leaving about \$1.4M of collateral. At that size no venue cap binds except MarginFi's small exit cap, and each market's liquid share decides what is lent (MarginFi was removed from the plan on 13 Oct 2026). That size was chosen partly because the venues couldn't absorb much more: at a \$1M to \$5M treasury, the loss shares would let only 10% to 38% of the old \$18.3M be lent.
 
-It sends transactions only on mainnet USDC with `COLLATERAL_YIELD_ENABLED=true`, which is off by default. On every other cluster it plans and reports to the dashboard but sends nothing. The on-chain rails sit on top: `yield_enabled` and `yield_ceiling_bps` on each market. Since 12 Oct 2026 every market has yield enabled with its ceiling at 10,000 bps: all idle collateral may be lent, and the keeper recalls it before paying out. The program accepted at most 9,000 bps until then. Study r57 had recommended 9,000, because a 10% cash share pays a 10% run even on a day the lending venues freeze (as Solend's did in June 2022, during FTX and in July 2023); the operator chose 100%.
+It sends transactions only on mainnet, for a token whose venues hold that token (USDC, or a token with a configured list), with `COLLATERAL_YIELD_ENABLED=true`, which is off by default. No list but USDC's has been run. On every other cluster it plans and reports to the dashboard but sends nothing. The on-chain rails sit on top: `yield_enabled` and `yield_ceiling_bps` on each market. Since 12 Oct 2026 every market has yield enabled with its ceiling at 10,000 bps: all idle collateral may be lent, and the keeper recalls it before paying out. The program accepted at most 9,000 bps until then. Study r57 had recommended 9,000, because a 10% cash share pays a 10% run even on a day the lending venues freeze (as Solend's did in June 2022, during FTX and in July 2023); the operator chose 100%.
 
 Devnet has no real lending, so a yield emulator (`DEVNET_YIELD_EMULATION`, default on, devnet only) stands in for it. Every hour it mints the cUSDC that the allocator's mainnet plan would have earned on each market's collateral, crediting each venue at its 30-day mean rate rather than its spot rate, and pushes it through the real `harvest_collateral_yield`, which adds it to the market's `total_collateral`. When no fresh mainnet snapshot is available, it credits nothing for that hour. The emulator sizes its plan against the same treasury, so emulated yield rose with the new venue cap.
 
