@@ -50,7 +50,7 @@ A job reruns that calculation once a day, after the US close: a jump-diffusion M
 
 - **Leg imbalance** β = (L − S)/(L + S) by value. It grows as the price drifts from the market's anchor, and it is what eats a buffer; the γ charge already covers the convexity.
 - **γ**, the short leg's volatility decay.
-- **The volatility regime**: recent daily volatility against the long-run calibration. It can only raise a target, by up to 2×; a calm month never lowers one.
+- **The volatility regime**: recent daily volatility, through the same day's 19:00 UTC price since 21 Nov 2026 (before that it stopped at the day before), against the long-run calibration. It can only raise a target, by up to 2×; a calm month never lowers one.
 
 Every path runs twice: once with the book left alone, and once with the keeper's [imbalance control](/concepts/keeper#imbalance-control-900s) redeeming the CLP's heavier leg whenever |β| leaves 0.05. A market whose live |β| is within 0.10 gets the second need, because the band is visibly holding. Past 0.10 it gets the first. With the band held, no market needs more than 0.63% (TSLA), so every buffer heads for the 1% minimum.
 
