@@ -22,7 +22,7 @@ Limits of the current build:
 
 - It operates a market only if its collateral is a classic SPL Token mint with six decimals, and takes one unit as worth one dollar. A market on any other mint is skipped, with one error naming it.
 - The treasury's rate-limited withdrawal and the funding of the short rebate serve one token, because the on-chain treasury policy has a single destination account.
-- The 13 live markets all use the same token. Since 20 Nov 2026 a test market on devnet, `EURX`, runs on a second test token with its own treasury vault. It tracks the euro with EUR's settings and is not in the app. The keeper prices it, posts its settings and tops up its CLP vault from that token's treasury. It has no order-book markets and no rebate, and no lending list other than USDC's has run.
+- The 13 live markets all use the same token. On 20 and 21 Nov 2026 a test market on devnet, `EURX`, ran on a second test token with its own treasury vault. It tracked the euro with EUR's settings and was never in the app. The keeper priced it, posted its settings, topped up its CLP vault from that token's treasury and returned redeemed collateral to that treasury, and the nightly job sized its cap against that treasury alone. It was deactivated on 21 Nov 2026 and the keeper no longer runs it. It had no order-book markets and no rebate, and no lending list other than USDC's has run.
 
 ## Task inventory
 
