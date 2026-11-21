@@ -159,7 +159,7 @@ description: Continuum-specific terms in one place.
 
 **Venue split** - Routing by market state: committed orders while a market's price is live, and the bin books while it is stale. The instant oracle swap (`clp_swap`) was retired on 11 Oct 2026. Both venues price off the same keeper-pushed NAV.
 
-**Worst-case quoting** - Mint and redeem price each leg against the user by a price band c: mint values L at P + c and S at `K / (P − c) × γ(P − c)`, redeem L at P − c and S at `K / (P + c) × γ(P + c)`. See **Price band**. A per-market switch (`worst_case_config.enabled`), on everywhere except QQQ as of 20 Nov 2026. With it off there is no band.
+**Worst-case quoting** - Mint and redeem price each leg against the user by a price band c: mint values L at P + c and S at `K / (P − c) × γ(P − c)`, redeem L at P − c and S at `K / (P + c) × γ(P + c)`. See **Price band**. A per-market switch (`worst_case_config.enabled`), on for all 13 live markets since 21 Nov 2026, when QQQ's was switched on. With it off there is no band.
 
 **Yield allocator** - The keeper task that decides how much of each market's collateral to lend, and where, from live mainnet venue state. Each venue's total position across all markets is capped at first-loss capital divided by the venue failures to cover (1 by default). First-loss capital is the treasury plus half of all markets' collateral above 100%. It lends only on mainnet with `COLLATERAL_YIELD_ENABLED=true`. On devnet an emulator credits the interest its plan would earn. Every live market has `yield_enabled = true` as of 11 Oct 2026, and new markets start with it true. Harvested yield is added to the market's own collateral.
 

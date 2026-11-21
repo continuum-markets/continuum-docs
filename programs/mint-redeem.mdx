@@ -144,7 +144,7 @@ c = oracle_confidence × band_sigmas_x100 × isqrt(age × 1_000_000 / band_horiz
 
 With the rule off (both fields 0), c is `oracle_confidence` times the state's multiplier from `worst_case_config`: 1× in `Normal`, 1.5× in `ProxyMode`, 3× in `Stress`, and in `Recovery` 3× falling to 1× over the hour after the market enters `Recovery` (`risk_state_updated_at`). No live market is in that case.
 
-A mint prices L at P + c and S at K / (P − c) × γ(P − c). A redeem prices L at P − c and S at K / (P + c) × γ(P + c). On a keeper-posted market γ is the same at both. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; as of 20 Nov 2026 it is off on QQQ and on on the other twelve live markets. With it off c is 0 under either rule.
+A mint prices L at P + c and S at K / (P − c) × γ(P − c). A redeem prices L at P − c and S at K / (P + c) × γ(P + c). On a keeper-posted market γ is the same at both. Worst-case quoting is on by default, and `configure_worst_case_quoting` can switch it off per market; it has been on for all 13 live markets since 21 Nov 2026, when QQQ's was switched on. With it off c is 0 under either rule.
 
 ### Fees
 

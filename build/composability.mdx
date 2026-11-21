@@ -32,7 +32,7 @@ Committed orders work on every live market. The bin books ignore swap guards but
 
 ## 2. Arb bot
 
-Every venue prices off the same keeper-posted price. Mint and redeem quote worst-case NAVs (every market except QQQ, where worst-case quoting is switched off as of 10 Oct 2026), committed orders fill at NAV ± the committed spread, and the bin books sit around an inventory-shifted centre. That leaves little to arbitrage:
+Every venue prices off the same keeper-posted price. Mint and redeem quote worst-case NAVs on every market (QQQ's worst-case quoting was off until 21 Nov 2026), committed orders fill at NAV ± the committed spread, and the bin books sit around an inventory-shifted centre. That leaves little to arbitrage:
 
 ```
 loop:
