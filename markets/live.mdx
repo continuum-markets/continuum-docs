@@ -1,9 +1,9 @@
 ---
 title: Live markets
-description: The 13 markets live on Solana devnet, with every address each one needs and the fees and collateral read from chain on 12 Oct 2026.
+description: The ten markets live on Solana devnet, with every address each one needs and the fees and collateral read from chain on 12 Oct 2026. EUR, GBP and JPY were delisted on 21 Nov 2026.
 ---
 
-Thirteen markets are live on Solana devnet, with 26 bin books between them. Together they hold about \$1.37M of collateral, the sum of `Market.total_collateral` on 12 Oct 2026 after the protocol's own holdings were cut to working size (see below). Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
+Ten markets are live on Solana devnet, with 20 bin books between them: QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, XAU and XAG. On 12 Oct 2026, when thirteen markets were live, those thirteen together held about \$1.37M of collateral, the sum of `Market.total_collateral` after the protocol's own holdings were cut to working size (see below). Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain (see [Delisted markets](#delisted-markets)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
 
 <Note>
   The cUSDC mint for all devnet markets is `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. On mainnet the collateral will be USDC.
@@ -11,7 +11,7 @@ Thirteen markets are live on Solana devnet, with 26 bin books between them. Toge
 
 ## At a glance
 
-As of 12 Oct 2026:
+As of 12 Oct 2026. The table lists the ten live markets; the three delisted currency markets are under [Delisted markets](#delisted-markets).
 
 | Market | Tracks | Initial price | Fee (bps) | Committed orders | Total collateral (cUSDC) |
 |---|---|---|---|---|---|
@@ -21,13 +21,10 @@ As of 12 Oct 2026:
 | XAG | Silver spot, USD per troy ounce | 64.84 | 25 | On | 15,947 |
 | NVDA | NVIDIA | 210.71 | 31 | On | 16,761 |
 | AAPL | Apple | 298.17 | 22 | On | 16,806 |
-| EUR | EUR/USD | 1.14746 | 10 | On | 16,684 |
 | MSFT | Microsoft | 483.31864 | 29 | On | 17,562 |
 | TSLA | Tesla | 362.79505 | 38 | On | 17,895 |
 | AMZN | Amazon | 258.62 | 32 | On | 17,346 |
 | GOOGL | Alphabet (Class A) | 344.72516 | 32 | On | 17,451 |
-| GBP | GBP/USD | 1.36438 | 10 | On | 16,880 |
-| JPY | USD/JPY (yen per dollar) | 158.986 | 10 | On | 16,414 |
 
 On 12 Oct 2026 the CLP's own holdings, which had been about \$16.6M across these markets, were cut first to about \$50,000 a leg per market and then, the same day, to 0.5% of each market's claims per leg, the share the keeper's nightly job now re-derives. Committed orders mint what they need when they settle. The CLP redeemed the rest at NAV with `vault_redeem_single`, so no holder's tokens changed value, and \$16.9M of collateral went back to the treasury. Most of what remains sits in the bin books. Each book was left balanced between its long and short values. QQQ, SPY and XAU hold more because some of their long tokens sit outside the CLP, and the CLP keeps short tokens to offset them.
 
@@ -35,9 +32,9 @@ Every market set `initial_l_price` and `initial_s_price` to the same value, so i
 
 The keeper posts one fee as both the mint fee and the redeem fee. Since 20 Nov 2026 the fee multiplier is 1× in every risk state, so the charged fee is the posted fee.
 
-The order book can carry a separate taker fee, set per market with `set_book_fee` and zero until set (see [Order book](/flows/order-book#taker-fee)). As of 19 November 2026 the rates in force are 5 bps live and 5 bps stale on every live market. The same applies to decay: each market is either keeper-posted or priced by the program, and as of 19 November 2026 all 13 are priced by the program (see [NAV](/concepts/nav#volatility-decay)).
+The order book can carry a separate taker fee, set per market with `set_book_fee` and zero until set (see [Order book](/flows/order-book#taker-fee)). As of 19 November 2026 the rates in force are 5 bps live and 5 bps stale on every live market. The same applies to decay: each market is either keeper-posted or priced by the program, and as of 19 November 2026 all thirteen markets then live were priced by the program (see [NAV](/concepts/nav#volatility-decay)).
 
-Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every live market, and they are the protocol's only venue while a market's price is live; traders' orders on the [order book](/flows/order-book) are open at any hour. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026. The JPY market tracks USD/JPY, so `JPYL` gains when the yen weakens against the dollar.
+Committed orders fill at NAV plus or minus the market's committed spread, shown for QQQ, SPY and XAU. The keeper re-posts each spread as volatility moves, so read `Clp.commit_spread_bps` for the current value. Since 11 Oct 2026 committed orders are on for every live market, and they are the protocol's only venue while a market's price is live; traders' orders on the [order book](/flows/order-book) are open at any hour. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). The bin books trade only while a market's price is stale, and the CLP's instant `clp_swap` was retired on 11 Oct 2026.
 
 Each market's `Clp.oi_cap` is an exposure cap on how far traders can go net long or net short (0 means uncapped). The keeper re-sizes it every night, so read the live value from the chain. See [Solvency → Exposure cap](/concepts/solvency#6-exposure-cap). The bin books charge no swap fee.
 
@@ -145,21 +142,6 @@ Each market keeps its collateral in its own vault, the cUSDC ATA of its Market P
 | **Short book** | `6v9KZZY4uXaNHkmq2JSJHcbuntCCrXkCyrz8WZD3pGef` |
 | **Hyperliquid check** | `xyz:AAPL` |
 
-## EUR: Euro (EUR/USD)
-
-| | Address |
-|---|---|
-| **Market PDA** | `CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR` |
-| **Long mint** (`EURL`) | `FLDQtZ2adGWTcawQh6jziufJejkexoPA2uYimQTqA8z9` |
-| **Short mint** (`EURS`) | `z5u5UYz5jWdbycMexwdYvkw56fLY1uvx5RZW3EtxRsM` |
-| **Oracle config** (`oracle` account) | `J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh` |
-| **Collateral vault** | `C7Ur9siuwWB1MYkEyMQWE347jUxue8Xz1fvLfcnWguC5` |
-| **CLP PDA** | `Esd4RB9qMfcmH8AAtiGgLLBXskZZ4xkcBExPGGTQPZj2` |
-| **CLP vault** | `6LFwtV47WzjFQc86wigXUYVxECBwCmNt8LpRJanLJyNd` |
-| **Long book** | `CSpjyN6YkFkhbLKux47pnw4KeWQAtWNgu6yBHTn7SsGe` |
-| **Short book** | `8QJiubkx3xWxNGXrPSUjTsaTss6TcNBiMNT5xzrByZfp` |
-| **Hyperliquid check** | `xyz:EUR` |
-
 ## MSFT: Microsoft
 
 | | Address |
@@ -220,36 +202,6 @@ Each market keeps its collateral in its own vault, the cUSDC ATA of its Market P
 | **Short book** | `6CVRNQPruyE8LLQvdfiVwp6uEiqxcRYjCTD7wU9a2DS1` |
 | **Hyperliquid check** | `xyz:GOOGL` |
 
-## GBP: British pound (GBP/USD)
-
-| | Address |
-|---|---|
-| **Market PDA** | `HjpaEbyXJBqzxP6B7eNnbZvtaUPXRubc5bEywzfMePqK` |
-| **Long mint** (`GBPL`) | `HSGiyJGoAMKYmEG6cZkvnTko3B3BP6nnVCYuikBxRLSJ` |
-| **Short mint** (`GBPS`) | `F6dZpqSCevWEUdCvv6ARaePy5RnqkcVJBm7UubjV8fSG` |
-| **Oracle config** (`oracle` account) | `BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn` |
-| **Collateral vault** | `3gtGoZTrWbCVdD6vfwz2614aFwvS2JzgQmENadfR8gkF` |
-| **CLP PDA** | `4gskdJfMfv6sCPqyWErXayUdzJBPLg5GyiZ6jSJ4EB8J` |
-| **CLP vault** | `5rfH9Er5GFHGcK4wHvga8JRRCS1EAqJsWcnGWMJMVDB5` |
-| **Long book** | `3e59vEqzQJasUiBHstdCHRKh9KJTtG83w3Mo5W1ASHDw` |
-| **Short book** | `B1UyrycWcxpV9DPTnEhKLf1zfeomnJVVriST7TdKRBtR` |
-| **Hyperliquid check** | `xyz:GBP` |
-
-## JPY: Japanese yen (USD/JPY)
-
-| | Address |
-|---|---|
-| **Market PDA** | `2hZtLxJtPeYjogUQFWeGYEKjJkWArEcf9iTtGkrChuKC` |
-| **Long mint** (`JPYL`) | `4NVo5FmKT1Z1Bid3RuRa9obpYgyusrQdxByTPLw6KtsT` |
-| **Short mint** (`JPYS`) | `VqgP5wUX6jZKEtWQiktmip8ntGz2eKCjdJ4ttjfo93a` |
-| **Oracle config** (`oracle` account) | `7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1` |
-| **Collateral vault** | `F78vUS2GfNgn2NC41bLJSPCb2wZaPoGGGDFYfxhoLGfA` |
-| **CLP PDA** | `HKzUKzNyHDyC5AgEYFFscE3PETBB3SfrfCKnt1hGLE1K` |
-| **CLP vault** | `8PVXUQ6VuuYor9PH7vew3sY35civX2YSJH1jgCXEsaXU` |
-| **Long book** | `NyL2zCi4am2Kiofr6NfNcVCyf23rmcnsqVgNaZPj7mf` |
-| **Short book** | `FsDgk3EkBJbdqEP2C9uyh86qdjy4KpYpg1PTytW86FY4` |
-| **Hyperliquid check** | `xyz:JPY`, also quoted as yen per dollar |
-
 ## MSTR: MicroStrategy
 
 <Note>
@@ -268,6 +220,61 @@ MSTR was wound down on 12 Oct 2026 and is paused (`is_active = false`), so mint 
 | **Long book** | `G9xCpYdpCwyXw9Y5z2aMddDbVVvj1iy87RRozaAoY9LK` |
 | **Short book** | `TS4njAZnRctsppgdTiHptAUNitoY6FjFMkXjqHKLQU7` |
 | **Hyperliquid check** | `xyz:MSTR` |
+
+## Delisted markets
+
+EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain. Their addresses stay here for reference.
+
+<Note>
+EUR, GBP and JPY were delisted from the app on 21 Nov 2026 and are closing on chain. No forex market is planned. The keeper gives the three markets no working cash and the treasury no longer backstops them. It empties both of each market's bin books, sweeps them back to the CLP, and returns the liquidity to the treasury. It posts the 1% minimum buffer target for them, and the exposure caps, the imbalance control and the short rebate skip them. At the next fresh price (currencies reopen Sunday 22:00 UTC) it redeems the protocol's own long and short pairs, all but one pair, and releases the surplus collateral. The keeper still posts their prices. This is the same wind-down mode MSTR used in October.
+
+They are not paused yet: `is_active` is still true, so mint and redeem still work when the price is fresh. The market authority will pause them (`update_market(is_active = false)`) after the protocol's pairs are redeemed. Once paused, mint and redeem revert with `MarketNotActive`, so redeem before then. The devnet simulator no longer quotes or trades them on the order books.
+</Note>
+
+### EUR: Euro (EUR/USD), delisted
+
+| | Address |
+|---|---|
+| **Market PDA** | `CkXdq7RNCu6sCk7A3UZdBB1JNR8ESaBWqH8bdeMsUbYR` |
+| **Long mint** (`EURL`) | `FLDQtZ2adGWTcawQh6jziufJejkexoPA2uYimQTqA8z9` |
+| **Short mint** (`EURS`) | `z5u5UYz5jWdbycMexwdYvkw56fLY1uvx5RZW3EtxRsM` |
+| **Oracle config** (`oracle` account) | `J4GhhLqUwbBEZ9E9C6ryGDD3GxbV9pzkWCXPrqjDhcGh` |
+| **Collateral vault** | `C7Ur9siuwWB1MYkEyMQWE347jUxue8Xz1fvLfcnWguC5` |
+| **CLP PDA** | `Esd4RB9qMfcmH8AAtiGgLLBXskZZ4xkcBExPGGTQPZj2` |
+| **CLP vault** | `6LFwtV47WzjFQc86wigXUYVxECBwCmNt8LpRJanLJyNd` |
+| **Long book** | `CSpjyN6YkFkhbLKux47pnw4KeWQAtWNgu6yBHTn7SsGe` |
+| **Short book** | `8QJiubkx3xWxNGXrPSUjTsaTss6TcNBiMNT5xzrByZfp` |
+| **Hyperliquid check** | `xyz:EUR` |
+
+### GBP: British pound (GBP/USD), delisted
+
+| | Address |
+|---|---|
+| **Market PDA** | `HjpaEbyXJBqzxP6B7eNnbZvtaUPXRubc5bEywzfMePqK` |
+| **Long mint** (`GBPL`) | `HSGiyJGoAMKYmEG6cZkvnTko3B3BP6nnVCYuikBxRLSJ` |
+| **Short mint** (`GBPS`) | `F6dZpqSCevWEUdCvv6ARaePy5RnqkcVJBm7UubjV8fSG` |
+| **Oracle config** (`oracle` account) | `BkY1KehG2HZczmu6F1WpzJ2oHfqztESQviJjx7kDoXfn` |
+| **Collateral vault** | `3gtGoZTrWbCVdD6vfwz2614aFwvS2JzgQmENadfR8gkF` |
+| **CLP PDA** | `4gskdJfMfv6sCPqyWErXayUdzJBPLg5GyiZ6jSJ4EB8J` |
+| **CLP vault** | `5rfH9Er5GFHGcK4wHvga8JRRCS1EAqJsWcnGWMJMVDB5` |
+| **Long book** | `3e59vEqzQJasUiBHstdCHRKh9KJTtG83w3Mo5W1ASHDw` |
+| **Short book** | `B1UyrycWcxpV9DPTnEhKLf1zfeomnJVVriST7TdKRBtR` |
+| **Hyperliquid check** | `xyz:GBP` |
+
+### JPY: Japanese yen (USD/JPY), delisted
+
+| | Address |
+|---|---|
+| **Market PDA** | `2hZtLxJtPeYjogUQFWeGYEKjJkWArEcf9iTtGkrChuKC` |
+| **Long mint** (`JPYL`) | `4NVo5FmKT1Z1Bid3RuRa9obpYgyusrQdxByTPLw6KtsT` |
+| **Short mint** (`JPYS`) | `VqgP5wUX6jZKEtWQiktmip8ntGz2eKCjdJ4ttjfo93a` |
+| **Oracle config** (`oracle` account) | `7GhyT3C7nqnK9FbvpeiGYzNNQP2AvEDnMgL7FSW9cVg1` |
+| **Collateral vault** | `F78vUS2GfNgn2NC41bLJSPCb2wZaPoGGGDFYfxhoLGfA` |
+| **CLP PDA** | `HKzUKzNyHDyC5AgEYFFscE3PETBB3SfrfCKnt1hGLE1K` |
+| **CLP vault** | `8PVXUQ6VuuYor9PH7vew3sY35civX2YSJH1jgCXEsaXU` |
+| **Long book** | `NyL2zCi4am2Kiofr6NfNcVCyf23rmcnsqVgNaZPj7mf` |
+| **Short book** | `FsDgk3EkBJbdqEP2C9uyh86qdjy4KpYpg1PTytW86FY4` |
+| **Hyperliquid check** | `xyz:JPY`, also quoted as yen per dollar |
 
 ## Programmatic access
 

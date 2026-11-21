@@ -113,7 +113,7 @@ Stored in `Clp.swap_guards` and set with `configure_swap`. The all-zero default 
 | `window_secs` | i64 | Window length |
 | `collateral_floor_bps` | u16 | Minimum market collateral ratio, at the settle price, for a committed fill |
 
-Since 11 Oct 2026, all 13 live markets have guards enabled and not frozen, with the same limits: a 600 s staleness limit, a 5,000 bps confidence limit (off in practice), a 10,000 bps deviation limit (off; `update_risk_state_v2` already refuses a move of more than 25% per push) and a 10,000 bps (100%) collateral floor. Their spread and window cap were left as they were: QQQ, SPY and XAU keep a 30 bps spread and a cap of 1,000,000 cUSDC per hour, and the other markets have no cap.
+Since 11 Oct 2026, all ten live markets have guards enabled and not frozen, with the same limits: a 600 s staleness limit, a 5,000 bps confidence limit (off in practice), a 10,000 bps deviation limit (off; `update_risk_state_v2` already refuses a move of more than 25% per push) and a 10,000 bps (100%) collateral floor. Their spread and window cap were left as they were: QQQ, SPY and XAU keep a 30 bps spread and a cap of 1,000,000 cUSDC per hour, and the other markets have no cap.
 
 ### `Pool` PDA
 
@@ -121,7 +121,7 @@ Since 11 Oct 2026, all 13 live markets have guards enabled and not frozen, with 
 seeds = [b"pool", market, [side]]    // side: 0 = long, 1 = short
 ```
 
-Two per market, so 26 for the 13 live markets. Each is a native bin book for one synth leg against cUSDC. The whole book lives in the account (up to 16 bins a side, `POOL_MAX_BINS`), so bins cost no extra rent. The pool PDA's two associated token accounts hold the reserves: synth for the asks and cUSDC for the bids.
+Two per market, so 20 for the ten live markets. Each is a native bin book for one synth leg against cUSDC. The whole book lives in the account (up to 16 bins a side, `POOL_MAX_BINS`), so bins cost no extra rent. The pool PDA's two associated token accounts hold the reserves: synth for the asks and cUSDC for the bids.
 
 | Field | Type | Purpose |
 |---|---|---|

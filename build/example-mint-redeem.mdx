@@ -220,7 +220,7 @@ main().catch((e) => { console.error(e); process.exit(1); });
 
 ```bash
 bun mint-and-redeem.ts              # QQQ
-SYMBOL=EUR bun mint-and-redeem.ts   # any live market
+SYMBOL=SPY bun mint-and-redeem.ts   # any live market
 ```
 
 Expected output for QQQ's devnet state on 10 Oct 2026 (price \$751.27, γ 0.993214606, posted fee 18 bps), recorded before the 20 Nov 2026 change, when the fee was charged at 1.5×. A run today charges the posted fee. Signatures are elided:

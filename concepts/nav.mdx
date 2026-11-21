@@ -94,7 +94,7 @@ All of the pair's convexity lives in the **short** leg. `L_NAV = P` is linear (`
 | `set_s_gamma_index` | Allowed | Refused (`GammaSetByPrice`, 6063) |
 | Keeper meters and posts | Yes | No |
 
-Which path a market is on is on its `Market` account (`decay_flags`, bit 0). As of 19 November 2026 the program prices decay on all 13 live markets. Every other market stays keeper-posted until its authority switches it.
+Which path a market is on is on its `Market` account (`decay_flags`, bit 0). As of 19 November 2026 the program prices decay on all thirteen markets then live, which includes all ten live today. Every other market stays keeper-posted until its authority switches it.
 
 ### Priced by the program
 
@@ -130,7 +130,7 @@ No live market is on this path. It remains for a market whose authority has not 
 - `reanchor_gamma` starts a new epoch. Only the market authority can call it, at least 14 days after the last one. It sets `initial_s_price` to `initial_s_price × γ` and resets γ to 1.0, which leaves every claim unchanged at every price. What it renews is the decay budget. It is not a re-anchor to the current spot price.
 - It is not a funding rate. No cash moves between holders; γ is a mark on the short token's value. An instant mint→redeem round trip at a fixed γ is unaffected, and **long positions never pay it**. The app labels it "volatility decay" on the short side.
 
-As of 19 Nov 2026 no market has been re-anchored. Read on 19 Nov 2026, γ on the 13 live markets runs from about 0.9995 (GBP) down to about 0.919 (NVDA). MSTR, closed on 12 Oct 2026, stood at about 0.944.
+As of 19 Nov 2026 no market has been re-anchored. Read on 19 Nov 2026, γ on the 13 markets then live runs from about 0.9995 (GBP) down to about 0.919 (NVDA). MSTR, closed on 12 Oct 2026, stood at about 0.944.
 
 See [Solvency](/concepts/solvency) for why this covers the variance regime but leaves a directional run uncovered.
 

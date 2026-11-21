@@ -44,7 +44,7 @@ The key also has a total budget, so a thief can't just keep placing orders. It i
 
 The app sets no per-order limit. The program supports one (`max_order_quote`), but it bounds each order, not the total, so the budget and the band do the work.
 
-A key can place orders only on a market's canonical book, one per side, which the program records for each market. All 13 active markets have them. Your wallet can use any book. A key can't trade a market that is not active: orders, pool swaps and committed orders fail with `MarketNotActive`, while cancels still work.
+A key can place orders only on a market's canonical book, one per side, which the program records for each market. All ten live markets have them. Your wallet can use any book. A key can't trade a market that is not active: orders, pool swaps and committed orders fail with `MarketNotActive`, while cancels still work.
 
 ## Funding a trade
 
@@ -52,7 +52,7 @@ A trade draws on the account first. A book order uses that book's seat first, th
 
 After a fill, proceeds stay in the account, ready for the next trade. A committed order that can't fill is refunded to the account.
 
-An order that takes from the [order book](/flows/order-book#taker-fee) pays the market's taker fee out of the seat, 5 bps on all 13 live markets. The fee does not count against the key's budget.
+An order that takes from the [order book](/flows/order-book#taker-fee) pays the market's taker fee out of the seat, 5 bps on all ten live markets. The fee does not count against the key's budget.
 
 ## Staking S for the rebate
 

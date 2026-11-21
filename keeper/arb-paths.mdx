@@ -19,7 +19,7 @@ While prices are pushing, the books don't fill, so a gap inside one keeper cycle
 
 - `pool_swap` fills only from pre-funded bins, so the loss is capped at the depth of those bins.
 - The books are lean (see [Book management](/keeper/book-management)), and the next cycle re-centres and refills them.
-- On QQQ, SPY and XAU, `pool_swap` is held to a rolling notional cap of \$1,000,000 per hour (as of 11 Oct 2026). The other 10 live markets have no such cap set (checked on chain, 13 Oct 2026).
+- On QQQ, SPY and XAU, `pool_swap` is held to a rolling notional cap of \$1,000,000 per hour (as of 11 Oct 2026). The other 10 markets then live had no such cap set (checked on chain, 13 Oct 2026).
 - While a market is closed, its books are free-float books: one bin a side within 1% of the last price, sized to measured demand (\$500 a side until flow is measured) and limited by a risk cap on that market's share of the treasury. There are no fixed dollar ceilings.
 
 Capping depth this way is what makes the books safe on volatile assets, where an uncapped venue quoting at NAV could be drained.

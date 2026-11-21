@@ -142,13 +142,13 @@ Mint and redeem don't fill at NAV. They quote each leg against the user by the c
 
 `oracleConfidence` is the keeper's confidence band in price units (1e6), from a GJR-GARCH volatility model. The program widens mint and redeem quotes by a band that grows with the age of the price: the confidence times `band_sigmas_x100` / 100 times sqrt(age / `band_horizon_secs`). The risk state plays no part. See [Risk states](/concepts/risk-states#fee-and-price-band). Before a push, the keeper checks each price against Hyperliquid and holds the push if they disagree.
 
-## Batch-fetch all 13 markets
+## Batch-fetch the live markets
 
 One `getMultipleAccountsInfo` call returns every live market:
 
 ```typescript
-const SYMBOLS = ["QQQ", "SPY", "XAU", "XAG", "NVDA", "AAPL", "EUR",
-                 "MSFT", "TSLA", "AMZN", "GOOGL", "GBP", "JPY"];
+const SYMBOLS = ["QQQ", "SPY", "XAU", "XAG", "NVDA", "AAPL",
+                 "MSFT", "TSLA", "AMZN", "GOOGL"];
 const marketPdas = SYMBOLS.map((symbol) =>
   PublicKey.findProgramAddressSync([Buffer.from("market"), Buffer.from(symbol)], mintRedeem.programId)[0],
 );
@@ -165,6 +165,8 @@ console.table(markets.map((m) => m && {
   totalCollateral: Math.round(m.totalCollateral.toNumber() / 1e6),
 }));
 ```
+
+The output below was captured on 10 Oct 2026, when thirteen markets were live, so it also lists EUR, GBP and JPY. Those three were delisted on 21 Nov 2026 and are closing on chain, and the list above leaves them out.
 
 Output at the same time:
 
@@ -289,7 +291,7 @@ const subscription = connection.onAccountChange(marketPda, (info) => {
 await connection.removeAccountChangeListener(subscription);
 ```
 
-The Market account changes on every keeper price push, every mint and redeem, and whenever the keeper posts a fee or the buffer target. On the 13 live markets γ changes only inside a price push, when a decay window closes. The keeper's price cycle runs every 15 s by default, and it normally withholds pushes while the underlying market is closed. For book updates, subscribe to the two `Pool` accounts; each book is one account.
+The Market account changes on every keeper price push, every mint and redeem, and whenever the keeper posts a fee or the buffer target. On the ten live markets γ changes only inside a price push, when a decay window closes. The keeper's price cycle runs every 15 s by default, and it normally withholds pushes while the underlying market is closed. For book updates, subscribe to the two `Pool` accounts; each book is one account.
 
 ## Common pitfalls
 

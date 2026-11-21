@@ -9,7 +9,7 @@ The on-chain [registry](/programs/registry) plays no part in listing today. It h
 
 ## Choosing an asset
 
-Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualifies when all of these hold:
+Continuum lists TradFi assets only: stocks, ETFs and metals. No forex market is planned, and EUR, GBP and JPY were delisted on 21 Nov 2026. An asset qualifies when all of these hold:
 
 - A free public source quotes the same instrument the market tracks, with no API key. A proxy doesn't count. OIL was withdrawn on 30 Aug 2026 because its only keyless quote was the front-month WTI future, a different instrument that carries a roll basis.
 - Hyperliquid lists the instrument, or an index the keeper can track it against, so that every price push can be checked.
@@ -64,9 +64,9 @@ Continuum lists TradFi assets only: stocks, ETFs, metals and FX. An asset qualif
 | Index ETF | QQQ, SPY | 15 to 20 bps × 3 | 250 to 300 bps | 12 |
 | Metal | XAU, XAG | 20 bps × 3 (XAU long book: 50 bps) | 300 bps | 12 (XAU long book: 6) |
 | Single stock | NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL | 25 to 35 bps × 3 | 400 to 500 bps | 12 |
-| FX | EUR, GBP, JPY | 10 bps × 3 | 200 bps | 12 |
+| FX (delisted 21 Nov 2026) | EUR, GBP, JPY | 10 bps × 3 | 200 bps | 12 |
 
-The books charge no swap fee, so the gap between the centre and the first funded bin is the price of an instant trade. A tight core step gives better prices but loses more to informed traders when the price gaps. That is why the volatile single stocks get wider steps than the index ETFs and FX.
+The books charge no swap fee, so the gap between the centre and the first funded bin is the price of an instant trade. A tight core step gives better prices but loses more to informed traders when the price gaps. That is why the volatile single stocks get wider steps than the index ETFs and FX (while the currency markets were live).
 
 ## Keeper changes
 

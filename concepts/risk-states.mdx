@@ -18,19 +18,19 @@ Every market carries a `RiskState` on its [`Market`](/programs/mint-redeem#marke
 | `Stress` | Oracle unreliable, defensive | Blocked by default (`MintNotAllowedInStress`) | Blocked by default (`RedeemNotAllowedInStress`) | `user_twap_price` |
 | `Recovery` | Wind-down after `Stress` | Open | Open | `user_twap_price`, at most 300 s old |
 
-`Stress` blocks both sides because `allow_mint_in_stress` and `allow_redeem_in_stress` default to false, and both are false on all markets, 14 when checked on 10 Oct 2026 and 13 live now. The market authority can turn either on with `configure_risk_fees`. A mint in `Stress` is then also held to `stress_mint_cap` per transaction. That cap is 0 (no cap) on every market.
+`Stress` blocks both sides because `allow_mint_in_stress` and `allow_redeem_in_stress` default to false, and both are false on all markets, 14 when checked on 10 Oct 2026 and the ten live markets now. The market authority can turn either on with `configure_risk_fees`. A mint in `Stress` is then also held to `stress_mint_cap` per transaction. That cap is 0 (no cap) on every market.
 
 ## Fee and price band
 
 The fee is the market's posted fee in every state. Since 20 Nov 2026 both fee multipliers (`proxy_fee_multiplier` and `stress_fee_multiplier`) are 1× on every live market, so a posted 18 bps is charged as 18 bps. Before, in `ProxyMode`, it was charged as 27. The market authority can change them with `configure_risk_fees`.
 
-The price band `c` that mint and redeem quote against does not depend on the state either. The band rule is set on all 13 live markets, and under it `c` grows with the age of the price:
+The price band `c` that mint and redeem quote against does not depend on the state either. The band rule is set on all ten live markets, and under it `c` grows with the age of the price:
 
 ```
 c = (sigmas_x100 / 100) × oracle_confidence × sqrt(age / horizon_secs)
 ```
 
-`age` is the chain time now minus the price's own stamp, never below 0. The stamp is `twap_updated_at` for the keeper's stored price, or the publish time of the oracle print when the program reads the oracle itself in `Normal`. `oracle_confidence` is read as one standard deviation of the price over `horizon_secs`. On devnet it is the keeper's GJR-GARCH forecast for a 30-second bar. The market authority sets `sigmas_x100` and `horizon_secs` with `configure_price_band`. All 13 live markets use 2 standard deviations over 30 seconds. The band applies only where worst-case quoting is on (`worst_case_config.enabled`) and a confidence is posted. Quoting is on for all 13 (QQQ's was switched on on 21 Nov 2026; until then QQQ quoted with no band).
+`age` is the chain time now minus the price's own stamp, never below 0. The stamp is `twap_updated_at` for the keeper's stored price, or the publish time of the oracle print when the program reads the oracle itself in `Normal`. `oracle_confidence` is read as one standard deviation of the price over `horizon_secs`. On devnet it is the keeper's GJR-GARCH forecast for a 30-second bar. The market authority sets `sigmas_x100` and `horizon_secs` with `configure_price_band`. All ten live markets use 2 standard deviations over 30 seconds. The band applies only where worst-case quoting is on (`worst_case_config.enabled`) and a confidence is posted. Quoting is on for all ten live markets (QQQ's was switched on on 21 Nov 2026; until then QQQ quoted with no band).
 
 A price read the second it was stamped has no band. At one horizon the band is `sigmas` standard deviations. At four horizons it is twice that. With 2 standard deviations over 30 s:
 
@@ -42,7 +42,7 @@ A price read the second it was stamped has no band. At one horizon the band is `
 | 120 s | 4× |
 | 300 s | 6.32× |
 
-Why an age rule: a replay of ten weekdays of the keeper's own prices found that the move while a price stood grew with the square root of the time it stood. At the same average width, the age rule covered 86% of those moves and the flat 1.5× band covered 73%. At 2 standard deviations it covers 91%. Currency and metal prices are about 52 s old when used, and stock prices about 16 s.
+Why an age rule: a replay of ten weekdays of the keeper's own prices found that the move while a price stood grew with the square root of the time it stood. At the same average width, the age rule covered 86% of those moves and the flat 1.5× band covered 73%. At 2 standard deviations it covers 91%. Currency and metal prices were about 52 s old when used, and stock prices about 16 s, measured while the currency markets were live.
 
 If a market's band rule is off (`band_sigmas_x100` and `band_horizon_secs` both 0), the old rule applies: `oracle_confidence` times the multiplier in `worst_case_config`, set with `configure_worst_case_quoting`. No live market is in that case. The formulas are on [Mint](/flows/mint#math) and in [NAV math](/concepts/nav#worst-case-quoting).
 

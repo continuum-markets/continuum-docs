@@ -153,7 +153,7 @@ Listing is an operator process; integrators get market addresses from [Addresses
     The keeper prices only markets on its configured list, so a new market needs a keeper configuration change before it gets prices and book shapes.
   </Step>
   <Step title="Switch on decay pricing and the book fee">
-    `set_decay_mode(true)`, signed by `market.authority`, makes the program price the short's decay. It needs a stored price, so it comes after the keeper's first price push (`DecayModeNeedsPrice` before that). `set_book_fee`, also signed by `market.authority`, sets the order-book taker fee. Until both run, the market is keeper-posted and its book fee is 0. All 13 live markets run with both.
+    `set_decay_mode(true)`, signed by `market.authority`, makes the program price the short's decay. It needs a stored price, so it comes after the keeper's first price push (`DecayModeNeedsPrice` before that). `set_book_fee`, also signed by `market.authority`, sets the order-book taker fee. Until both run, the market is keeper-posted and its book fee is 0. All ten live markets run with both.
   </Step>
 </Steps>
 

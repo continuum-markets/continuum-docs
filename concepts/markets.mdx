@@ -48,7 +48,7 @@ Public fields you'll likely read:
 | `oracle_confidence` | u64 | Confidence band pushed with each price. On devnet it comes from a GJR-GARCH volatility model. |
 | `s_gamma_index` | u64 | γ, the short leg's volatility-decay index, scaled by 1e9 (0 reads as 1.0). On a market whose decay the program prices, it is γ at the open of the current decay window. |
 | `decay_open_price` / `decay_open_ts` / `decay_flags` | u64 / i64 / u8 | The current decay window's open price (1e6) and time, and the flags. Bit 0 set means the program prices decay for this market (`set_decay_mode`). 0 and 0 mean no window. See [NAV](/concepts/nav#volatility-decay). |
-| `book_fee_live_bps` / `book_fee_stale_bps` | u16 | Taker fee on order-book fills through the trading program while the price is live and while it is stale, at most 50 bps each, 0 by default and 5 on all 13 live markets. See [Order book](/flows/order-book#taker-fee). |
+| `book_fee_live_bps` / `book_fee_stale_bps` | u16 | Taker fee on order-book fills through the trading program while the price is live and while it is stale, at most 50 bps each, 0 by default and 5 on all ten live markets. See [Order book](/flows/order-book#taker-fee). |
 | `keeper_authority` | Pubkey | Signer the program requires for the keeper's price, γ (on markets not in decay mode) and buffer-target updates. |
 | `dev_tax_pct` | u8 | Share of each fee sent to `fee_recipient` (10%). The rest stays in the vault. |
 
@@ -83,7 +83,7 @@ Run on Saturday 10 Oct 2026, it printed fees of 18 bps, 1,883,044.75 cUSDC of to
 
 ## Live markets
 
-Thirteen markets are live on devnet. They have 26 bin books between them and about \$1.4M of total collateral (12 Oct 2026, after the protocol's own holdings were cut to working size). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
+Ten markets are live on devnet, with 20 bin books between them. EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain (see [Live markets](/markets/live#delisted-markets)). On 12 Oct 2026, when thirteen markets were live, they held about \$1.4M of total collateral (after the protocol's own holdings were cut to working size). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
 
 | Symbol | Asset | Core step × core bins | Wing step | Bins a side |
 |---|---|---|---|---|
@@ -93,19 +93,16 @@ Thirteen markets are live on devnet. They have 26 bin books between them and abo
 | `XAG` | Silver spot | 20 bps × 3 | 300 bps | 12 |
 | `NVDA` | NVIDIA | 30 bps × 3 | 450 bps | 12 |
 | `AAPL` | Apple | 25 bps × 3 | 400 bps | 12 |
-| `EUR` | EUR/USD | 10 bps × 3 | 200 bps | 12 |
 | `MSFT` | Microsoft | 25 bps × 3 | 400 bps | 12 |
 | `TSLA` | Tesla | 35 bps × 3 | 500 bps | 12 |
 | `AMZN` | Amazon | 25 bps × 3 | 400 bps | 12 |
 | `GOOGL` | Alphabet | 25 bps × 3 | 400 bps | 12 |
-| `GBP` | GBP/USD | 10 bps × 3 | 200 bps | 12 |
-| `JPY` | USD/JPY | 10 bps × 3 | 200 bps | 12 |
 
 Fine core steps quote tight near the centre, and wide wings hold inventory for larger moves. The keeper centres each book on an inventory-shifted price rather than on NAV itself, and re-centres it as the price moves (see [Book management](/keeper/book-management)). The books charge no swap fee.
 
 During market hours the keeper stages, per side, the bids its next free-float book will post (\$500 until it has measured flow) and trims asks worth more than 1.5 times that. While mint and redeem are frozen, it posts a "free float" book instead: each side in one bin within 1% of the last price, sized to measured demand (\$500 a side until the keeper has measured flow) and limited by a risk cap on that market's share of the treasury. There are no fixed dollar ceilings.
 
-The books fill only while the market's price is stale: its risk state isn't `Normal` and its last push is more than 300 s old. On QQQ, SPY and XAU, book trades are held to a cap of 1,000,000 cUSDC of notional per one-hour window (`swap_guards.window_cap_usd`). The other 10 live markets have no window cap set (checked on chain, 13 Oct 2026).
+The books fill only while the market's price is stale: its risk state isn't `Normal` and its last push is more than 300 s old. On QQQ, SPY and XAU, book trades are held to a cap of 1,000,000 cUSDC of notional per one-hour window (`swap_guards.window_cap_usd`). The other 10 markets then live had no window cap set (checked on chain, 13 Oct 2026).
 
 While the price is live, trades go through committed orders. They are on for every live market since 11 Oct 2026, because each one's `Clp` account has `swap_guards.enabled` set. The CLP's instant `clp_swap` was retired the same day and reverts with `SwapDisabled` on every market. An order fills at NAV ± `max(commit_spread_bps, 10)` bps, where the keeper posts `commit_spread_bps` as `clamp(half-spread, 10, 500)`. Committed orders have no window cap; the market's CLP inventory and a 100% collateral floor limit the fill.
 
@@ -146,8 +143,9 @@ Mint and redeem follow the underlying's session, while the books trade around th
 | Markets | Sessions with keeper prices |
 |---|---|
 | US stocks and ETFs (QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL) | 09:30 to 16:00 ET, Monday to Friday |
-| FX (EUR, GBP, JPY) | Sunday 17:00 ET to Friday 17:00 ET |
 | Gold and silver (XAU, XAG) | Sunday 18:00 ET to Friday 17:00 ET, with a daily pause from 17:00 to 18:00 ET |
+
+The table leaves out the delisted currency markets. The keeper still posts their prices, and currencies reopen Sunday 22:00 UTC.
 
 NYSE holidays close US stocks and ETFs, and NYSE's 13:00 ET early closes (27 Nov and 24 Dec 2026) shorten the session. Metals shut for Good Friday, Christmas and New Year's Day, and on other NYSE holidays and early closes they stop at 13:00 ET and reopen at 18:00 ET. The keeper's alert clock knows these days; the pushes themselves follow the source's actual prints.
 
@@ -162,7 +160,7 @@ See [Oracle](/concepts/oracle) for how the price itself is produced.
 
 <CardGroup cols={2}>
   <Card title="Live market addresses" icon="address-book" href="/markets/live">
-    All 13 markets, every pubkey.
+    All ten live markets and the three delisted ones, every pubkey.
   </Card>
   <Card title="How to read market state" icon="magnifying-glass" href="/flows/read-state">
     Batch fetch markets, derive NAV, query book depth.

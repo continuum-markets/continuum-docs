@@ -9,7 +9,7 @@ Users call the CLP every time they trade a leg. Inventory and treasury operation
 
 ## Venue 1: native bin books
 
-Each market has one `Pool` account **per side**, a long pool and a short pool (PDA seeds `[b"pool", market, side]`), so there are 26 native pools across the 13 live markets.
+Each market has one `Pool` account **per side**, a long pool and a short pool (PDA seeds `[b"pool", market, side]`), so there are 20 native pools across the ten live markets.
 
 - Up to 16 price bins live inline in the `Pool` account itself (live books use 12, and XAU's long book uses 6). There are no separate bin-array accounts and no rent churn on a reposition.
 - The geometry has two zones: fine core steps near the centre and wide wings further out. QQQ uses three 20 bps core steps, then 300 bps wings. `configure_pool_geom(wing_step_bps, core_bins)` sets it.
@@ -84,7 +84,7 @@ The `Order` account layout supports `getProgramAccounts` filters: `user` at offs
 
 `clp_swap(side, direction, amount_in, min_out)` filled instantly from CLP inventory at NAV ± `spread_bps`, on QQQ, SPY and XAU. It filled at the last pushed price, which is a stale quote between pushes, and it was retired on 11 Oct 2026. The instruction keeps its accounts and arguments, so existing clients still decode it, but every call fails with `SwapDisabled`.
 
-Its guards, set by `configure_swap`, now serve committed orders. On the 13 markets with guards on, `settle_swap` needs a price at most 600 s old and a market at least 100% collateralized at that price. The confidence and deviation limits (5,000 and 10,000 bps) are off in practice, and the price write itself refuses a move of more than 25% per push.
+Its guards, set by `configure_swap`, now serve committed orders. On the ten live markets with guards on, `settle_swap` needs a price at most 600 s old and a market at least 100% collateralized at that price. The confidence and deviation limits (5,000 and 10,000 bps) are off in practice, and the price write itself refuses a move of more than 25% per push.
 
 ## Vaults and capital flow
 
@@ -123,7 +123,7 @@ The keeper's yield allocator counts the treasury as first-loss capital when it s
 
 - Trading-spread profits build up in the pool vaults and CLP custody as the books buy below NAV and sell above it. They reach a market's collateral only when someone adds them. Anyone can call `donate_to_vault`, and the market authority can call `fund_collateral`. Profits deposited into the treasury reach a market through `backstop_market`, which the keeper calls when a market falls below 100% or stays short of its target. The keeper calls neither `donate_to_vault` nor `fund_collateral`.
 - Of each mint and redeem fee, 90% stays in the market's collateral vault and 10% (`dev_tax_pct`) goes to the market's fee recipient, which has been the treasury on every live market since 12 Oct 2026.
-- The order-book taker fee, 5 bps on all 13 live markets, is paid by the taker from the trader's seat straight into the treasury (the global vault). It does not pass through the market's collateral vault. See [Order book](/flows/order-book#taker-fee).
+- The order-book taker fee, 5 bps on all ten live markets, is paid by the taker from the trader's seat straight into the treasury (the global vault). It does not pass through the market's collateral vault. See [Order book](/flows/order-book#taker-fee).
 - Harvested yield goes into the market's own vault and is added to `total_collateral`, so it raises that market's collateral ratio. Collateral above the target can still move to the CLP with `withdraw_excess_to_clp`. Nothing is lent on devnet: the keeper's emulator harvests the yield its mainnet plan would earn, and every live market has `yield_enabled` set as of 11 Oct 2026.
 
 See [Solvency](/concepts/solvency) for how these channels affect the collateral ratio.
