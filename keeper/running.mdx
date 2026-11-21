@@ -101,7 +101,7 @@ When the fallback source prices a market, the confidence band comes from a GJR-G
 | `LIQUIDITY_REALLOCATOR_INTERVAL_SECS` | `30` | Cadence, minimum 30. The working need counts every consumer run that fits in one tick, so a longer tick widens the band. |
 | `TREASURY_BACKSTOP_MAX_TARGET_BPS` | `13000` | Highest collateral ratio the treasury backstop fills a market to, in bps of claims, clamped to 10,000 to 15,000. Below it, a market is filled to its posted target. |
 | `TREASURY_BACKSTOP_SKIP` | `MSTR` | Comma-separated markets the backstop fills only to 101%. |
-| `WIND_DOWN_MARKETS` | `MSTR` | Comma-separated markets being wound down: no working cash or backstop, books emptied and swept back to the CLP, the 1% minimum buffer posted, and while the price is fresh the CLP's pairs redeemed (all but one) and the surplus collateral returned to the treasury. Empty disables it. |
+| `WIND_DOWN_MARKETS` | `MSTR,EUR,GBP,JPY` on devnet, empty elsewhere | Comma-separated markets being wound down: no working cash or backstop, books emptied and swept back to the CLP, the 1% minimum buffer posted, and while the price is fresh the CLP's pairs redeemed (all but one) and the surplus collateral returned to the treasury. Empty disables it. |
 
 ### Treasury withdrawal rate
 
