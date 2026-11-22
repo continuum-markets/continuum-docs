@@ -90,7 +90,7 @@ The reallocator also tops up market collateral from the treasury, with `backstop
 - Below 100%, it fills at once, at least up to the market's target. Committed orders refuse to fill below the 100% floor, so this is what lets them resume.
 - Short of its target by more than one confidence band for 5 minutes, it fills to the target plus the band. That is the cross-market rebalancer's destination rule, and the rebalancer moves other markets' excess first.
 
-The target the treasury fills to is the market's posted target, capped at 130%. MSTR, closed on 12 Oct 2026, gets none, and neither do the closing EUR, GBP and JPY markets. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
+The target the treasury fills to is the market's posted target, capped at 130%. MSTR, closed on 12 Oct 2026, gets none, and neither do EUR, GBP and JPY, closed on 22 Nov 2026. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
 
 ### Treasury withdrawal rate (900 s)
 
@@ -159,20 +159,20 @@ About every 16 minutes (960 s, `REBATE_INTERVAL_SECS`) it runs [`refresh_rebate`
 - `crank` sends `refresh_rebate` only. The rate and the ramp keep updating, but the pot is not topped up, so accrual slows to whatever the pot already holds.
 - `live` also funds the pot with `fund_rebate`, signed as the CLP authority. It tops the pot up to about a day of need when it falls under half a day of need, and never past the collateral yield the market has harvested since the rebate opened, which the program enforces with `RebateFundingAboveYield`. The cUSDC comes from the treasury through `admin_withdraw`, in one transaction with the `fund_rebate`, so it is subject to the treasury's withdrawal limits. It funds only when the treasury's withdrawal destination is the CLP authority's own cUSDC account and the withdrawal allowance covers the amount, and it skips a top-up under \$1.
 
-Funding does not count as yield for the cap. MSTR is closed and has no rebate, and the rebate skips the closing EUR, GBP and JPY markets.
+Funding does not count as yield for the cap. MSTR, EUR, GBP and JPY are closed and have no rebate.
 
 ### Closing markets
 
-EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain. This is the same wind-down mode MSTR used in October. For a closing market the keeper:
+A market being closed runs in wind-down mode. MSTR used it in October 2026, and EUR, GBP and JPY from their delisting on 21 Nov 2026. For a closing market the keeper:
 
 - gives it no working cash, and the treasury no longer backstops it;
 - empties both of its bin books and sweeps them back to the CLP, and the liquidity returns to the treasury;
 - posts the 1% minimum buffer target for it;
-- skips it in the exposure caps, the imbalance control and the short rebate. The nightly job sizes exposure caps over the ten live markets and excludes the three from the cap rule, as it excludes MSTR;
-- at the next fresh price (currencies reopen Sunday 22:00 UTC) redeems the protocol's own long and short pairs, all but one pair, and releases the surplus collateral;
+- skips it in the exposure caps, the imbalance control and the short rebate. The nightly job sizes exposure caps over the ten live markets and excludes the closed ones from the cap rule;
+- at the next fresh price redeems the protocol's own long and short pairs, all but one pair, and releases the surplus collateral;
 - keeps posting its prices.
 
-The three are not paused yet. `is_active` is still true, so mint and redeem still work when the price is fresh. The market authority will pause them with `update_market(is_active = false)` after the protocol's pairs are redeemed. Once paused, mint and redeem revert with `MarketNotActive`, so holders should redeem before then. The devnet simulator no longer quotes or trades them on the order books.
+The keeper does not pause a market. The market authority does, with `update_market(is_active = false)`, after the protocol's pairs are redeemed. For EUR, GBP and JPY the keeper redeemed the pairs when currencies reopened on 22 Nov 2026 at 22:00 UTC, and the authority paused the three later that evening. Once a market is paused, mint and redeem revert with `MarketNotActive`, tokens still held outside the protocol cannot be redeemed, and the keeper stops loading the market at its next start. The devnet simulator no longer quotes or trades the three on the order books.
 
 ### Housekeeping
 

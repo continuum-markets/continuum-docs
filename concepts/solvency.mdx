@@ -70,7 +70,7 @@ A target rises at once and falls at most 50 bps or 25% a day, whichever is large
 | TSLA | 112.40% | 100.63% | 112% |
 | EUR, GBP, JPY | 101% | 100.06% to 100.09% | 101% |
 
-EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain. The keeper posts the 1% minimum buffer target for them, and the table row is as of 12 Oct 2026.
+EUR, GBP and JPY were delisted on 21 Nov 2026 and paused on 22 Nov 2026. Their buffer target was left at the 1% minimum, and the table row is as of 12 Oct 2026.
 
 The program clamps any target to [100, 5000] bps over parity (101% to 150%).
 
@@ -113,7 +113,7 @@ The cap is sized so that a bad year across every market together takes at most h
 3. A market's share of the treasury is w × 0.5 / q99(Σ w·R), the 99th percentile of the weighted sum over all markets. A 1-in-100 year with every market's longs filled to their caps then costs at most half the treasury.
 4. The cap is that share times the live treasury balance.
 
-The closing EUR, GBP and JPY markets (delisted on 21 Nov 2026) and the closed MSTR are excluded from the cap rule.
+The closed EUR, GBP and JPY markets (delisted on 21 Nov 2026) and the closed MSTR are excluded from the cap rule.
 
 A market that has no fitted price model yet is sized from one row in the job's market file (`cr_targets/markets.json`, under `table`): its asset class, an annual volatility and its correlations with markets already listed. Its year is drawn on the same simulated years before step 2, so it gets a cap on its first night and every other cap shrinks to make room. The correlations in the row are a starting point: the archive takes over pair by pair as the market's days accumulate. A row that cannot be used is left out and reported, and it never loosens a cap that is already posted.
 
@@ -150,7 +150,7 @@ The keeper's liquidity reallocator uses the treasury to top up a market's collat
 - Below 100%, it fills at once, at least up to the market's target. Committed orders refuse to fill below 100%, so this is what lets them resume.
 - Short of target by more than one confidence band for 5 minutes, it fills to the target plus the band. This is the same destination rule the cross-market rebalancer uses, and the rebalancer moves other markets' excess first.
 
-The target the treasury fills to is the market's posted target, capped at 130%. MSTR, closed on 12 Oct 2026, gets none, and neither do the closing EUR, GBP and JPY markets. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
+The target the treasury fills to is the market's posted target, capped at 130%. MSTR, closed on 12 Oct 2026, gets none, and neither do EUR, GBP and JPY, closed on 22 Nov 2026. Fills are not returned automatically: a later surplus stays as a cushion, which the rebalancer can move between markets.
 
 The keeper's yield allocator counts the treasury as first-loss capital when it caps each lending venue. See [Keeper → Yield allocator](/concepts/keeper#yield-allocator-300s).
 

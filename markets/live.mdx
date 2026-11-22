@@ -3,7 +3,7 @@ title: Live markets
 description: The ten markets live on Solana devnet, with every address each one needs and the fees and collateral read from chain on 12 Oct 2026. EUR, GBP and JPY were delisted on 21 Nov 2026.
 ---
 
-Ten markets are live on Solana devnet, with 20 bin books between them: QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, XAU and XAG. On 12 Oct 2026, when thirteen markets were live, those thirteen together held about \$1.37M of collateral, the sum of `Market.total_collateral` after the protocol's own holdings were cut to working size (see below). Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain (see [Delisted markets](#delisted-markets)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
+Ten markets are live on Solana devnet, with 20 bin books between them: QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL, XAU and XAG. On 12 Oct 2026, when thirteen markets were live, those thirteen together held about \$1.37M of collateral, the sum of `Market.total_collateral` after the protocol's own holdings were cut to working size (see below). Mainnet markets will be added when mainnet launches. MSTR was wound down and paused on 12 Oct 2026 (see [MSTR](#mstr-microstrategy)). EUR, GBP and JPY were delisted on 21 Nov 2026 and paused on 22 Nov 2026 (see [Delisted markets](#delisted-markets)). OIL was withdrawn on 30 Aug 2026 and VXX was delisted in June 2026, so neither appears here.
 
 <Note>
   The cUSDC mint for all devnet markets is `B1c5xBYkp7AAemYhcu4VuH4CU4sPJDDuG2iuv6ts38uE`. On mainnet the collateral will be USDC.
@@ -223,12 +223,12 @@ MSTR was wound down on 12 Oct 2026 and is paused (`is_active = false`), so mint 
 
 ## Delisted markets
 
-EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain. Their addresses stay here for reference.
+EUR, GBP and JPY were delisted on 21 Nov 2026 and paused on 22 Nov 2026. Their addresses stay here for reference.
 
 <Note>
-EUR, GBP and JPY were delisted from the app on 21 Nov 2026 and are closing on chain. No forex market is planned. The keeper gives the three markets no working cash and the treasury no longer backstops them. It empties both of each market's bin books, sweeps them back to the CLP, and returns the liquidity to the treasury. It posts the 1% minimum buffer target for them, and the exposure caps, the imbalance control and the short rebate skip them. At the next fresh price (currencies reopen Sunday 22:00 UTC) it redeems the protocol's own long and short pairs, all but one pair, and releases the surplus collateral. The keeper still posts their prices. This is the same wind-down mode MSTR used in October.
+EUR, GBP and JPY were delisted from the app on 21 Nov 2026 and paused on chain on 22 Nov 2026. No forex market is planned. The keeper wound them down in the same mode MSTR used in October. It gave the three markets no working cash and the treasury stopped backstopping them. It emptied both of each market's bin books, swept them back to the CLP, and returned the liquidity to the treasury. It posted the 1% minimum buffer target for them, and the exposure caps, the imbalance control and the short rebate skipped them. When currencies reopened on 22 Nov at 22:00 UTC it redeemed the protocol's own long and short pairs, all but one pair, and released the surplus collateral.
 
-They are not paused yet: `is_active` is still true, so mint and redeem still work when the price is fresh. The market authority will pause them (`update_market(is_active = false)`) after the protocol's pairs are redeemed. Once paused, mint and redeem revert with `MarketNotActive`, so redeem before then. The devnet simulator no longer quotes or trades them on the order books.
+The market authority then paused them (`update_market(is_active = false)`), so mint and redeem revert with `MarketNotActive` and tokens still held outside the protocol cannot be redeemed. Unlike MSTR, not every token was held by the protocol. About \$13,300 of collateral stays in the three vaults: about \$11,500 against the devnet simulator's old order-book inventory, about \$1,600 against a single leg the CLP could not pair, and about \$60 against tokens in wallets. The devnet simulator no longer quotes or trades them on the order books.
 </Note>
 
 ### EUR: Euro (EUR/USD), delisted

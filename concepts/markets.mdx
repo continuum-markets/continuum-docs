@@ -83,7 +83,7 @@ Run on Saturday 10 Oct 2026, it printed fees of 18 bps, 1,883,044.75 cUSDC of to
 
 ## Live markets
 
-Ten markets are live on devnet, with 20 bin books between them. EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain (see [Live markets](/markets/live#delisted-markets)). On 12 Oct 2026, when thirteen markets were live, they held about \$1.4M of total collateral (after the protocol's own holdings were cut to working size). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
+Ten markets are live on devnet, with 20 bin books between them. EUR, GBP and JPY were delisted on 21 Nov 2026 and paused on 22 Nov 2026 (see [Live markets](/markets/live#delisted-markets)). On 12 Oct 2026, when thirteen markets were live, they held about \$1.4M of total collateral (after the protocol's own holdings were cut to working size). Each book is a ladder of discrete bins on both sides of a centre price. The first `core_bins` steps out from the centre are `step_bps` wide, and later steps are `wing_step_bps` wide. `num_bins` is the number of bins on each of the bid and ask sides. Geometry as of 10 Oct 2026:
 
 | Symbol | Asset | Core step × core bins | Wing step | Bins a side |
 |---|---|---|---|---|
@@ -145,7 +145,7 @@ Mint and redeem follow the underlying's session, while the books trade around th
 | US stocks and ETFs (QQQ, SPY, NVDA, AAPL, MSFT, TSLA, AMZN, GOOGL) | 09:30 to 16:00 ET, Monday to Friday |
 | Gold and silver (XAU, XAG) | Sunday 18:00 ET to Friday 17:00 ET, with a daily pause from 17:00 to 18:00 ET |
 
-The table leaves out the delisted currency markets. The keeper still posts their prices, and currencies reopen Sunday 22:00 UTC.
+The table leaves out the delisted currency markets, which are paused.
 
 NYSE holidays close US stocks and ETFs, and NYSE's 13:00 ET early closes (27 Nov and 24 Dec 2026) shorten the session. Metals shut for Good Friday, Christmas and New Year's Day, and on other NYSE holidays and early closes they stop at 13:00 ET and reopen at 18:00 ET. The keeper's alert clock knows these days; the pushes themselves follow the source's actual prints.
 

@@ -51,7 +51,7 @@ In the app, click **Get 1000 cUSDC** on [/faucet](https://continuum.markets/fauc
 
 ## Live markets
 
-Ten markets are live on devnet. MSTR was closed on 12 Oct 2026, and EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain (see below). All their addresses (mints, books, vaults) are on [Addresses](/reference/addresses).
+Ten markets are live on devnet. MSTR was closed on 12 Oct 2026, and EUR, GBP and JPY were delisted on 21 Nov 2026 and paused on 22 Nov 2026 (see below). All their addresses (mints, books, vaults) are on [Addresses](/reference/addresses).
 
 | Symbol | Asset | Long mint | Short mint |
 |---|---|---|---|
@@ -66,7 +66,7 @@ Ten markets are live on devnet. MSTR was closed on 12 Oct 2026, and EUR, GBP and
 | `AMZN` | Amazon | `3vnTkSkevAJ69Vs8PFRNzF1hKvSiFbiLZJetNyqUcLZN` | `5ESabwnWACsFyDE96JNwbLkTpKyBHyNYM96PHEBvuzPc` |
 | `GOOGL` | Alphabet | `42kcUPz39qudU5qv9tgU6a3E7jmiJhKs7AoXDUcarKQ8` | `AGzVgTj53MwsJd8Ke2iyibRSyVLsqdJS3DzQWsSAxgdj` |
 
-EUR, GBP and JPY were delisted on 21 Nov 2026 and are closing on chain. They are not paused yet, so mint and redeem still work when the price is fresh, and they revert with `MarketNotActive` once the market authority pauses them. Redeem before then. See [Live markets](/markets/live#delisted-markets).
+EUR, GBP and JPY were delisted on 21 Nov 2026 and paused on 22 Nov 2026. Mint and redeem on them revert with `MarketNotActive`. See [Live markets](/markets/live#delisted-markets).
 
 | Symbol | Asset | Long mint | Short mint |
 |---|---|---|---|
